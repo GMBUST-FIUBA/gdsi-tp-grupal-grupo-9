@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galería Belgrano · Administración de alquileres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#152a24; --ink-soft:#26433a;
+    --brass:#c1893f; --brass-deep:#a06d2b;
+    --paper:#ece6da; --surface:#faf7f0; --surface-2:#f3eee3;
+    --line:#d9d0bf; --line-strong:#c7bda7;
+    --text:#20261f; --muted:#6c6656;
+    --ok:#2f7a55; --ok-bg:#e2efe4;
+    --warn:#b9852f; --warn-bg:#f4ead2;
+    --late:#a9432f; --late-bg:#f3ddd4;
+    --free:#8b8677; --free-bg:#e8e3d6;
+    --radius:14px;
+    --shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 10px 30px -18px rgba(21,42,36,.5);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:'Instrument Sans',system-ui,sans-serif;
+    background:radial-gradient(1200px 500px at 80% -10%, #f0ebdf 0%, transparent 60%), var(--paper);
+    color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:'Bricolage Grotesque',sans-serif;margin:0;line-height:1.05;letter-spacing:-.01em}
+  .mono{font-family:'Spline Sans Mono',monospace;font-variant-numeric:tabular-nums}
+  button{font-family:inherit}
+
+  /* ---------- Top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:40;background:var(--ink);color:#f3efe3;border-bottom:2px solid var(--brass-deep)}
+  .topbar-inner{max-width:1180px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+  .brand .plaque{width:40px;height:40px;border-radius:8px;background:linear-gradient(160deg,#dcae5f,#a06d2b);
+    display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:800;color:#2a1e08;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 2px 6px rgba(0,0,0,.35);flex:none}
+  .brand-name{font-family:'Bricolage Grotesque';font-weight:700;color:#f6f1e6;font-size:1.05rem}
+  .brand-sub{font-size:.74rem;color:#b9c6bd;letter-spacing:.08em;text-transform:uppercase}
+
+  .switch{display:flex;background:rgba(0,0,0,.28);border:1px solid rgba(193,137,63,.35);border-radius:999px;padding:4px;gap:2px}
+  .switch button{border:0;background:transparent;color:#cdd8ce;cursor:pointer;padding:8px 15px;border-radius:999px;
+    font-size:.84rem;font-weight:600;display:flex;align-items:center;gap:7px;transition:background .18s,color .18s}
+  .switch button .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.6}
+  .switch button[aria-selected="true"]{background:var(--brass);color:#241a06}
+  .switch button[aria-selected="true"] .dot{opacity:1}
+  .switch button:focus-visible{outline:2px solid #f6f1e6;outline-offset:2px}
+
+  /* Bell */
+  .bell-wrap{position:relative}
+  .bell{position:relative;background:rgba(0,0,0,.25);border:1px solid rgba(193,137,63,.4);color:#f3efe3;
+    width:42px;height:42px;border-radius:11px;cursor:pointer;display:grid;place-items:center;font-size:1.15rem}
+  .bell:hover{background:rgba(0,0,0,.4)}
+  .bell:focus-visible{outline:2px solid #f6f1e6;outline-offset:2px}
+  .bell .badge{position:absolute;top:-5px;right:-5px;background:var(--late);color:#fff;font-family:'Instrument Sans';
+    font-size:.68rem;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 4px;
+    border:2px solid var(--ink)}
+  .notif{position:absolute;right:0;top:52px;width:320px;background:var(--surface);color:var(--text);
+    border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 24px 50px -20px rgba(21,42,36,.6);
+    overflow:hidden;z-index:50}
+  .notif[hidden]{display:none}
+  .notif .nh{padding:12px 15px;border-bottom:1px solid var(--line);background:var(--surface-2);font-weight:700;font-size:.9rem;
+    display:flex;justify-content:space-between;align-items:center}
+  .notif .nh small{font-weight:500;color:var(--muted)}
+  .notif .ni{padding:12px 15px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:11px;align-items:flex-start}
+  .notif .ni:last-child{border-bottom:0}
+  .notif .ni:hover{background:var(--surface-2)}
+  .notif .ni .ico{width:32px;height:32px;border-radius:8px;background:var(--warn-bg);color:#7d5713;display:grid;place-items:center;flex:none;font-size:.95rem}
+  .notif .ni .t{font-weight:600;font-size:.86rem}
+  .notif .ni .s{font-size:.76rem;color:var(--muted)}
+  .notif .empty-n{padding:22px 15px;text-align:center;color:var(--muted);font-size:.85rem}
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+  .view[hidden]{display:none}
+  .page-head{margin:8px 0 22px}
+  .eyebrow{font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--brass-deep);font-weight:600}
+  .page-head h1{font-size:clamp(1.7rem,4vw,2.5rem);margin-top:6px}
+  .page-head p{color:var(--muted);max-width:62ch;margin:8px 0 0}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:0 0 26px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brass)}
+  .kpi .k-label{font-size:.76rem;color:var(--muted)}
+  .kpi .k-value{font-family:'Bricolage Grotesque';font-weight:700;font-size:1.55rem;margin-top:3px;letter-spacing:-.02em}
+  .kpi .k-value.mono{font-family:'Spline Sans Mono';font-weight:600;font-size:1.3rem}
+  .kpi .k-foot{font-size:.76rem;color:var(--muted);margin-top:4px}
+  .kpi.accent-ok::before{background:var(--ok)}
+  .kpi.accent-late::before{background:var(--late)}
+
+  /* ---------- Directory board (simplified: just tiles) ---------- */
+  .board-card{background:var(--ink);border-radius:18px;padding:20px;margin:0 0 26px;border:1px solid #0d1c17;
+    box-shadow:0 24px 50px -30px rgba(21,42,36,.75), inset 0 1px 0 rgba(255,255,255,.05)}
+  .board-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .board-head h2{color:#f6f1e6;font-size:1.15rem}
+  .legend{display:flex;gap:14px;flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:6px;color:#cbd6cd;font-size:.76rem}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .legend i.i-ok{background:#5fce97} .legend i.i-warn{background:#e6b45a}
+  .legend i.i-late{background:#e08063} .legend i.i-free{background:#3c5349;border:1px dashed #6a8074}
+
+  .plan{display:grid;grid-template-columns:repeat(8,1fr);gap:9px}
+  .unit{position:relative;text-align:center;border:1px solid transparent;cursor:pointer;
+    border-radius:11px;padding:12px 6px;min-height:70px;display:flex;flex-direction:column;justify-content:center;gap:6px;
+    transition:transform .12s,box-shadow .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+  .unit:hover{transform:translateY(-2px)}
+  .unit:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  .unit .u-num{font-family:'Bricolage Grotesque';font-weight:800;font-size:1.15rem;color:#f4efe2}
+  .unit .u-dot{width:9px;height:9px;border-radius:50%;margin:0 auto}
+  .unit[data-st="ok"]{background:#25493c} .unit[data-st="ok"] .u-dot{background:#5fce97}
+  .unit[data-st="warn"]{background:#463c22} .unit[data-st="warn"] .u-dot{background:#e6b45a}
+  .unit[data-st="late"]{background:#4a2a22} .unit[data-st="late"] .u-dot{background:#e08063}
+  .unit[data-st="free"]{background:#1c332c;border:1px dashed #3c5349} .unit[data-st="free"] .u-num{color:#8fa096} .unit[data-st="free"] .u-dot{background:#8b8677}
+  .unit.selected{border-color:var(--brass);box-shadow:0 0 0 2px rgba(193,137,63,.45)}
+  .unit .flag{position:absolute;top:6px;right:6px;font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:4px;letter-spacing:.03em}
+  .unit .flag.new{background:var(--brass);color:#241a06}
+  .unit .flag.rec{background:#e08063;color:#3a140c}
+
+  /* ---------- Two-column detail ---------- */
+  .cols{display:grid;grid-template-columns:1.15fr .85fr;gap:20px;align-items:start}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panel-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface-2)}
+  .panel-head h3{font-size:1.02rem}
+  .panel-head .sub{font-size:.76rem;color:var(--muted)}
+  .panel-body{padding:16px 18px}
+
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
+  .tabs button{border:0;background:transparent;cursor:pointer;padding:10px 12px;font-size:.85rem;font-weight:600;
+    color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0}
+  .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brass);background:var(--surface)}
+  .tabs button:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+  .tabpane[hidden]{display:none}
+
+  .contract-title{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .contract-title .num{font-family:'Bricolage Grotesque';font-weight:800;font-size:1.4rem;background:var(--ink);color:#f4c46f;padding:2px 10px;border-radius:8px}
+  .contract-title h3{font-size:1.15rem}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:3px 9px;border-radius:999px}
+  .pill i{width:7px;height:7px;border-radius:50%}
+  .pill.ok{background:var(--ok-bg);color:#1f5b3d} .pill.ok i{background:var(--ok)}
+  .pill.warn{background:var(--warn-bg);color:#7d5713} .pill.warn i{background:var(--warn)}
+  .pill.late{background:var(--late-bg);color:#7c2c1c} .pill.late i{background:var(--late)}
+  .pill.free{background:var(--free-bg);color:#54503f} .pill.free i{background:var(--free)}
+
+  .dl{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;margin:14px 0 0;font-size:.9rem}
+  .dl dt{color:var(--muted)}
+  .dl dd{margin:0;text-align:right;font-weight:500}
+  .dl dd.mono{font-weight:600}
+
+  .note{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--brass);border-radius:8px;padding:11px 13px;font-size:.84rem;color:#4d4838;margin-top:16px}
+  .note strong{color:var(--ink)}
+  .note.late{border-left-color:var(--late);background:var(--late-bg);color:#7c2c1c}
+  .note.rev{border-left-color:var(--warn);background:var(--warn-bg);color:#7d5713}
+
+  .empty{color:var(--muted);text-align:center;padding:40px 16px;font-size:.9rem}
+  .empty .big{font-family:'Bricolage Grotesque';font-size:2rem;color:var(--line-strong);display:block;margin-bottom:6px}
+
+  .liq{width:100%;border-collapse:collapse;font-size:.9rem}
+  .liq td{padding:9px 4px;border-bottom:1px solid var(--line)}
+  .liq td:last-child{text-align:right;font-family:'Spline Sans Mono';font-variant-numeric:tabular-nums;font-weight:500}
+  .liq .muted td{color:var(--muted);font-size:.82rem;border-bottom:1px dashed var(--line)}
+  .liq .total td{border-bottom:0;border-top:2px solid var(--ink);padding-top:12px;font-weight:700}
+  .liq .total td:last-child{font-size:1.1rem;font-weight:600}
+
+  .rows{display:flex;flex-direction:column}
+  .row{display:grid;grid-template-columns:44px 1fr auto auto;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .rn{width:44px;height:44px;border-radius:9px;background:var(--ink);color:#f4c46f;display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:700;font-size:.95rem}
+  .row .rname{font-weight:600} .row .rsub{font-size:.78rem;color:var(--muted)}
+  .row .ramt{font-family:'Spline Sans Mono';font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+  .row .ramt small{display:block;font-family:'Instrument Sans';font-weight:400;color:var(--muted);font-size:.72rem}
+
+  /* Forms */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field.full{grid-column:1/-1}
+  .field label{font-size:.8rem;font-weight:600;color:#43402f}
+  .field input,.field select{font-family:inherit;font-size:.9rem;padding:9px 11px;border:1px solid var(--line-strong);border-radius:9px;background:#fff;color:var(--text)}
+  .field input:focus,.field select:focus{outline:2px solid var(--brass);outline-offset:0;border-color:var(--brass)}
+  .field .hint{font-size:.74rem;color:var(--muted)}
+  .field .suffix-wrap{display:flex;align-items:center;gap:0;border:1px solid var(--line-strong);border-radius:9px;background:#fff;overflow:hidden}
+  .field .suffix-wrap input{border:0;flex:1} .field .suffix-wrap .sfx{padding:0 12px;color:var(--muted);font-weight:600;font-size:.85rem;background:var(--surface-2);align-self:stretch;display:flex;align-items:center}
+
+  /* File upload */
+  .filebox{border:1.5px dashed var(--line-strong);border-radius:11px;padding:16px;text-align:center;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
+  .filebox:hover{border-color:var(--brass);background:var(--surface-2)}
+  .filebox .fi-ico{font-size:1.5rem}
+  .filebox .fi-t{font-weight:600;font-size:.9rem;margin-top:4px}
+  .filebox .fi-s{font-size:.76rem;color:var(--muted)}
+  .filebox.has{border-style:solid;border-color:var(--ok);background:var(--ok-bg)}
+  .filebox.has .fi-ico,.filebox.has .fi-t{color:#1f5b3d}
+  input[type=file]{display:none}
+
+  .btn{border:0;cursor:pointer;font-weight:600;font-size:.9rem;padding:11px 18px;border-radius:10px;display:inline-flex;align-items:center;gap:8px;transition:filter .15s,transform .1s}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--brass);color:#241a06;box-shadow:0 6px 16px -8px rgba(160,109,43,.9)}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+  .btn-ghost:hover{background:var(--surface-2)}
+  .btn-danger{background:var(--late-bg);color:#7c2c1c;border:1px solid #e3b7ab}
+  .btn-danger:hover{background:#eccabf}
+  .btn-sm{padding:7px 12px;font-size:.82rem;border-radius:8px}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+
+  /* Rendición */
+  .rend{display:grid;gap:10px}
+  .rend .line{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line)}
+  .rend .line .lbl{font-size:.9rem} .rend .line .lbl small{display:block;color:var(--muted);font-size:.76rem}
+  .rend .line .val{font-family:'Spline Sans Mono';font-weight:600}
+  .rend .line.net{background:var(--ink);color:#f6f1e6;border-color:#0d1c17} .rend .line.net .val{color:#f4c46f;font-size:1.15rem}
+  .rend .line.neg .val{color:var(--late)}
+
+  /* Locatarios ABM */
+  .abm{display:flex;flex-direction:column;gap:2px}
+  .abm-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid var(--line)}
+  .abm-row:last-child{border-bottom:0}
+  .abm-row .an{width:38px;height:38px;border-radius:8px;background:var(--ink);color:#f4c46f;display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:700;font-size:.85rem}
+  .abm-row .aname{font-weight:600;font-size:.92rem}
+  .abm-row .acontact{font-size:.78rem;color:var(--muted)}
+  .abm-row .aacts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+  /* History */
+  .hist-tables .tabs{margin-bottom:14px}
+  table.data{width:100%;border-collapse:collapse;font-size:.86rem}
+  table.data th{text-align:left;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 10px 10px;border-bottom:1px solid var(--line-strong)}
+  table.data th.r,table.data td.r{text-align:right}
+  table.data td{padding:11px 10px;border-bottom:1px solid var(--line)}
+  table.data td.mono{font-family:'Spline Sans Mono';font-variant-numeric:tabular-nums;font-weight:500}
+  table.data tr:hover td{background:var(--surface-2)}
+  .st-tag{font-size:.72rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .st-tag.cerrado{background:var(--ok-bg);color:#1f5b3d}
+  .st-tag.abierto{background:var(--warn-bg);color:#7d5713}
+  .st-tag.pagado{background:var(--ok-bg);color:#1f5b3d}
+  .st-tag.pend{background:var(--warn-bg);color:#7d5713}
+  .st-tag.mora{background:var(--late-bg);color:#7c2c1c}
+
+  /* Superadmin cards */
+  .sa-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .sa-list{display:flex;flex-direction:column}
+  .sa-item{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid var(--line)}
+  .sa-item:last-child{border-bottom:0}
+  .sa-item .si{width:40px;height:40px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-size:1.1rem}
+  .sa-item .sname{font-weight:600} .sa-item .ssub{font-size:.78rem;color:var(--muted)}
+
+  /* Tenant */
+  .tenant-hero{background:var(--ink);border-radius:18px;padding:22px;color:#f6f1e6;margin-bottom:22px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;box-shadow:0 24px 50px -30px rgba(21,42,36,.7)}
+  .tenant-hero .who .loc{font-family:'Bricolage Grotesque';font-weight:800;font-size:2rem;color:#f4c46f;line-height:1}
+  .tenant-hero .who h2{font-size:1.25rem;margin:6px 0 2px}
+  .tenant-hero .who .meta{color:#b6c3ba;font-size:.85rem}
+  .tenant-hero .due{text-align:right;background:rgba(0,0,0,.25);border:1px solid rgba(193,137,63,.4);border-radius:14px;padding:16px 20px;min-width:210px}
+  .tenant-hero .due .due-label{font-size:.76rem;color:#cbd6cd}
+  .tenant-hero .due .due-amt{font-family:'Spline Sans Mono';font-weight:600;font-size:2rem;color:#fff;margin:2px 0}
+  .tenant-hero .due .due-when.late{color:#f0a58e;font-weight:600}
+  .tenant-cols{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:start}
+
+  .hist{width:100%;border-collapse:collapse;font-size:.88rem}
+  .hist th{text-align:left;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 4px 8px}
+  .hist th:last-child,.hist td:last-child{text-align:right}
+  .hist td{padding:10px 4px;border-top:1px solid var(--line);font-family:'Spline Sans Mono';font-variant-numeric:tabular-nums}
+  .hist td.desc{font-family:'Instrument Sans'}
+
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(18,28,24,.55);backdrop-filter:blur(2px);z-index:70;display:grid;place-items:center;padding:20px}
+  .modal-bg[hidden]{display:none}
+  .modal{background:var(--surface);border-radius:16px;max-width:440px;width:100%;box-shadow:0 30px 70px -20px rgba(0,0,0,.6);overflow:hidden;border:1px solid var(--line-strong)}
+  .modal .m-head{padding:16px 20px;border-bottom:1px solid var(--line);background:var(--surface-2);display:flex;justify-content:space-between;align-items:center}
+  .modal .m-head h3{font-size:1.05rem}
+  .modal .m-close{border:0;background:transparent;font-size:1.3rem;cursor:pointer;color:var(--muted);line-height:1}
+  .modal .m-body{padding:20px}
+  .modal .m-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:var(--surface-2);flex-wrap:wrap}
+  /* fake receipt */
+  .receipt{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;font-family:'Spline Sans Mono';font-size:.82rem;color:#3a3a3a;line-height:1.7}
+  .receipt .r-bank{font-family:'Bricolage Grotesque';font-weight:800;font-size:1.05rem;color:var(--ink);letter-spacing:.02em;margin-bottom:8px}
+  .receipt .r-line{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:2px 0}
+  .receipt .r-amt{font-weight:600;font-size:1.15rem;color:var(--ink);margin-top:8px}
+  .receipt .r-stamp{margin-top:10px;color:var(--ok);font-weight:600;border:1.5px solid var(--ok);border-radius:6px;display:inline-block;padding:2px 8px;transform:rotate(-4deg)}
+
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#f6f1e6;padding:13px 20px;border-radius:12px;box-shadow:0 20px 40px -18px rgba(0,0,0,.6);border:1px solid var(--brass-deep);font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;display:flex;align-items:center;gap:10px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .tk{color:#5fce97;font-weight:700}
+
+  .section-title{display:flex;align-items:baseline;gap:12px;margin:36px 0 14px}
+  .section-title h2{font-size:1.3rem}
+  .section-title .st-sub{color:var(--muted);font-size:.85rem}
+
+  footer{max-width:1180px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:.78rem}
+  footer .r{border-top:1px solid var(--line);padding-top:14px}
+
+  @media (max-width:980px){.plan{grid-template-columns:repeat(6,1fr)}}
+  @media (max-width:900px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .cols,.tenant-cols,.sa-grid{grid-template-columns:1fr}
+    .tenant-hero{grid-template-columns:1fr}.tenant-hero .due{text-align:left}
+    .form-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .plan{grid-template-columns:repeat(4,1fr)}
+    .brand-sub{display:none}
+    .notif{width:min(320px,86vw)}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="plaque">GB</div>
+      <div><div class="brand-name">Galería Belgrano</div><div class="brand-sub">Administración de alquileres</div></div>
+    </div>
+
+    <div class="switch" role="tablist" aria-label="Rol">
+      <button role="tab" id="tab-super" aria-selected="false" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Superadmin</button>
+      <button role="tab" id="tab-admin" aria-selected="true" aria-controls="view-admin" onclick="setView('admin')"><span class="dot"></span> Administración</button>
+      <button role="tab" id="tab-tenant" aria-selected="false" aria-controls="view-tenant" onclick="setView('tenant')"><span class="dot"></span> Locatario</button>
+    </div>
+
+    <div class="bell-wrap" id="bell-wrap">
+      <button class="bell" id="bell" aria-label="Notificaciones" aria-haspopup="true" onclick="toggleNotif()">
+        🔔<span class="badge" id="bell-badge">2</span>
+      </button>
+      <div class="notif" id="notif" role="menu" hidden></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ SUPERADMIN ============ -->
+<main class="wrap view" id="view-super" role="tabpanel" aria-labelledby="tab-super" hidden>
+  <div class="page-head">
+    <span class="eyebrow">Superadministración</span>
+    <h1>Galerías, locales y administradores</h1>
+    <p>Desde acá se dan de alta las galerías, se cargan sus locales y se asigna quién las administra. Cada administrador gestiona solo la galería que le corresponde.</p>
+  </div>
+
+  <div class="sa-grid">
+    <section class="panel">
+      <div class="panel-head"><h3>Alta de galería</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field full"><label for="sg-nom">Nombre de la galería</label><input id="sg-nom" placeholder="Ej. Galería Centro"></div>
+          <div class="field full"><label for="sg-dir">Dirección</label><input id="sg-dir" placeholder="Calle, número, localidad"></div>
+          <div class="field"><label for="sg-locs">Cantidad de locales</label><input id="sg-locs" type="number" value="22" min="1"></div>
+          <div class="field"><label for="sg-dueno">Dueño</label><input id="sg-dueno" placeholder="Nombre del propietario"></div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="toast('Galería y locales creados')">Crear galería con sus locales</button></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Alta de administrador</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field full"><label for="sa-nom">Nombre / estudio</label><input id="sa-nom" placeholder="Administrador o estudio"></div>
+          <div class="field full"><label for="sa-mail">Email de acceso</label><input id="sa-mail" type="email" placeholder="admin@correo.com"></div>
+          <div class="field full"><label for="sa-gal">Galería asignada</label>
+            <select id="sa-gal"><option>Galería Belgrano</option><option>Galería Centro</option><option>Complejo Norte</option></select></div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="toast('Administrador dado de alta · mail de acceso enviado')">Crear administrador</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="section-title"><h2>Galerías en el sistema</h2><span class="st-sub">3 activas</span></div>
+  <section class="panel"><div class="panel-body"><div class="sa-list">
+    <div class="sa-item"><div class="si">🏬</div><div><div class="sname">Galería Belgrano</div><div class="ssub">22 locales · Admin: Estudio Ríos · Dueño: J. Belgrano</div></div><span class="st-tag cerrado">Activa</span></div>
+    <div class="sa-item"><div class="si">🏬</div><div><div class="sname">Galería Centro</div><div class="ssub">14 locales · Admin: M. Duarte · Dueño: Centro SA</div></div><span class="st-tag cerrado">Activa</span></div>
+    <div class="sa-item"><div class="si">🏢</div><div><div class="sname">Complejo Norte (oficinas)</div><div class="ssub">9 oficinas · Admin: Estudio Ríos · Dueño: NorteInmuebles</div></div><span class="st-tag cerrado">Activa</span></div>
+  </div></div></section>
+</main>
+
+<!-- ============ ADMIN ============ -->
+<main class="wrap view" id="view-admin" role="tabpanel" aria-labelledby="tab-admin">
+  <div class="page-head">
+    <span class="eyebrow">Panel del administrador · Agosto 2026</span>
+    <h1>Ocupación y cobranzas</h1>
+    <p>Tocá un local para ver su contrato, la liquidación, el comprobante subido y el estado de pago.</p>
+  </div>
+
+  <section class="kpis" aria-label="Resumen del mes">
+    <div class="kpi accent-ok"><div class="k-label">Ocupación</div><div class="k-value" id="kpi-occ">19<span style="color:var(--muted);font-size:1rem"> / 22</span></div><div class="k-foot" id="kpi-occ-foot">3 locales libres</div></div>
+    <div class="kpi"><div class="k-label">Facturado del mes</div><div class="k-value mono">$ 18.740.500</div><div class="k-foot">Alquileres + gastos comunes</div></div>
+    <div class="kpi accent-ok"><div class="k-label">Cobrado</div><div class="k-value mono" id="kpi-cob">$ 15.980.000</div><div class="k-foot">85% del total</div></div>
+    <div class="kpi accent-late"><div class="k-label">En mora</div><div class="k-value mono">$ 2.760.500</div><div class="k-foot">2 locales con atraso</div></div>
+  </section>
+
+  <section class="board-card" aria-label="Plano de la galería">
+    <div class="board-head">
+      <h2>Plano de la galería</h2>
+      <div class="legend">
+        <span><i class="i-ok"></i> Al día</span><span><i class="i-warn"></i> Por vencer</span>
+        <span><i class="i-late"></i> En mora</span><span><i class="i-free"></i> Libre</span>
+      </div>
+    </div>
+    <div class="plan" id="plan"></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel" aria-live="polite">
+      <div class="panel-head"><h3>Detalle del local</h3><span class="sub" id="detail-sub">Seleccioná un local</span></div>
+      <div class="panel-body" id="detail-body">
+        <div class="empty"><span class="big">↑</span>Tocá un local del plano para ver su contrato y liquidación.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-body">
+        <div class="tabs" role="tablist" aria-label="Gestión">
+          <button role="tab" aria-selected="true"  aria-controls="tp-contrato"  id="t-contrato"  onclick="setTab('contrato')">Nuevo contrato</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-cobranzas" id="t-cobranzas" onclick="setTab('cobranzas')">Cobranzas</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')">Locatarios</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-config"    id="t-config"    onclick="setTab('config')">Configuración</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-rendicion" id="t-rendicion" onclick="setTab('rendicion')">Rendición</button>
+        </div>
+
+        <!-- Nuevo contrato -->
+        <div class="tabpane" id="tp-contrato" role="tabpanel" aria-labelledby="t-contrato">
+          <div class="form-grid">
+            <div class="field"><label for="f-local">Local</label><select id="f-local"><option>Local 07 — libre</option><option>Local 14 — libre</option><option>Local 21 — libre</option></select></div>
+            <div class="field"><label for="f-rubro">Rubro</label><input id="f-rubro" placeholder="Indumentaria, gastronomía…"></div>
+            <div class="field full"><label for="f-locatario">Locatario</label><input id="f-locatario" placeholder="Razón social o nombre"></div>
+            <div class="field"><label for="f-desde">Inicio</label><input id="f-desde" type="date" value="2026-09-01"></div>
+            <div class="field"><label for="f-meses">Plazo (meses)</label><input id="f-meses" type="number" value="24" min="1"></div>
+            <div class="field"><label for="f-fijo">Alquiler fijo mensual</label><input id="f-fijo" value="$ 620.000"></div>
+            <div class="field"><label for="f-modo">Modalidad</label><select id="f-modo"><option>Fijo</option><option>Fijo + % de facturación</option></select></div>
+            <div class="field full"><label>Contrato firmado (PDF)</label>
+              <label class="filebox" for="f-pdf" id="f-pdf-box">
+                <div class="fi-ico">📄</div><div class="fi-t" id="f-pdf-t">Subir contrato firmado</div><div class="fi-s">PDF · hasta 10 MB</div>
+              </label>
+              <input type="file" id="f-pdf" accept="application/pdf" onchange="fileChosen(this,'f-pdf-box','f-pdf-t','Contrato cargado')">
+            </div>
+          </div>
+          <div class="note">La modalidad y el índice definido en <strong>Configuración</strong> determinan cómo se recalcula la liquidación en cada actualización.</div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="toast('Borrador guardado')">Guardar borrador</button>
+            <button class="btn btn-primary" onclick="toast('Contrato registrado con PDF adjunto')">Registrar contrato</button>
+          </div>
+        </div>
+
+        <!-- Cobranzas -->
+        <div class="tabpane" id="tp-cobranzas" role="tabpanel" aria-labelledby="t-cobranzas" hidden>
+          <div class="rows" id="cobr-rows"></div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="toast('Recordatorios enviados')">Enviar recordatorios</button>
+            <button class="btn btn-primary" onclick="toast('Interés por mora aplicado')">Aplicar interés</button>
+          </div>
+        </div>
+
+        <!-- Locatarios (ABM) -->
+        <div class="tabpane" id="tp-locatarios" role="tabpanel" aria-labelledby="t-locatarios" hidden>
+          <div class="form-grid" style="margin-bottom:14px">
+            <div class="field"><label for="l-nom">Nuevo locatario</label><input id="l-nom" placeholder="Nombre / razón social"></div>
+            <div class="field"><label for="l-loc">Local</label><select id="l-loc"><option>Local 07</option><option>Local 14</option><option>Local 21</option></select></div>
+            <div class="field"><label for="l-mail">Email</label><input id="l-mail" type="email" placeholder="correo@ejemplo.com"></div>
+            <div class="field"><label for="l-tel">Teléfono</label><input id="l-tel" placeholder="+54 11 ..."></div>
+          </div>
+          <div class="form-actions" style="margin-top:0"><button class="btn btn-primary btn-sm" onclick="toast('Locatario agregado')">Agregar locatario</button></div>
+          <div class="abm" id="abm-list" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Configuración -->
+        <div class="tabpane" id="tp-config" role="tabpanel" aria-labelledby="t-config" hidden>
+          <div class="form-grid">
+            <div class="field"><label for="c-indice">Índice de actualización</label>
+              <select id="c-indice"><option>ICL (BCRA)</option><option>IPC</option><option>Casa Propia</option><option>Escalonado pactado</option></select></div>
+            <div class="field"><label for="c-frec">Frecuencia de actualización</label>
+              <select id="c-frec"><option>Trimestral</option><option>Cuatrimestral</option><option>Semestral</option><option>Anual</option></select></div>
+            <div class="field"><label for="c-mora">Interés por mora</label>
+              <div class="suffix-wrap"><input id="c-mora" value="0,50"><span class="sfx">% diario</span></div>
+              <span class="hint">Se aplica sobre el saldo impago pasado el vencimiento.</span></div>
+            <div class="field"><label for="c-comision">Comisión del administrador</label>
+              <div class="suffix-wrap"><input id="c-comision" value="8"><span class="sfx">% cobrado</span></div>
+              <span class="hint">Se liquida solo sobre lo efectivamente cobrado.</span></div>
+            <div class="field"><label for="c-venc">Día de vencimiento mensual</label><input id="c-venc" type="number" value="10" min="1" max="28"></div>
+            <div class="field"><label for="c-gracia">Días de gracia</label><input id="c-gracia" type="number" value="3" min="0"></div>
+            <div class="field full"><label for="c-exp">Gastos comunes base (por local)</label><input id="c-exp" value="$ 160.000"></div>
+          </div>
+          <div class="note">Estos parámetros se aplican a todas las liquidaciones de la galería a partir del próximo cierre.</div>
+          <div class="form-actions"><button class="btn btn-primary" onclick="toast('Configuración guardada')">Guardar configuración</button></div>
+        </div>
+
+        <!-- Rendición -->
+        <div class="tabpane" id="tp-rendicion" role="tabpanel" aria-labelledby="t-rendicion" hidden>
+          <p class="sub" style="color:var(--muted);margin:0 0 14px">Resumen para el dueño — Agosto 2026</p>
+          <div class="rend">
+            <div class="line"><div class="lbl">Alquileres cobrados <small>19 locales</small></div><div class="val">$ 14.180.000</div></div>
+            <div class="line"><div class="lbl">Gastos comunes cobrados</div><div class="val">$ 1.800.000</div></div>
+            <div class="line neg"><div class="lbl">Gastos comunes pagados <small>limpieza, luz, seguridad, seguro</small></div><div class="val">− $ 1.940.000</div></div>
+            <div class="line neg"><div class="lbl">Comisión del administrador <small>8% sobre lo cobrado</small></div><div class="val">− $ 1.278.400</div></div>
+            <div class="line net"><div class="lbl">Neto a transferir al dueño</div><div class="val">$ 12.761.600</div></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="toast('PDF generado')">Descargar PDF</button>
+            <button class="btn btn-primary" onclick="toast('Rendición enviada al dueño')">Enviar rendición</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- History -->
+  <div class="section-title"><h2>Historial</h2><span class="st-sub">Cierres mensuales y estado de cuenta por local</span></div>
+  <section class="panel hist-tables">
+    <div class="panel-body">
+      <div class="tabs" role="tablist" aria-label="Historial">
+        <button role="tab" aria-selected="true"  aria-controls="hp-mes"   id="h-mes"   onclick="setHist('mes')">Cierre del mes</button>
+        <button role="tab" aria-selected="false" aria-controls="hp-local" id="h-local" onclick="setHist('local')">Cierre por local (estado de cuenta)</button>
+      </div>
+
+      <div class="tabpane" id="hp-mes" role="tabpanel" aria-labelledby="h-mes">
+        <table class="data">
+          <thead><tr><th>Período</th><th class="r">Facturado</th><th class="r">Cobrado</th><th class="r">Mora</th><th class="r">Comisión</th><th class="r">Neto al dueño</th><th class="r">Estado</th></tr></thead>
+          <tbody>
+            <tr><td>Agosto 2026</td><td class="r mono">$ 18.740.500</td><td class="r mono">$ 15.980.000</td><td class="r mono">$ 2.760.500</td><td class="r mono">$ 1.278.400</td><td class="r mono">$ 12.761.600</td><td class="r"><span class="st-tag abierto">Abierto</span></td></tr>
+            <tr><td>Julio 2026</td><td class="r mono">$ 18.120.000</td><td class="r mono">$ 18.120.000</td><td class="r mono">$ 0</td><td class="r mono">$ 1.449.600</td><td class="r mono">$ 14.930.400</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+            <tr><td>Junio 2026</td><td class="r mono">$ 17.540.000</td><td class="r mono">$ 17.190.000</td><td class="r mono">$ 350.000</td><td class="r mono">$ 1.375.200</td><td class="r mono">$ 14.210.800</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+            <tr><td>Mayo 2026</td><td class="r mono">$ 16.980.000</td><td class="r mono">$ 16.980.000</td><td class="r mono">$ 0</td><td class="r mono">$ 1.358.400</td><td class="r mono">$ 13.980.600</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tabpane" id="hp-local" role="tabpanel" aria-labelledby="h-local" hidden>
+        <table class="data">
+          <thead><tr><th>Local</th><th>Locatario</th><th class="r">Facturado</th><th class="r">Cobrado</th><th class="r">Saldo</th><th class="r">Estado</th></tr></thead>
+          <tbody id="acct-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ TENANT ============ -->
+<main class="wrap view" id="view-tenant" role="tabpanel" aria-labelledby="tab-tenant" hidden>
+  <div class="page-head">
+    <span class="eyebrow">Tu cuenta</span>
+    <h1>Café del Pasaje</h1>
+    <p>Esto es lo que te toca pagar este mes por tu local en la Galería Belgrano, con el detalle de cómo se compone.</p>
+  </div>
+
+  <section class="tenant-hero">
+    <div class="who">
+      <div class="loc">Local 04</div>
+      <h2>Café del Pasaje</h2>
+      <div class="meta">Gastronomía · Contrato #C-2039 · Planta baja</div>
+    </div>
+    <div class="due">
+      <div class="due-label">Total a pagar — Agosto 2026</div>
+      <div class="due-amt">$ 1.586.200</div>
+      <div class="due-when late">Venció el 10/08 · 18 días de atraso</div>
+    </div>
+  </section>
+
+  <div class="tenant-cols">
+    <section class="panel">
+      <div class="panel-head"><h3>Detalle de la liquidación</h3><span class="sub">Agosto 2026</span></div>
+      <div class="panel-body">
+        <table class="liq">
+          <tr><td>Alquiler fijo</td><td>$ 980.000</td></tr>
+          <tr class="muted"><td>Actualizado en junio (ICL trimestral)</td><td></td></tr>
+          <tr><td>Variable — 4% de facturación declarada</td><td>$ 372.000</td></tr>
+          <tr class="muted"><td>Sobre $ 9.300.000 declarados</td><td></td></tr>
+          <tr><td>Gastos comunes (expensas)</td><td>$ 160.000</td></tr>
+          <tr><td>Interés por mora (18 días)</td><td>$ 74.200</td></tr>
+          <tr class="total"><td>Total a pagar</td><td>$ 1.586.200</td></tr>
+        </table>
+
+        <div id="pay-block" style="margin-top:18px">
+          <label class="filebox" for="t-comp" id="t-comp-box">
+            <div class="fi-ico">🧾</div><div class="fi-t" id="t-comp-t">Subir comprobante de pago</div><div class="fi-s">Transferencia · imagen o PDF</div>
+          </label>
+          <input type="file" id="t-comp" accept="image/*,application/pdf" onchange="tenantUpload(this)">
+          <div class="form-actions"><button class="btn btn-primary" id="t-send" disabled onclick="tenantSend()">Enviar comprobante</button></div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;gap:20px">
+      <section class="panel">
+        <div class="panel-head"><h3>Tu contrato</h3></div>
+        <div class="panel-body">
+          <dl class="dl">
+            <dt>Modalidad</dt><dd>Fijo + 4% facturación</dd>
+            <dt>Vigencia</dt><dd>Mar 2025 – Feb 2027</dd>
+            <dt>Actualización</dt><dd>ICL trimestral</dd>
+            <dt>Próxima actualización</dt><dd>Septiembre 2026</dd>
+            <dt>Vencimiento mensual</dt><dd>Día 10</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h3>Últimos pagos</h3></div>
+        <div class="panel-body">
+          <table class="hist">
+            <thead><tr><th>Período</th><th>Monto</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td class="desc">Agosto 2026</td><td>$ 1.586.200</td><td><span class="st-tag pend">Pendiente</span></td></tr>
+              <tr><td class="desc">Julio 2026</td><td>$ 1.498.000</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+              <tr><td class="desc">Junio 2026</td><td>$ 1.455.300</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+              <tr><td class="desc">Mayo 2026</td><td>$ 1.312.000</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer><div class="r">Maqueta de referencia · Galería Belgrano · Datos de ejemplo. Enunciado 1 — Locales en alquiler.</div></footer>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="m-head"><h3 id="modal-title">Título</h3><button class="m-close" onclick="closeModal()" aria-label="Cerrar">×</button></div>
+    <div class="m-body" id="modal-body"></div>
+    <div class="m-foot" id="modal-foot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span class="tk">✓</span><span id="toast-msg">Listo</span></div>
+
+<script>
+  /* ---------- Data ---------- */
+  const units = [
+    {n:'01', st:'ok',  loc:'Alma Ropa', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 840.000', exp:'$ 160.000', tot:'$ 1.000.000', act:'ICL · Nov 2026', venc:'10', pago:'Cobrado 08/08', email:'alma@correo.com', tel:'+54 11 4001-0001', comp:false, fact:'$ 1.000.000', cob:'$ 1.000.000'},
+    {n:'02', st:'ok',  loc:'Cuero & Co.', rubro:'Marroquinería', mod:'Fijo', fijo:'$ 720.000', exp:'$ 160.000', tot:'$ 880.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 06/08', email:'cueroco@correo.com', tel:'+54 11 4001-0002', comp:false, fact:'$ 880.000', cob:'$ 880.000'},
+    {n:'03', st:'ok',  loc:'Áurea', rubro:'Joyería', mod:'Fijo', fijo:'$ 910.000', exp:'$ 160.000', tot:'$ 1.070.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 09/08', email:'aurea@correo.com', tel:'+54 11 4001-0003', comp:false, fact:'$ 1.070.000', cob:'$ 1.070.000'},
+    {n:'04', st:'late', loc:'Café del Pasaje', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 980.000', exp:'$ 160.000', tot:'$ 1.586.200', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'cafe@correo.com', tel:'+54 11 4001-0004', comp:true, compFecha:'27/08 14:12', fact:'$ 1.586.200', cob:'$ 0'},
+    {n:'05', st:'ok',  loc:'Esencia', rubro:'Perfumería', mod:'Fijo', fijo:'$ 680.000', exp:'$ 160.000', tot:'$ 840.000', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 07/08', email:'esencia@correo.com', tel:'+54 11 4001-0005', comp:false, fact:'$ 840.000', cob:'$ 840.000'},
+    {n:'06', st:'warn', loc:'Papel & Tinta', rubro:'Librería', mod:'Fijo', fijo:'$ 560.000', exp:'$ 160.000', tot:'$ 720.000', act:'ICL · Sep 2026', venc:'10', pago:'Vence hoy', email:'papel@correo.com', tel:'+54 11 4001-0006', comp:false, fact:'$ 720.000', cob:'$ 0'},
+    {n:'07', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jun 2026'},
+    {n:'08', st:'ok',  loc:'Ver Más', rubro:'Óptica', mod:'Fijo', fijo:'$ 640.000', exp:'$ 160.000', tot:'$ 800.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 05/08', email:'vermas@correo.com', tel:'+54 11 4001-0008', comp:false, fact:'$ 800.000', cob:'$ 800.000'},
+    {n:'09', st:'warn', loc:'Zapatería Nova', rubro:'Calzado', mod:'Fijo', fijo:'$ 545.000', exp:'$ 160.000', tot:'$ 705.000', act:'ICL · Nov 2026', venc:'10', pago:'Pendiente', email:'nova@correo.com', tel:'+54 11 4001-0009', comp:false, fact:'$ 705.000', cob:'$ 0'},
+    {n:'10', st:'ok',  loc:'Farma Centro', rubro:'Farmacia', mod:'Fijo', fijo:'$ 1.240.000', exp:'$ 160.000', tot:'$ 1.400.000', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 04/08', email:'farma@correo.com', tel:'+54 11 4001-0010', comp:false, fact:'$ 1.400.000', cob:'$ 1.400.000'},
+    {n:'11', st:'warn', loc:'KioZone', rubro:'Kiosco', mod:'Fijo', fijo:'$ 530.000', exp:'$ 160.000', tot:'$ 690.000', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'kiozone@correo.com', tel:'+54 11 4001-0011', comp:true, compFecha:'28/08 09:40', fact:'$ 690.000', cob:'$ 0'},
+    {n:'12', st:'ok',  loc:'Urbano', rubro:'Indumentaria', mod:'Fijo + 3% fact.', fijo:'$ 760.000', exp:'$ 160.000', tot:'$ 1.180.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'urbano@correo.com', tel:'+54 11 4001-0012', comp:false, fact:'$ 1.180.000', cob:'$ 1.180.000'},
+    {n:'13', st:'ok',  loc:'ByteShop', rubro:'Tecnología', mod:'Fijo', fijo:'$ 990.000', exp:'$ 160.000', tot:'$ 1.150.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 03/08', email:'byteshop@correo.com', tel:'+54 11 4001-0013', comp:false, fact:'$ 1.150.000', cob:'$ 1.150.000'},
+    {n:'14', st:'free', loc:'Local libre', rubro:'—', desde:'Disponible desde Mar 2026'},
+    {n:'15', st:'ok',  loc:'Estilo D10', rubro:'Peluquería', mod:'Fijo', fijo:'$ 610.000', exp:'$ 160.000', tot:'$ 770.000', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 09/08', email:'estilo@correo.com', tel:'+54 11 4001-0015', comp:false, fact:'$ 770.000', cob:'$ 770.000'},
+    {n:'16', st:'ok',  loc:'Empanadas Sur', rubro:'Gastronomía', mod:'Fijo + 5% fact.', fijo:'$ 700.000', exp:'$ 160.000', tot:'$ 1.320.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 07/08', email:'empanadas@correo.com', tel:'+54 11 4001-0016', comp:false, nuevo:true, fact:'$ 1.320.000', cob:'$ 1.320.000'},
+    {n:'17', st:'late', loc:'Óptica Belgrano', rubro:'Óptica', mod:'Fijo', fijo:'$ 1.088.500', exp:'$ 160.000', tot:'$ 1.248.500', act:'ICL · Oct 2026', venc:'10', pago:'En mora · 18 días', email:'opticabelgrano@correo.com', tel:'+54 11 4001-0017', comp:false, fact:'$ 1.248.500', cob:'$ 0'},
+    {n:'18', st:'ok',  loc:'Detalles', rubro:'Regalería', mod:'Fijo', fijo:'$ 520.000', exp:'$ 160.000', tot:'$ 680.000', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 06/08', email:'detalles@correo.com', tel:'+54 11 4001-0018', comp:false, fact:'$ 680.000', cob:'$ 680.000'},
+    {n:'19', st:'ok',  loc:'Nena&Nene', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 690.000', exp:'$ 160.000', tot:'$ 850.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'nenaynene@correo.com', tel:'+54 11 4001-0019', comp:false, fact:'$ 850.000', cob:'$ 850.000'},
+    {n:'20', st:'ok',  loc:'Helados Polo', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 650.000', exp:'$ 160.000', tot:'$ 1.090.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 05/08', email:'polo@correo.com', tel:'+54 11 4001-0020', comp:false, fact:'$ 1.090.000', cob:'$ 1.090.000'},
+    {n:'21', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jul 2026'},
+    {n:'22', st:'ok',  loc:'Récord Sport', rubro:'Deportes', mod:'Fijo', fijo:'$ 870.000', exp:'$ 160.000', tot:'$ 1.030.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 04/08', email:'record@correo.com', tel:'+54 11 4001-0022', comp:false, nuevo:true, fact:'$ 1.030.000', cob:'$ 1.030.000'},
+  ];
+
+  const stLabel = {ok:'Al día', warn:'Por vencer', late:'En mora', free:'Libre'};
+  const stPill  = {ok:'ok', warn:'warn', late:'late', free:'free'};
+  let selectedIdx = null;
+
+  /* ---------- Plan (just tiles) ---------- */
+  const plan = document.getElementById('plan');
+  function renderPlan(){
+    plan.innerHTML = '';
+    units.forEach((u,i)=>{
+      const b = document.createElement('button');
+      b.className = 'unit' + (i===selectedIdx?' selected':'');
+      b.dataset.st = u.st; b.dataset.i = i;
+      b.setAttribute('aria-label', `Local ${u.n}, ${stLabel[u.st]}`);
+      let flag = '';
+      if(u.nuevo) flag = '<span class="flag new">ALTA</span>';
+      else if(u.baja) flag = '<span class="flag rec">BAJA</span>';
+      b.innerHTML = `${flag}<span class="u-num">${u.n}</span><span class="u-dot"></span>`;
+      b.addEventListener('click', ()=>selectUnit(i));
+      plan.appendChild(b);
+    });
+  }
+
+  /* ---------- Detail ---------- */
+  const detailBody = document.getElementById('detail-body');
+  const detailSub = document.getElementById('detail-sub');
+
+  function selectUnit(i){
+    selectedIdx = i; renderPlan();
+    const u = units[i];
+    detailSub.textContent = `Local ${u.n} · ${stLabel[u.st]}`;
+
+    if(u.st==='free'){
+      detailBody.innerHTML = `
+        <div class="contract-title"><span class="num">${u.n}</span><div><h3>Local disponible</h3></div>
+          <span class="pill free" style="margin-left:auto"><i></i>Libre</span></div>
+        <dl class="dl"><dt>Situación</dt><dd>${u.desde||'Sin contrato'}</dd><dt>Superficie</dt><dd>~ 38 m²</dd>
+          <dt>Expensas base</dt><dd class="mono">$ 160.000</dd></dl>
+        <div class="note">Local sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
+      return;
+    }
+
+    const compBlock = u.comp
+      ? `<div class="note rev"><strong>Comprobante recibido</strong> el ${u.compFecha}. Revisalo para aceptar el pago.</div>
+         <div class="form-actions" style="margin-top:12px">
+           <button class="btn btn-primary btn-sm" onclick="viewReceipt(${i})">Ver comprobante y aceptar</button>
+         </div>`
+      : (u.st==='late'
+          ? `<div class="note late"><strong>Estado de cobro:</strong> ${u.pago}</div>`
+          : `<div class="note"><strong>Estado de cobro:</strong> ${u.pago}</div>`);
+
+    detailBody.innerHTML = `
+      <div class="contract-title"><span class="num">${u.n}</span>
+        <div><h3>${u.loc}</h3><span class="sub" style="color:var(--muted);font-size:.8rem">${u.rubro}</span></div>
+        <span class="pill ${stPill[u.st]}" style="margin-left:auto"><i></i>${stLabel[u.st]}</span></div>
+      <dl class="dl">
+        <dt>Modalidad</dt><dd>${u.mod}</dd>
+        <dt>Actualización</dt><dd>${u.act}</dd>
+        <dt>Alquiler fijo</dt><dd class="mono">${u.fijo}</dd>
+        <dt>Gastos comunes</dt><dd class="mono">${u.exp}</dd>
+        <dt>Vencimiento</dt><dd>Día ${u.venc}</dd>
+      </dl>
+      <table class="liq" style="margin-top:16px"><tr class="total"><td>A pagar en agosto</td><td>${u.tot}</td></tr></table>
+      ${compBlock}
+      <div class="form-actions">
+        <button class="btn btn-ghost btn-sm" onclick="toast('Contrato (PDF) abierto')">Ver contrato</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmBaja(${i})">Dar de baja contrato</button>
+      </div>`;
+  }
+
+  /* ---------- Baja de contrato ---------- */
+  function confirmBaja(i){
+    const u = units[i];
+    openModal(`Dar de baja — Local ${u.n}`,
+      `<p style="margin:0 0 12px">Vas a rescindir el contrato de <strong>${u.loc}</strong>. El local pasará a estado <strong>libre</strong> y se generará el estado de cuenta final.</p>
+       <div class="field"><label for="baja-mot">Motivo</label>
+         <select id="baja-mot"><option>Fin de contrato</option><option>Rescisión anticipada</option><option>Falta de pago</option><option>Acuerdo de partes</option></select></div>`,
+      [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
+       {label:'Confirmar baja', cls:'btn-danger', fn:()=>{ doBaja(i); closeModal(); }}]);
+  }
+  function doBaja(i){
+    const u = units[i];
+    u.st='free'; u.baja=true; u.desde='Baja: Ago 2026'; u.comp=false; u.nuevo=false;
+    renderPlan(); selectUnit(i); renderCobranzas(); renderAccounts(); refreshNotif();
+    toast(`Contrato del Local ${u.n} dado de baja`);
+  }
+
+  /* ---------- Receipt view + accept ---------- */
+  function viewReceipt(i){
+    const u = units[i];
+    openModal(`Comprobante — Local ${u.n}`,
+      `<div class="receipt">
+         <div class="r-bank">Transferencia recibida</div>
+         <div class="r-line"><span>Origen</span><span>${u.loc}</span></div>
+         <div class="r-line"><span>CBU destino</span><span>····4402</span></div>
+         <div class="r-line"><span>Fecha</span><span>${u.compFecha}</span></div>
+         <div class="r-line"><span>Operación</span><span>#83920${i}</span></div>
+         <div class="r-amt">${u.tot}</div>
+         <div class="r-stamp">COMPROBANTE</div>
+       </div>
+       <p style="font-size:.82rem;color:var(--muted);margin:12px 0 0">Verificá que el monto coincida con la liquidación del mes antes de aceptar.</p>`,
+      [{label:'Rechazar', cls:'btn-ghost', fn:()=>{ closeModal(); toast('Comprobante rechazado · se notificó al locatario'); }},
+       {label:'Aceptar pago', cls:'btn-primary', fn:()=>{ acceptPay(i); closeModal(); }}]);
+  }
+  function acceptPay(i){
+    const u = units[i];
+    u.st='ok'; u.comp=false; u.pago='Cobrado (comprobante aceptado)'; u.cob=u.fact;
+    renderPlan(); selectUnit(i); renderCobranzas(); renderAccounts(); refreshNotif();
+    toast(`Pago del Local ${u.n} aceptado`);
+  }
+
+  /* ---------- Cobranzas ---------- */
+  function renderCobranzas(){
+    const box = document.getElementById('cobr-rows');
+    const pend = units.filter(u=>u.st==='late'||u.st==='warn');
+    if(!pend.length){ box.innerHTML = '<div class="empty">Sin cobranzas pendientes este mes.</div>'; return; }
+    box.innerHTML = pend.map(u=>{
+      const pill = u.st==='late' ? '<span class="pill late"><i></i>Mora</span>' :
+                   (u.comp ? '<span class="pill warn"><i></i>Revisión</span>' : '<span class="pill warn"><i></i>Pendiente</span>');
+      return `<div class="row"><div class="rn">${u.n}</div>
+        <div><div class="rname">${u.loc}</div><div class="rsub">Vence 10/08 · ${u.pago}</div></div>
+        <div>${pill}</div><div class="ramt">${u.tot}</div></div>`;
+    }).join('');
+  }
+
+  /* ---------- Locatarios ABM ---------- */
+  function renderAbm(){
+    const box = document.getElementById('abm-list');
+    box.innerHTML = units.filter(u=>u.st!=='free').map(u=>`
+      <div class="abm-row">
+        <div class="an">${u.n}</div>
+        <div><div class="aname">${u.loc}</div><div class="acontact">${u.email} · ${u.tel}</div></div>
+        <div class="aacts">
+          <button class="btn btn-ghost btn-sm" onclick="editTenant('${u.n}')">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetPass('${u.loc.replace(/'/g,'')}')">Blanquear clave</button>
+        </div>
+      </div>`).join('');
+  }
+  function editTenant(n){
+    const u = units.find(x=>x.n===n);
+    openModal(`Editar locatario — Local ${u.n}`,
+      `<div class="field" style="margin-bottom:12px"><label>Nombre</label><input value="${u.loc}"></div>
+       <div class="field" style="margin-bottom:12px"><label>Email</label><input type="email" value="${u.email}"></div>
+       <div class="field"><label>Teléfono</label><input value="${u.tel}"></div>`,
+      [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
+       {label:'Guardar cambios', cls:'btn-primary', fn:()=>{ closeModal(); toast('Datos del locatario actualizados'); }}]);
+  }
+  function resetPass(name){
+    openModal('Blanquear clave',
+      `<p style="margin:0">Se enviará un mail a <strong>${name}</strong> con un enlace para que defina una nueva contraseña de acceso a su cuenta.</p>`,
+      [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
+       {label:'Enviar mail', cls:'btn-primary', fn:()=>{ closeModal(); toast('Mail para blanquear clave enviado'); }}]);
+  }
+
+  /* ---------- Estado de cuenta por local ---------- */
+  function renderAccounts(){
+    const box = document.getElementById('acct-rows');
+    box.innerHTML = units.map(u=>{
+      if(u.st==='free') return `<tr><td>Local ${u.n}</td><td>—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r"><span class="st-tag abierto">Libre</span></td></tr>`;
+      const saldo = (u.cob==='$ 0') ? u.fact : '$ 0';
+      const tag = u.cob===u.fact ? '<span class="st-tag pagado">Saldado</span>' :
+                  (u.st==='late' ? '<span class="st-tag mora">En mora</span>' : '<span class="st-tag pend">Pendiente</span>');
+      return `<tr><td>Local ${u.n}</td><td>${u.loc}</td><td class="r mono">${u.fact}</td><td class="r mono">${u.cob}</td><td class="r mono">${saldo}</td><td class="r">${tag}</td></tr>`;
+    }).join('');
+  }
+
+  /* ---------- Notifications (bell) ---------- */
+  function refreshNotif(){
+    const pend = units.filter(u=>u.comp);
+    const badge = document.getElementById('bell-badge');
+    badge.textContent = pend.length;
+    badge.style.display = pend.length ? 'grid' : 'none';
+    const box = document.getElementById('notif');
+    box.innerHTML = `<div class="nh">Notificaciones <small>${pend.length} nuevas</small></div>` +
+      (pend.length
+        ? pend.map(u=>`<div class="ni" role="menuitem" tabindex="0" onclick="fromNotif(${units.indexOf(u)})">
+            <div class="ico">🧾</div><div><div class="t">Local ${u.n} · ${u.loc}</div><div class="s">Subió comprobante · ${u.compFecha}</div></div></div>`).join('')
+        : '<div class="empty-n">No hay comprobantes pendientes.</div>');
+  }
+  function toggleNotif(){
+    const box = document.getElementById('notif');
+    box.hidden = !box.hidden;
+  }
+  function fromNotif(i){
+    document.getElementById('notif').hidden = true;
+    selectUnit(i);
+    document.getElementById('detail-body').scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  document.addEventListener('click', e=>{
+    const bw = document.getElementById('bell-wrap');
+    if(bw && !bw.contains(e.target)) document.getElementById('notif').hidden = true;
+  });
+
+  /* ---------- View / tabs ---------- */
+  function setView(v){
+    ['super','admin','tenant'].forEach(x=>{
+      document.getElementById('view-'+x).hidden = (x!==v);
+      document.getElementById('tab-'+x).setAttribute('aria-selected', x===v);
+    });
+    document.getElementById('bell-wrap').style.display = (v==='admin') ? '' : 'none';
+    document.getElementById('notif').hidden = true;
+    window.scrollTo({top:0});
+  }
+  function setTab(name){
+    ['contrato','cobranzas','locatarios','config','rendicion'].forEach(t=>{
+      const sel = t===name;
+      document.getElementById('tp-'+t).hidden = !sel;
+      document.getElementById('t-'+t).setAttribute('aria-selected', sel);
+    });
+  }
+  function setHist(name){
+    ['mes','local'].forEach(t=>{
+      const sel = t===name;
+      document.getElementById('hp-'+t).hidden = !sel;
+      document.getElementById('h-'+t).setAttribute('aria-selected', sel);
+    });
+  }
+
+  /* ---------- File inputs ---------- */
+  function fileChosen(input, boxId, tId, txt){
+    if(!input.files.length) return;
+    const box = document.getElementById(boxId);
+    box.classList.add('has');
+    document.getElementById(tId).textContent = txt + ' · ' + input.files[0].name;
+  }
+  function tenantUpload(input){
+    if(!input.files.length) return;
+    document.getElementById('t-comp-box').classList.add('has');
+    document.getElementById('t-comp-t').textContent = 'Comprobante listo · ' + input.files[0].name;
+    document.getElementById('t-send').disabled = false;
+  }
+  function tenantSend(){
+    document.getElementById('pay-block').innerHTML =
+      `<div class="note rev"><strong>Comprobante enviado.</strong> Queda en revisión del administrador. Te avisamos cuando se acredite el pago.</div>`;
+    toast('Comprobante enviado a la administración');
+  }
+
+  /* ---------- Modal ---------- */
+  function openModal(title, bodyHTML, actions){
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = bodyHTML;
+    const foot = document.getElementById('modal-foot'); foot.innerHTML = '';
+    actions.forEach(a=>{
+      const b = document.createElement('button');
+      b.className = 'btn ' + a.cls; b.textContent = a.label; b.onclick = a.fn;
+      foot.appendChild(b);
+    });
+    document.getElementById('modal').hidden = false;
+  }
+  function closeModal(){ document.getElementById('modal').hidden = true; }
+  document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+  /* ---------- Toast ---------- */
+  let toastT;
+  function toast(msg){
+    const el = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    el.classList.add('show'); clearTimeout(toastT);
+    toastT = setTimeout(()=>el.classList.remove('show'), 2600);
+  }
+
+  /* ---------- Init ---------- */
+  renderPlan(); renderCobranzas(); renderAbm(); renderAccounts(); refreshNotif();
+  selectUnit(3);
+</script>
+</body>
+</html>
