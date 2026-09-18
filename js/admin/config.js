@@ -1,5 +1,5 @@
 /* ---------- Configuración · Porcentaje de expensas por unidad ---------- */
-function fmtPct(n){ return Number(n).toLocaleString('es-AR', {minimumFractionDigits:0, maximumFractionDigits:2}) + '%'; }
+function fmtPct(n){ return Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '%'; }
 function parsePct(raw){
   const s = String(raw).trim().replace(',', '.');
   return /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
@@ -35,7 +35,7 @@ function fillConfigUnidades(){
 function syncConfigPct(){
   const n = document.getElementById('cf-unidad').value;
   const actual = expensasPct[n];
-  document.getElementById('cf-pct').value = actual===undefined ? '' : String(actual).replace('.', ',');
+  document.getElementById('cf-pct').value = actual===undefined ? '' : actual.toFixed(2).replace('.', ',');
 }
 function setPorcentajeExpensa(){
   const errBox = document.getElementById('cf-err');
