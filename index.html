@@ -398,9 +398,9 @@
 
   <section class="kpis" aria-label="Resumen del mes">
     <div class="kpi accent-ok"><div class="k-label">Ocupación</div><div class="k-value" id="kpi-occ">19<span style="color:var(--muted);font-size:1rem"> / 22</span></div><div class="k-foot" id="kpi-occ-foot">3 locales libres</div></div>
-    <div class="kpi"><div class="k-label">Facturado del mes</div><div class="k-value mono">$ 18.740.500</div><div class="k-foot">Alquileres + gastos comunes</div></div>
-    <div class="kpi accent-ok"><div class="k-label">Cobrado</div><div class="k-value mono" id="kpi-cob">$ 15.980.000</div><div class="k-foot">85% del total</div></div>
-    <div class="kpi accent-late"><div class="k-label">En mora</div><div class="k-value mono">$ 2.760.500</div><div class="k-foot">2 locales con atraso</div></div>
+    <div class="kpi"><div class="k-label">Facturado del mes</div><div class="k-value mono">$ 18.740.500,00</div><div class="k-foot">Alquileres + gastos comunes</div></div>
+    <div class="kpi accent-ok"><div class="k-label">Cobrado</div><div class="k-value mono" id="kpi-cob">$ 15.980.000,00</div><div class="k-foot">85% del total</div></div>
+    <div class="kpi accent-late"><div class="k-label">En mora</div><div class="k-value mono">$ 2.760.500,00</div><div class="k-foot">2 locales con atraso</div></div>
   </section>
 
   <section class="board-card" aria-label="Plano de la galería">
@@ -440,7 +440,7 @@
             <div class="field full"><label for="f-locatario">Locatario</label><input id="f-locatario" placeholder="Razón social o nombre"></div>
             <div class="field"><label for="f-desde">Inicio</label><input id="f-desde" type="date" value="2026-09-01"></div>
             <div class="field"><label for="f-meses">Plazo (meses)</label><input id="f-meses" type="number" value="24" min="1"></div>
-            <div class="field"><label for="f-fijo">Alquiler fijo mensual</label><input id="f-fijo" value="$ 620.000"></div>
+            <div class="field"><label for="f-fijo">Alquiler fijo mensual</label><input id="f-fijo" value="$ 620.000,00"></div>
             <div class="field"><label for="f-modo">Modalidad</label><select id="f-modo"><option>Fijo</option><option>Fijo + % de facturación</option></select></div>
             <div class="field full"><label>Contrato firmado (PDF)</label>
               <label class="filebox" for="f-pdf" id="f-pdf-box">
@@ -492,7 +492,7 @@
               <span class="hint">Se liquida solo sobre lo efectivamente cobrado.</span></div>
             <div class="field"><label for="c-venc">Día de vencimiento mensual</label><input id="c-venc" type="number" value="10" min="1" max="28"></div>
             <div class="field"><label for="c-gracia">Días de gracia</label><input id="c-gracia" type="number" value="3" min="0"></div>
-            <div class="field full"><label for="c-exp">Gastos comunes base (por local)</label><input id="c-exp" value="$ 160.000"></div>
+            <div class="field full"><label for="c-exp">Gastos comunes base (por local)</label><input id="c-exp" value="$ 160.000,00"></div>
           </div>
           <div class="note">Estos parámetros se aplican a todas las liquidaciones de la galería a partir del próximo cierre.</div>
           <div class="form-actions"><button class="btn btn-primary" onclick="toast('Configuración guardada')">Guardar configuración</button></div>
@@ -502,11 +502,11 @@
         <div class="tabpane" id="tp-rendicion" role="tabpanel" aria-labelledby="t-rendicion" hidden>
           <p class="sub" style="color:var(--muted);margin:0 0 14px">Resumen para el dueño — Agosto 2026</p>
           <div class="rend">
-            <div class="line"><div class="lbl">Alquileres cobrados <small>19 locales</small></div><div class="val">$ 14.180.000</div></div>
-            <div class="line"><div class="lbl">Gastos comunes cobrados</div><div class="val">$ 1.800.000</div></div>
-            <div class="line neg"><div class="lbl">Gastos comunes pagados <small>limpieza, luz, seguridad, seguro</small></div><div class="val">− $ 1.940.000</div></div>
-            <div class="line neg"><div class="lbl">Comisión del administrador <small>8% sobre lo cobrado</small></div><div class="val">− $ 1.278.400</div></div>
-            <div class="line net"><div class="lbl">Neto a transferir al dueño</div><div class="val">$ 12.761.600</div></div>
+            <div class="line"><div class="lbl">Alquileres cobrados <small>19 locales</small></div><div class="val">$ 14.180.000,00</div></div>
+            <div class="line"><div class="lbl">Gastos comunes cobrados</div><div class="val">$ 1.800.000,00</div></div>
+            <div class="line neg"><div class="lbl">Gastos comunes pagados <small>limpieza, luz, seguridad, seguro</small></div><div class="val">− $ 1.940.000,00</div></div>
+            <div class="line neg"><div class="lbl">Comisión del administrador <small>8% sobre lo cobrado</small></div><div class="val">− $ 1.278.400,00</div></div>
+            <div class="line net"><div class="lbl">Neto a transferir al dueño</div><div class="val">$ 12.761.600,00</div></div>
           </div>
           <div class="form-actions">
             <button class="btn btn-ghost" onclick="toast('PDF generado')">Descargar PDF</button>
@@ -530,10 +530,10 @@
         <table class="data">
           <thead><tr><th>Período</th><th class="r">Facturado</th><th class="r">Cobrado</th><th class="r">Mora</th><th class="r">Comisión</th><th class="r">Neto al dueño</th><th class="r">Estado</th></tr></thead>
           <tbody>
-            <tr><td>Agosto 2026</td><td class="r mono">$ 18.740.500</td><td class="r mono">$ 15.980.000</td><td class="r mono">$ 2.760.500</td><td class="r mono">$ 1.278.400</td><td class="r mono">$ 12.761.600</td><td class="r"><span class="st-tag abierto">Abierto</span></td></tr>
-            <tr><td>Julio 2026</td><td class="r mono">$ 18.120.000</td><td class="r mono">$ 18.120.000</td><td class="r mono">$ 0</td><td class="r mono">$ 1.449.600</td><td class="r mono">$ 14.930.400</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
-            <tr><td>Junio 2026</td><td class="r mono">$ 17.540.000</td><td class="r mono">$ 17.190.000</td><td class="r mono">$ 350.000</td><td class="r mono">$ 1.375.200</td><td class="r mono">$ 14.210.800</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
-            <tr><td>Mayo 2026</td><td class="r mono">$ 16.980.000</td><td class="r mono">$ 16.980.000</td><td class="r mono">$ 0</td><td class="r mono">$ 1.358.400</td><td class="r mono">$ 13.980.600</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+            <tr><td>Agosto 2026</td><td class="r mono">$ 18.740.500,00</td><td class="r mono">$ 15.980.000,00</td><td class="r mono">$ 2.760.500,00</td><td class="r mono">$ 1.278.400,00</td><td class="r mono">$ 12.761.600,00</td><td class="r"><span class="st-tag abierto">Abierto</span></td></tr>
+            <tr><td>Julio 2026</td><td class="r mono">$ 18.120.000,00</td><td class="r mono">$ 18.120.000,00</td><td class="r mono">$ 0,00</td><td class="r mono">$ 1.449.600,00</td><td class="r mono">$ 14.930.400,00</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+            <tr><td>Junio 2026</td><td class="r mono">$ 17.540.000,00</td><td class="r mono">$ 17.190.000,00</td><td class="r mono">$ 350.000,00</td><td class="r mono">$ 1.375.200,00</td><td class="r mono">$ 14.210.800,00</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
+            <tr><td>Mayo 2026</td><td class="r mono">$ 16.980.000,00</td><td class="r mono">$ 16.980.000,00</td><td class="r mono">$ 0,00</td><td class="r mono">$ 1.358.400,00</td><td class="r mono">$ 13.980.600,00</td><td class="r"><span class="st-tag cerrado">Cerrado</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -563,10 +563,10 @@
             <select id="g-tipo"><option value="ordinario">Ordinario</option><option value="extraordinario">Extraordinario</option></select></div>
           <div class="field"><label for="g-prov">Proveedor</label>
             <select id="g-prov"></select></div>
-          <div class="field"><label for="g-facttipo">Tipo de factura</label><input id="g-facttipo" placeholder="A, B, C, Nota de crédito…"></div>
+          <div class="field"><label for="g-facttipo">Tipo de factura</label><select id="g-facttipo"></select></div>
           <div class="field"><label for="g-factnro">Número de factura</label><input id="g-factnro" placeholder="0001-00001234"></div>
           <div class="field full"><label for="g-desc">Descripción</label><input id="g-desc" placeholder="Ej. Consumo eléctrico de agosto"></div>
-          <div class="field"><label for="g-monto">Costo</label><input id="g-monto" type="number" min="0" placeholder="0"></div>
+          <div class="field"><label for="g-monto">Costo</label><input id="g-monto" type="number" min="0" step="0.01" placeholder="0,00"><span class="hint">Hasta dos decimales.</span></div>
           <div class="field full"><label>Factura (PDF, JPEG o PNG) · opcional</label>
             <label class="filebox" for="g-archivo" id="g-archivo-box">
               <div class="fi-ico">📎</div><div class="fi-t" id="g-archivo-t">Adjuntar factura</div><div class="fi-s">PDF, JPEG o PNG · opcional</div>
@@ -602,7 +602,7 @@
     </div>
     <div class="due">
       <div class="due-label">Total a pagar — Agosto 2026</div>
-      <div class="due-amt">$ 1.586.200</div>
+      <div class="due-amt">$ 1.586.200,00</div>
       <div class="due-when late">Venció el 10/08 · 18 días de atraso</div>
     </div>
   </section>
@@ -612,13 +612,13 @@
       <div class="panel-head"><h3>Detalle de la liquidación</h3><span class="sub">Agosto 2026</span></div>
       <div class="panel-body">
         <table class="liq">
-          <tr><td>Alquiler fijo</td><td>$ 980.000</td></tr>
+          <tr><td>Alquiler fijo</td><td>$ 980.000,00</td></tr>
           <tr class="muted"><td>Actualizado en junio (ICL trimestral)</td><td></td></tr>
-          <tr><td>Variable — 4% de facturación declarada</td><td>$ 372.000</td></tr>
-          <tr class="muted"><td>Sobre $ 9.300.000 declarados</td><td></td></tr>
-          <tr><td>Gastos comunes (expensas)</td><td>$ 160.000</td></tr>
-          <tr><td>Interés por mora (18 días)</td><td>$ 74.200</td></tr>
-          <tr class="total"><td>Total a pagar</td><td>$ 1.586.200</td></tr>
+          <tr><td>Variable — 4% de facturación declarada</td><td>$ 372.000,00</td></tr>
+          <tr class="muted"><td>Sobre $ 9.300.000,00 declarados</td><td></td></tr>
+          <tr><td>Gastos comunes (expensas)</td><td>$ 160.000,00</td></tr>
+          <tr><td>Interés por mora (18 días)</td><td>$ 74.200,00</td></tr>
+          <tr class="total"><td>Total a pagar</td><td>$ 1.586.200,00</td></tr>
         </table>
 
         <div id="pay-block" style="margin-top:18px">
@@ -651,10 +651,10 @@
           <table class="hist">
             <thead><tr><th>Período</th><th>Monto</th><th>Estado</th></tr></thead>
             <tbody>
-              <tr><td class="desc">Agosto 2026</td><td>$ 1.586.200</td><td><span class="st-tag pend">Pendiente</span></td></tr>
-              <tr><td class="desc">Julio 2026</td><td>$ 1.498.000</td><td><span class="st-tag pagado">Pagado</span></td></tr>
-              <tr><td class="desc">Junio 2026</td><td>$ 1.455.300</td><td><span class="st-tag pagado">Pagado</span></td></tr>
-              <tr><td class="desc">Mayo 2026</td><td>$ 1.312.000</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+              <tr><td class="desc">Agosto 2026</td><td>$ 1.586.200,00</td><td><span class="st-tag pend">Pendiente</span></td></tr>
+              <tr><td class="desc">Julio 2026</td><td>$ 1.498.000,00</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+              <tr><td class="desc">Junio 2026</td><td>$ 1.455.300,00</td><td><span class="st-tag pagado">Pagado</span></td></tr>
+              <tr><td class="desc">Mayo 2026</td><td>$ 1.312.000,00</td><td><span class="st-tag pagado">Pagado</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -689,28 +689,28 @@
 <script>
   /* ---------- Data ---------- */
   const units = [
-    {n:'01', st:'ok',  loc:'Alma Ropa', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 840.000', exp:'$ 160.000', tot:'$ 1.000.000', act:'ICL · Nov 2026', venc:'10', pago:'Cobrado 08/08', email:'alma@correo.com', tel:'+54 11 4001-0001', comp:false, fact:'$ 1.000.000', cob:'$ 1.000.000'},
-    {n:'02', st:'ok',  loc:'Cuero & Co.', rubro:'Marroquinería', mod:'Fijo', fijo:'$ 720.000', exp:'$ 160.000', tot:'$ 880.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 06/08', email:'cueroco@correo.com', tel:'+54 11 4001-0002', comp:false, fact:'$ 880.000', cob:'$ 880.000'},
-    {n:'03', st:'ok',  loc:'Áurea', rubro:'Joyería', mod:'Fijo', fijo:'$ 910.000', exp:'$ 160.000', tot:'$ 1.070.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 09/08', email:'aurea@correo.com', tel:'+54 11 4001-0003', comp:false, fact:'$ 1.070.000', cob:'$ 1.070.000'},
-    {n:'04', st:'late', loc:'Café del Pasaje', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 980.000', exp:'$ 160.000', tot:'$ 1.586.200', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'cafe@correo.com', tel:'+54 11 4001-0004', comp:true, compFecha:'27/08 14:12', fact:'$ 1.586.200', cob:'$ 0'},
-    {n:'05', st:'ok',  loc:'Esencia', rubro:'Perfumería', mod:'Fijo', fijo:'$ 680.000', exp:'$ 160.000', tot:'$ 840.000', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 07/08', email:'esencia@correo.com', tel:'+54 11 4001-0005', comp:false, fact:'$ 840.000', cob:'$ 840.000'},
-    {n:'06', st:'warn', loc:'Papel & Tinta', rubro:'Librería', mod:'Fijo', fijo:'$ 560.000', exp:'$ 160.000', tot:'$ 720.000', act:'ICL · Sep 2026', venc:'10', pago:'Vence hoy', email:'papel@correo.com', tel:'+54 11 4001-0006', comp:false, fact:'$ 720.000', cob:'$ 0'},
+    {n:'01', st:'ok',  loc:'Alma Ropa', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 840.000,00', exp:'$ 160.000,00', tot:'$ 1.000.000,00', act:'ICL · Nov 2026', venc:'10', pago:'Cobrado 08/08', email:'alma@correo.com', tel:'+54 11 4001-0001', comp:false, fact:'$ 1.000.000,00', cob:'$ 1.000.000,00'},
+    {n:'02', st:'ok',  loc:'Cuero & Co.', rubro:'Marroquinería', mod:'Fijo', fijo:'$ 720.000,00', exp:'$ 160.000,00', tot:'$ 880.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 06/08', email:'cueroco@correo.com', tel:'+54 11 4001-0002', comp:false, fact:'$ 880.000,00', cob:'$ 880.000,00'},
+    {n:'03', st:'ok',  loc:'Áurea', rubro:'Joyería', mod:'Fijo', fijo:'$ 910.000,00', exp:'$ 160.000,00', tot:'$ 1.070.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 09/08', email:'aurea@correo.com', tel:'+54 11 4001-0003', comp:false, fact:'$ 1.070.000,00', cob:'$ 1.070.000,00'},
+    {n:'04', st:'late', loc:'Café del Pasaje', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 980.000,00', exp:'$ 160.000,00', tot:'$ 1.586.200,00', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'cafe@correo.com', tel:'+54 11 4001-0004', comp:true, compFecha:'27/08 14:12', fact:'$ 1.586.200,00', cob:'$ 0,00'},
+    {n:'05', st:'ok',  loc:'Esencia', rubro:'Perfumería', mod:'Fijo', fijo:'$ 680.000,00', exp:'$ 160.000,00', tot:'$ 840.000,00', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 07/08', email:'esencia@correo.com', tel:'+54 11 4001-0005', comp:false, fact:'$ 840.000,00', cob:'$ 840.000,00'},
+    {n:'06', st:'warn', loc:'Papel & Tinta', rubro:'Librería', mod:'Fijo', fijo:'$ 560.000,00', exp:'$ 160.000,00', tot:'$ 720.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Vence hoy', email:'papel@correo.com', tel:'+54 11 4001-0006', comp:false, fact:'$ 720.000,00', cob:'$ 0,00'},
     {n:'07', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jun 2026'},
-    {n:'08', st:'ok',  loc:'Ver Más', rubro:'Óptica', mod:'Fijo', fijo:'$ 640.000', exp:'$ 160.000', tot:'$ 800.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 05/08', email:'vermas@correo.com', tel:'+54 11 4001-0008', comp:false, fact:'$ 800.000', cob:'$ 800.000'},
-    {n:'09', st:'warn', loc:'Zapatería Nova', rubro:'Calzado', mod:'Fijo', fijo:'$ 545.000', exp:'$ 160.000', tot:'$ 705.000', act:'ICL · Nov 2026', venc:'10', pago:'Pendiente', email:'nova@correo.com', tel:'+54 11 4001-0009', comp:false, fact:'$ 705.000', cob:'$ 0'},
-    {n:'10', st:'ok',  loc:'Farma Centro', rubro:'Farmacia', mod:'Fijo', fijo:'$ 1.240.000', exp:'$ 160.000', tot:'$ 1.400.000', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 04/08', email:'farma@correo.com', tel:'+54 11 4001-0010', comp:false, fact:'$ 1.400.000', cob:'$ 1.400.000'},
-    {n:'11', st:'warn', loc:'KioZone', rubro:'Kiosco', mod:'Fijo', fijo:'$ 530.000', exp:'$ 160.000', tot:'$ 690.000', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'kiozone@correo.com', tel:'+54 11 4001-0011', comp:true, compFecha:'28/08 09:40', fact:'$ 690.000', cob:'$ 0'},
-    {n:'12', st:'ok',  loc:'Urbano', rubro:'Indumentaria', mod:'Fijo + 3% fact.', fijo:'$ 760.000', exp:'$ 160.000', tot:'$ 1.180.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'urbano@correo.com', tel:'+54 11 4001-0012', comp:false, fact:'$ 1.180.000', cob:'$ 1.180.000'},
-    {n:'13', st:'ok',  loc:'ByteShop', rubro:'Tecnología', mod:'Fijo', fijo:'$ 990.000', exp:'$ 160.000', tot:'$ 1.150.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 03/08', email:'byteshop@correo.com', tel:'+54 11 4001-0013', comp:false, fact:'$ 1.150.000', cob:'$ 1.150.000'},
+    {n:'08', st:'ok',  loc:'Ver Más', rubro:'Óptica', mod:'Fijo', fijo:'$ 640.000,00', exp:'$ 160.000,00', tot:'$ 800.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 05/08', email:'vermas@correo.com', tel:'+54 11 4001-0008', comp:false, fact:'$ 800.000,00', cob:'$ 800.000,00'},
+    {n:'09', st:'warn', loc:'Zapatería Nova', rubro:'Calzado', mod:'Fijo', fijo:'$ 545.000,00', exp:'$ 160.000,00', tot:'$ 705.000,00', act:'ICL · Nov 2026', venc:'10', pago:'Pendiente', email:'nova@correo.com', tel:'+54 11 4001-0009', comp:false, fact:'$ 705.000,00', cob:'$ 0,00'},
+    {n:'10', st:'ok',  loc:'Farma Centro', rubro:'Farmacia', mod:'Fijo', fijo:'$ 1.240.000,00', exp:'$ 160.000,00', tot:'$ 1.400.000,00', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 04/08', email:'farma@correo.com', tel:'+54 11 4001-0010', comp:false, fact:'$ 1.400.000,00', cob:'$ 1.400.000,00'},
+    {n:'11', st:'warn', loc:'KioZone', rubro:'Kiosco', mod:'Fijo', fijo:'$ 530.000,00', exp:'$ 160.000,00', tot:'$ 690.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'kiozone@correo.com', tel:'+54 11 4001-0011', comp:true, compFecha:'28/08 09:40', fact:'$ 690.000,00', cob:'$ 0,00'},
+    {n:'12', st:'ok',  loc:'Urbano', rubro:'Indumentaria', mod:'Fijo + 3% fact.', fijo:'$ 760.000,00', exp:'$ 160.000,00', tot:'$ 1.180.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'urbano@correo.com', tel:'+54 11 4001-0012', comp:false, fact:'$ 1.180.000,00', cob:'$ 1.180.000,00'},
+    {n:'13', st:'ok',  loc:'ByteShop', rubro:'Tecnología', mod:'Fijo', fijo:'$ 990.000,00', exp:'$ 160.000,00', tot:'$ 1.150.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 03/08', email:'byteshop@correo.com', tel:'+54 11 4001-0013', comp:false, fact:'$ 1.150.000,00', cob:'$ 1.150.000,00'},
     {n:'14', st:'free', loc:'Local libre', rubro:'—', desde:'Disponible desde Mar 2026'},
-    {n:'15', st:'ok',  loc:'Estilo D10', rubro:'Peluquería', mod:'Fijo', fijo:'$ 610.000', exp:'$ 160.000', tot:'$ 770.000', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 09/08', email:'estilo@correo.com', tel:'+54 11 4001-0015', comp:false, fact:'$ 770.000', cob:'$ 770.000'},
-    {n:'16', st:'ok',  loc:'Empanadas Sur', rubro:'Gastronomía', mod:'Fijo + 5% fact.', fijo:'$ 700.000', exp:'$ 160.000', tot:'$ 1.320.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 07/08', email:'empanadas@correo.com', tel:'+54 11 4001-0016', comp:false, nuevo:true, fact:'$ 1.320.000', cob:'$ 1.320.000'},
-    {n:'17', st:'late', loc:'Óptica Belgrano', rubro:'Óptica', mod:'Fijo', fijo:'$ 1.088.500', exp:'$ 160.000', tot:'$ 1.248.500', act:'ICL · Oct 2026', venc:'10', pago:'En mora · 18 días', email:'opticabelgrano@correo.com', tel:'+54 11 4001-0017', comp:false, fact:'$ 1.248.500', cob:'$ 0'},
-    {n:'18', st:'ok',  loc:'Detalles', rubro:'Regalería', mod:'Fijo', fijo:'$ 520.000', exp:'$ 160.000', tot:'$ 680.000', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 06/08', email:'detalles@correo.com', tel:'+54 11 4001-0018', comp:false, fact:'$ 680.000', cob:'$ 680.000'},
-    {n:'19', st:'ok',  loc:'Nena&Nene', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 690.000', exp:'$ 160.000', tot:'$ 850.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'nenaynene@correo.com', tel:'+54 11 4001-0019', comp:false, fact:'$ 850.000', cob:'$ 850.000'},
-    {n:'20', st:'ok',  loc:'Helados Polo', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 650.000', exp:'$ 160.000', tot:'$ 1.090.000', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 05/08', email:'polo@correo.com', tel:'+54 11 4001-0020', comp:false, fact:'$ 1.090.000', cob:'$ 1.090.000'},
+    {n:'15', st:'ok',  loc:'Estilo D10', rubro:'Peluquería', mod:'Fijo', fijo:'$ 610.000,00', exp:'$ 160.000,00', tot:'$ 770.000,00', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 09/08', email:'estilo@correo.com', tel:'+54 11 4001-0015', comp:false, fact:'$ 770.000,00', cob:'$ 770.000,00'},
+    {n:'16', st:'ok',  loc:'Empanadas Sur', rubro:'Gastronomía', mod:'Fijo + 5% fact.', fijo:'$ 700.000,00', exp:'$ 160.000,00', tot:'$ 1.320.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 07/08', email:'empanadas@correo.com', tel:'+54 11 4001-0016', comp:false, nuevo:true, fact:'$ 1.320.000,00', cob:'$ 1.320.000,00'},
+    {n:'17', st:'late', loc:'Óptica Belgrano', rubro:'Óptica', mod:'Fijo', fijo:'$ 1.088.500,00', exp:'$ 160.000,00', tot:'$ 1.248.500,00', act:'ICL · Oct 2026', venc:'10', pago:'En mora · 18 días', email:'opticabelgrano@correo.com', tel:'+54 11 4001-0017', comp:false, fact:'$ 1.248.500,00', cob:'$ 0,00'},
+    {n:'18', st:'ok',  loc:'Detalles', rubro:'Regalería', mod:'Fijo', fijo:'$ 520.000,00', exp:'$ 160.000,00', tot:'$ 680.000,00', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 06/08', email:'detalles@correo.com', tel:'+54 11 4001-0018', comp:false, fact:'$ 680.000,00', cob:'$ 680.000,00'},
+    {n:'19', st:'ok',  loc:'Nena&Nene', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 690.000,00', exp:'$ 160.000,00', tot:'$ 850.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'nenaynene@correo.com', tel:'+54 11 4001-0019', comp:false, fact:'$ 850.000,00', cob:'$ 850.000,00'},
+    {n:'20', st:'ok',  loc:'Helados Polo', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 650.000,00', exp:'$ 160.000,00', tot:'$ 1.090.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 05/08', email:'polo@correo.com', tel:'+54 11 4001-0020', comp:false, fact:'$ 1.090.000,00', cob:'$ 1.090.000,00'},
     {n:'21', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jul 2026'},
-    {n:'22', st:'ok',  loc:'Récord Sport', rubro:'Deportes', mod:'Fijo', fijo:'$ 870.000', exp:'$ 160.000', tot:'$ 1.030.000', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 04/08', email:'record@correo.com', tel:'+54 11 4001-0022', comp:false, nuevo:true, fact:'$ 1.030.000', cob:'$ 1.030.000'},
+    {n:'22', st:'ok',  loc:'Récord Sport', rubro:'Deportes', mod:'Fijo', fijo:'$ 870.000,00', exp:'$ 160.000,00', tot:'$ 1.030.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 04/08', email:'record@correo.com', tel:'+54 11 4001-0022', comp:false, nuevo:true, fact:'$ 1.030.000,00', cob:'$ 1.030.000,00'},
   ];
 
   const stLabel = {ok:'Al día', warn:'Por vencer', late:'En mora', free:'Libre'};
@@ -727,11 +727,13 @@
   ];
   let gastoSeq = 3;
   let gastos = [
-    {id:1, tipo:'ordinario', proveedorId:1, facturaTipo:'B', facturaNro:'0001-00004521', desc:'Consumo eléctrico de agosto', monto:185000, archivoNombre:'edenor_ago2026.pdf', archivoUrl:null, fecha:'2026-08-05'},
-    {id:2, tipo:'ordinario', proveedorId:5, facturaTipo:'C', facturaNro:'0002-00000891', desc:'Honorarios de administración · agosto', monto:420000, archivoNombre:'honorarios_ago2026.pdf', archivoUrl:null, fecha:'2026-08-03'},
-    {id:3, tipo:'extraordinario', proveedorId:3, facturaTipo:'B', facturaNro:'0001-00000142', desc:'Reparación de bomba de agua', monto:96000, archivoNombre:null, archivoUrl:null, fecha:'2026-08-14'},
+    {id:1, tipo:'ordinario', proveedorId:1, facturaTipo:'Factura B', facturaNro:'0001-00004521', desc:'Consumo eléctrico de agosto', monto:185000, archivoNombre:'edenor_ago2026.pdf', archivoUrl:null, fecha:'2026-08-05'},
+    {id:2, tipo:'ordinario', proveedorId:5, facturaTipo:'Factura C', facturaNro:'0002-00000891', desc:'Honorarios de administración · agosto', monto:420000, archivoNombre:'honorarios_ago2026.pdf', archivoUrl:null, fecha:'2026-08-03'},
+    {id:3, tipo:'extraordinario', proveedorId:3, facturaTipo:'Ticket', facturaNro:'0001-00000142', desc:'Reparación de bomba de agua', monto:96000, archivoNombre:null, archivoUrl:null, fecha:'2026-08-14'},
   ];
-  function fmtMoney(n){ return '$ ' + Number(n).toLocaleString('es-AR'); }
+  const tiposFactura = ['Factura A','Factura B','Factura C','Recibo','Ticket'];
+  function fmtMoney(n){ return '$ ' + Number(n).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function tieneMasDeDosDecimales(n){ return Math.abs(n*100 - Math.round(n*100)) > 1e-6; }
   function makeDemoFileUrl(filename){
     const ext = filename.split('.').pop().toLowerCase();
     const mime = ext==='pdf' ? 'application/pdf' : (ext==='png' ? 'image/png' : 'image/jpeg');
@@ -771,7 +773,7 @@
         <div class="contract-title"><span class="num">${u.n}</span><div><h3>Local disponible</h3></div>
           <span class="pill free" style="margin-left:auto"><i></i>Libre</span></div>
         <dl class="dl"><dt>Situación</dt><dd>${u.desde||'Sin contrato'}</dd><dt>Superficie</dt><dd>~ 38 m²</dd>
-          <dt>Expensas base</dt><dd class="mono">$ 160.000</dd></dl>
+          <dt>Expensas base</dt><dd class="mono">$ 160.000,00</dd></dl>
         <div class="note">Local sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
       return;
     }
@@ -893,16 +895,23 @@
     const p = proveedores.find(x=>x.id===id);
     return p ? p.nombre : '—';
   }
+  function facturaTipoOptions(selected){
+    return tiposFactura.map(t=>`<option${t===selected?' selected':''}>${t}</option>`).join('');
+  }
   function fillProveedorSelect(){
     document.getElementById('g-prov').innerHTML =
       proveedores.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+    document.getElementById('g-facttipo').innerHTML = facturaTipoOptions();
   }
   function validarGasto(g, excludeId){
-    if(!g.proveedorId || !g.facturaTipo.trim() || !g.facturaNro.trim() || !g.desc.trim()){
+    if(!g.proveedorId || !tiposFactura.includes(g.facturaTipo) || !g.facturaNro.trim() || !g.desc.trim()){
       return {ok:false, msg:'Completá todos los campos obligatorios antes de guardar (la factura adjunta es opcional).'};
     }
     if(!(g.monto > 0)){
-      return {ok:false, msg:'El monto del gasto debe ser mayor a $ 0.'};
+      return {ok:false, msg:'El monto del gasto debe ser mayor a $ 0,00.'};
+    }
+    if(tieneMasDeDosDecimales(g.monto)){
+      return {ok:false, msg:'El monto solo puede tener hasta dos decimales.'};
     }
     const nro = g.facturaNro.trim().toLowerCase();
     const dup = gastos.some(x=> x.id!==excludeId && x.proveedorId===g.proveedorId && x.facturaNro.trim().toLowerCase()===nro);
@@ -925,7 +934,7 @@
         <div class="an" style="font-size:.68rem">${g.tipo==='ordinario'?'ORD':'EXT'}</div>
         <div>
           <div class="aname">${provNombre(g.proveedorId)} · ${fmtMoney(g.monto)}</div>
-          <div class="acontact">${g.desc} · Fact. ${g.facturaTipo} N° ${g.facturaNro}</div>
+          <div class="acontact">${g.desc} · ${g.facturaTipo} N° ${g.facturaNro}</div>
         </div>
         <div class="aacts">
           ${archivoLinkHTML(g)}
@@ -970,7 +979,7 @@
     gastos.push({id: ++gastoSeq, fecha: new Date().toISOString().slice(0,10), ...g});
     renderGastos(); renderGastosTenant();
     toast('Gasto cargado correctamente');
-    document.getElementById('g-facttipo').value = '';
+    document.getElementById('g-facttipo').selectedIndex = 0;
     document.getElementById('g-factnro').value = '';
     document.getElementById('g-desc').value = '';
     document.getElementById('g-monto').value = '';
@@ -982,10 +991,10 @@
     const g = gastos.find(x=>x.id===id);
     const fileLabel = g.archivoNombre ? `Factura actual · ${g.archivoNombre}` : 'Adjuntar factura';
     openModal(`Editar gasto — ${provNombre(g.proveedorId)}`,
-      `<div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><input id="eg-facttipo" value="${g.facturaTipo}"></div>
+      `<div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><select id="eg-facttipo">${facturaTipoOptions(g.facturaTipo)}</select></div>
        <div class="field" style="margin-bottom:12px"><label>Número de factura</label><input id="eg-factnro" value="${g.facturaNro}"></div>
        <div class="field" style="margin-bottom:12px"><label>Descripción</label><input id="eg-desc" value="${g.desc}"></div>
-       <div class="field" style="margin-bottom:12px"><label>Costo</label><input id="eg-monto" type="number" min="0" value="${g.monto}"></div>
+       <div class="field" style="margin-bottom:12px"><label>Costo</label><input id="eg-monto" type="number" min="0" step="0.01" value="${g.monto}"><span class="hint">Hasta dos decimales.</span></div>
        <div class="field">
          <label>Factura (PDF, JPEG o PNG) · opcional</label>
          <label class="filebox${g.archivoNombre?' has':''}" for="eg-archivo" id="eg-archivo-box">
@@ -1026,7 +1035,7 @@
   function confirmDeleteGasto(id){
     const g = gastos.find(x=>x.id===id);
     openModal('Borrar gasto',
-      `<p style="margin:0">Vas a borrar el gasto de <strong>${provNombre(g.proveedorId)}</strong> por <strong>${fmtMoney(g.monto)}</strong> (Fact. ${g.facturaTipo} N° ${g.facturaNro}). Esta acción no se puede deshacer.</p>`,
+      `<p style="margin:0">Vas a borrar el gasto de <strong>${provNombre(g.proveedorId)}</strong> por <strong>${fmtMoney(g.monto)}</strong> (${g.facturaTipo} N° ${g.facturaNro}). Esta acción no se puede deshacer.</p>`,
       [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
        {label:'Confirmar borrado', cls:'btn-danger', fn:()=>{ deleteGasto(id); closeModal(); }}]);
   }
@@ -1043,7 +1052,7 @@
     const box = document.getElementById('acct-rows');
     box.innerHTML = units.map(u=>{
       if(u.st==='free') return `<tr><td>Local ${u.n}</td><td>—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r"><span class="st-tag abierto">Libre</span></td></tr>`;
-      const saldo = (u.cob==='$ 0') ? u.fact : '$ 0';
+      const saldo = (u.cob==='$ 0,00') ? u.fact : '$ 0,00';
       const tag = u.cob===u.fact ? '<span class="st-tag pagado">Saldado</span>' :
                   (u.st==='late' ? '<span class="st-tag mora">En mora</span>' : '<span class="st-tag pend">Pendiente</span>');
       return `<tr><td>Local ${u.n}</td><td>${u.loc}</td><td class="r mono">${u.fact}</td><td class="r mono">${u.cob}</td><td class="r mono">${saldo}</td><td class="r">${tag}</td></tr>`;
