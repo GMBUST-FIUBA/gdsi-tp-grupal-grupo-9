@@ -413,6 +413,7 @@
           <button role="tab" aria-selected="true"  aria-controls="tp-contrato"  id="t-contrato"  onclick="setTab('contrato')">Nuevo contrato</button>
           <button role="tab" aria-selected="false" aria-controls="tp-cobranzas" id="t-cobranzas" onclick="setTab('cobranzas')">Cobranzas</button>
           <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')">Locatarios</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-gastos"     id="t-gastos"     onclick="setTab('gastos')">Gastos</button>
           <button role="tab" aria-selected="false" aria-controls="tp-config"    id="t-config"    onclick="setTab('config')">Configuración</button>
           <button role="tab" aria-selected="false" aria-controls="tp-rendicion" id="t-rendicion" onclick="setTab('rendicion')">Rendición</button>
         </div>
@@ -460,6 +461,29 @@
           </div>
           <div class="form-actions" style="margin-top:0"><button class="btn btn-primary btn-sm" onclick="toast('Locatario agregado')">Agregar locatario</button></div>
           <div class="abm" id="abm-list" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Gastos (ABM) -->
+        <div class="tabpane" id="tp-gastos" role="tabpanel" aria-labelledby="t-gastos" hidden>
+          <div class="form-grid" style="margin-bottom:14px">
+            <div class="field"><label for="g-tipo">Tipo de gasto</label>
+              <select id="g-tipo"><option value="ordinario">Ordinario</option><option value="extraordinario">Extraordinario</option></select></div>
+            <div class="field"><label for="g-prov">Proveedor</label>
+              <select id="g-prov"></select></div>
+            <div class="field"><label for="g-facttipo">Tipo de factura</label><input id="g-facttipo" placeholder="A, B, C, Nota de crédito…"></div>
+            <div class="field"><label for="g-factnro">Número de factura</label><input id="g-factnro" placeholder="0001-00001234"></div>
+            <div class="field full"><label for="g-desc">Descripción</label><input id="g-desc" placeholder="Ej. Consumo eléctrico de agosto"></div>
+            <div class="field"><label for="g-monto">Costo</label><input id="g-monto" type="number" min="0" placeholder="0"></div>
+            <div class="field full"><label>Factura (PDF, JPEG o PNG)</label>
+              <label class="filebox" for="g-archivo" id="g-archivo-box">
+                <div class="fi-ico">📎</div><div class="fi-t" id="g-archivo-t">Adjuntar factura</div><div class="fi-s">PDF, JPEG o PNG</div>
+              </label>
+              <input type="file" id="g-archivo" accept="application/pdf,image/jpeg,image/png" onchange="fileChosen(this,'g-archivo-box','g-archivo-t','Factura adjuntada')">
+            </div>
+          </div>
+          <div class="note late" id="g-err" hidden></div>
+          <div class="form-actions" style="margin-top:0"><button class="btn btn-primary btn-sm" onclick="addGasto()">Agregar gasto</button></div>
+          <div class="abm" id="gastos-list" style="margin-top:8px"></div>
         </div>
 
         <!-- Configuración -->
@@ -606,6 +630,16 @@
           </table>
         </div>
       </section>
+
+      <section class="panel">
+        <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
+        <div class="panel-body">
+          <table class="hist" id="tenant-gastos-table">
+            <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th>Monto</th></tr></thead>
+            <tbody id="tenant-gastos-rows"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 </main>
@@ -653,6 +687,22 @@
   const stLabel = {ok:'Al día', warn:'Por vencer', late:'En mora', free:'Libre'};
   const stPill  = {ok:'ok', warn:'warn', late:'late', free:'free'};
   let selectedIdx = null;
+
+  /* ---------- Gastos ---------- */
+  const proveedores = [
+    {id:1, nombre:'Edenor'},
+    {id:2, nombre:'AySA'},
+    {id:3, nombre:'Limpieza Total SRL'},
+    {id:4, nombre:'Seguridad Belgrano'},
+    {id:5, nombre:'Estudio Ríos'},
+  ];
+  let gastoSeq = 3;
+  let gastos = [
+    {id:1, tipo:'ordinario', proveedorId:1, facturaTipo:'B', facturaNro:'0001-00004521', desc:'Consumo eléctrico de agosto', monto:185000, archivo:'edenor_ago2026.pdf', fecha:'2026-08-05'},
+    {id:2, tipo:'ordinario', proveedorId:5, facturaTipo:'C', facturaNro:'0002-00000891', desc:'Honorarios de administración · agosto', monto:420000, archivo:'honorarios_ago2026.pdf', fecha:'2026-08-03'},
+    {id:3, tipo:'extraordinario', proveedorId:3, facturaTipo:'B', facturaNro:'0001-00000142', desc:'Reparación de bomba de agua', monto:96000, archivo:'reparacion_bomba.jpg', fecha:'2026-08-14'},
+  ];
+  function fmtMoney(n){ return '$ ' + Number(n).toLocaleString('es-AR'); }
 
   /* ---------- Plan (just tiles) ---------- */
   const plan = document.getElementById('plan');
@@ -803,6 +853,134 @@
        {label:'Enviar mail', cls:'btn-primary', fn:()=>{ closeModal(); toast('Mail para blanquear clave enviado'); }}]);
   }
 
+  /* ---------- Gastos (ABM) ---------- */
+  function provNombre(id){
+    const p = proveedores.find(x=>x.id===id);
+    return p ? p.nombre : '—';
+  }
+  function fillProveedorSelect(){
+    document.getElementById('g-prov').innerHTML =
+      proveedores.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+  }
+  function validarGasto(g, excludeId){
+    if(!g.proveedorId || !g.facturaTipo.trim() || !g.facturaNro.trim() || !g.desc.trim() || !g.archivo){
+      return {ok:false, msg:'Completá todos los campos y adjuntá la factura antes de guardar.'};
+    }
+    if(!(g.monto > 0)){
+      return {ok:false, msg:'El monto del gasto debe ser mayor a $ 0.'};
+    }
+    const nro = g.facturaNro.trim().toLowerCase();
+    const dup = gastos.some(x=> x.id!==excludeId && x.proveedorId===g.proveedorId && x.facturaNro.trim().toLowerCase()===nro);
+    if(dup){
+      return {ok:false, msg:'Ya existe un gasto cargado con ese número de factura para este proveedor.'};
+    }
+    return {ok:true};
+  }
+  function renderGastos(){
+    const box = document.getElementById('gastos-list');
+    if(!gastos.length){ box.innerHTML = '<div class="empty">Todavía no cargaste gastos.</div>'; return; }
+    box.innerHTML = gastos.map(g=>`
+      <div class="abm-row">
+        <div class="an" style="font-size:.68rem">${g.tipo==='ordinario'?'ORD':'EXT'}</div>
+        <div>
+          <div class="aname">${provNombre(g.proveedorId)} · ${fmtMoney(g.monto)}</div>
+          <div class="acontact">${g.desc} · Fact. ${g.facturaTipo} N° ${g.facturaNro} · ${g.archivo}</div>
+        </div>
+        <div class="aacts">
+          <button class="btn btn-ghost btn-sm" onclick="editGasto(${g.id})">Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteGasto(${g.id})">Borrar</button>
+        </div>
+      </div>`).join('');
+  }
+  function renderGastosTenant(){
+    const box = document.getElementById('tenant-gastos-rows');
+    if(!gastos.length){ box.innerHTML = '<tr><td class="desc" colspan="5">Sin gastos cargados este mes.</td></tr>'; return; }
+    box.innerHTML = gastos.map(g=>`
+      <tr>
+        <td class="desc">${g.tipo==='ordinario'?'Ordinario':'Extraordinario'}</td>
+        <td class="desc">${provNombre(g.proveedorId)}</td>
+        <td class="desc">${g.desc}</td>
+        <td class="desc">${g.facturaTipo} N° ${g.facturaNro}</td>
+        <td>${fmtMoney(g.monto)}</td>
+      </tr>`).join('');
+  }
+  function addGasto(){
+    const errBox = document.getElementById('g-err');
+    const archivoInput = document.getElementById('g-archivo');
+    const g = {
+      tipo: document.getElementById('g-tipo').value,
+      proveedorId: Number(document.getElementById('g-prov').value),
+      facturaTipo: document.getElementById('g-facttipo').value,
+      facturaNro: document.getElementById('g-factnro').value,
+      desc: document.getElementById('g-desc').value,
+      monto: Number(document.getElementById('g-monto').value),
+      archivo: archivoInput.files.length ? archivoInput.files[0].name : ''
+    };
+    const v = validarGasto(g, null);
+    if(!v.ok){ errBox.textContent = v.msg; errBox.hidden = false; return; }
+    errBox.hidden = true;
+    gastos.push({id: ++gastoSeq, fecha: new Date().toISOString().slice(0,10), ...g});
+    renderGastos(); renderGastosTenant();
+    toast('Gasto cargado correctamente');
+    document.getElementById('g-facttipo').value = '';
+    document.getElementById('g-factnro').value = '';
+    document.getElementById('g-desc').value = '';
+    document.getElementById('g-monto').value = '';
+    archivoInput.value = '';
+    document.getElementById('g-archivo-box').classList.remove('has');
+    document.getElementById('g-archivo-t').textContent = 'Adjuntar factura';
+  }
+  function editGasto(id){
+    const g = gastos.find(x=>x.id===id);
+    openModal(`Editar gasto — ${provNombre(g.proveedorId)}`,
+      `<div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><input id="eg-facttipo" value="${g.facturaTipo}"></div>
+       <div class="field" style="margin-bottom:12px"><label>Número de factura</label><input id="eg-factnro" value="${g.facturaNro}"></div>
+       <div class="field" style="margin-bottom:12px"><label>Descripción</label><input id="eg-desc" value="${g.desc}"></div>
+       <div class="field" style="margin-bottom:12px"><label>Costo</label><input id="eg-monto" type="number" min="0" value="${g.monto}"></div>
+       <div class="field">
+         <label>Factura (PDF, JPEG o PNG)</label>
+         <label class="filebox has" for="eg-archivo" id="eg-archivo-box">
+           <div class="fi-ico">📎</div><div class="fi-t" id="eg-archivo-t">Factura actual · ${g.archivo}</div><div class="fi-s">PDF, JPEG o PNG</div>
+         </label>
+         <input type="file" id="eg-archivo" accept="application/pdf,image/jpeg,image/png" onchange="fileChosen(this,'eg-archivo-box','eg-archivo-t','Nueva factura')">
+       </div>
+       <div class="note late" id="eg-err" style="margin-top:12px" hidden></div>`,
+      [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
+       {label:'Guardar cambios', cls:'btn-primary', fn:()=>saveGasto(id)}]);
+  }
+  function saveGasto(id){
+    const g = gastos.find(x=>x.id===id);
+    const archivoInput = document.getElementById('eg-archivo');
+    const updated = {
+      tipo: g.tipo,
+      proveedorId: g.proveedorId,
+      facturaTipo: document.getElementById('eg-facttipo').value,
+      facturaNro: document.getElementById('eg-factnro').value,
+      desc: document.getElementById('eg-desc').value,
+      monto: Number(document.getElementById('eg-monto').value),
+      archivo: archivoInput.files.length ? archivoInput.files[0].name : g.archivo
+    };
+    const errBox = document.getElementById('eg-err');
+    const v = validarGasto(updated, id);
+    if(!v.ok){ errBox.textContent = v.msg; errBox.hidden = false; return; }
+    Object.assign(g, updated);
+    closeModal();
+    renderGastos(); renderGastosTenant();
+    toast('Cambios guardados');
+  }
+  function confirmDeleteGasto(id){
+    const g = gastos.find(x=>x.id===id);
+    openModal('Borrar gasto',
+      `<p style="margin:0">Vas a borrar el gasto de <strong>${provNombre(g.proveedorId)}</strong> por <strong>${fmtMoney(g.monto)}</strong> (Fact. ${g.facturaTipo} N° ${g.facturaNro}). Esta acción no se puede deshacer.</p>`,
+      [{label:'Cancelar', cls:'btn-ghost', fn:closeModal},
+       {label:'Confirmar borrado', cls:'btn-danger', fn:()=>{ deleteGasto(id); closeModal(); }}]);
+  }
+  function deleteGasto(id){
+    gastos = gastos.filter(x=>x.id!==id);
+    renderGastos(); renderGastosTenant();
+    toast('Gasto borrado');
+  }
+
   /* ---------- Estado de cuenta por local ---------- */
   function renderAccounts(){
     const box = document.getElementById('acct-rows');
@@ -853,7 +1031,7 @@
     window.scrollTo({top:0});
   }
   function setTab(name){
-    ['contrato','cobranzas','locatarios','config','rendicion'].forEach(t=>{
+    ['contrato','cobranzas','locatarios','gastos','config','rendicion'].forEach(t=>{
       const sel = t===name;
       document.getElementById('tp-'+t).hidden = !sel;
       document.getElementById('t-'+t).setAttribute('aria-selected', sel);
@@ -913,6 +1091,7 @@
 
   /* ---------- Init ---------- */
   renderPlan(); renderCobranzas(); renderAbm(); renderAccounts(); refreshNotif();
+  fillProveedorSelect(); renderGastos(); renderGastosTenant();
   selectUnit(3);
 </script>
 </body>
