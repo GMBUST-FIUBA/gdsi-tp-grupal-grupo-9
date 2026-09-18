@@ -133,6 +133,14 @@
   .tabs button:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
   .tabpane[hidden]{display:none}
 
+  /* Primary section nav (top-level pages within a role, e.g. Panel general / Gastos) */
+  .section-nav{display:flex;gap:26px;flex-wrap:wrap;margin:0 0 6px;border-bottom:1px solid var(--line)}
+  .section-nav button{border:0;background:transparent;cursor:pointer;padding:10px 2px;font-size:1rem;font-weight:700;
+    color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Bricolage Grotesque',sans-serif;letter-spacing:.01em}
+  .section-nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brass)}
+  .section-nav button:hover{color:var(--ink)}
+  .section-nav button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
   .contract-title{display:flex;align-items:center;gap:12px;margin-bottom:4px}
   .contract-title .num{font-family:'Bricolage Grotesque';font-weight:800;font-size:1.4rem;background:var(--ink);color:#f4c46f;padding:2px 10px;border-radius:8px}
   .contract-title h3{font-size:1.15rem}
@@ -203,6 +211,7 @@
   .btn-sm{padding:7px 12px;font-size:.82rem;border-radius:8px}
   .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
+  a.btn{text-decoration:none}
   .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
 
   /* Rendición */
@@ -375,6 +384,12 @@
 
 <!-- ============ ADMIN ============ -->
 <main class="wrap view" id="view-admin" role="tabpanel" aria-labelledby="tab-admin">
+  <nav class="section-nav" role="tablist" aria-label="Secciones de administración">
+    <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
+    <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>
+  </nav>
+
+  <div id="sec-panel" role="tabpanel" aria-labelledby="sec-tab-panel">
   <div class="page-head">
     <span class="eyebrow">Panel del administrador · Agosto 2026</span>
     <h1>Ocupación y cobranzas</h1>
@@ -413,7 +428,6 @@
           <button role="tab" aria-selected="true"  aria-controls="tp-contrato"  id="t-contrato"  onclick="setTab('contrato')">Nuevo contrato</button>
           <button role="tab" aria-selected="false" aria-controls="tp-cobranzas" id="t-cobranzas" onclick="setTab('cobranzas')">Cobranzas</button>
           <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')">Locatarios</button>
-          <button role="tab" aria-selected="false" aria-controls="tp-gastos"     id="t-gastos"     onclick="setTab('gastos')">Gastos</button>
           <button role="tab" aria-selected="false" aria-controls="tp-config"    id="t-config"    onclick="setTab('config')">Configuración</button>
           <button role="tab" aria-selected="false" aria-controls="tp-rendicion" id="t-rendicion" onclick="setTab('rendicion')">Rendición</button>
         </div>
@@ -461,29 +475,6 @@
           </div>
           <div class="form-actions" style="margin-top:0"><button class="btn btn-primary btn-sm" onclick="toast('Locatario agregado')">Agregar locatario</button></div>
           <div class="abm" id="abm-list" style="margin-top:8px"></div>
-        </div>
-
-        <!-- Gastos (ABM) -->
-        <div class="tabpane" id="tp-gastos" role="tabpanel" aria-labelledby="t-gastos" hidden>
-          <div class="form-grid" style="margin-bottom:14px">
-            <div class="field"><label for="g-tipo">Tipo de gasto</label>
-              <select id="g-tipo"><option value="ordinario">Ordinario</option><option value="extraordinario">Extraordinario</option></select></div>
-            <div class="field"><label for="g-prov">Proveedor</label>
-              <select id="g-prov"></select></div>
-            <div class="field"><label for="g-facttipo">Tipo de factura</label><input id="g-facttipo" placeholder="A, B, C, Nota de crédito…"></div>
-            <div class="field"><label for="g-factnro">Número de factura</label><input id="g-factnro" placeholder="0001-00001234"></div>
-            <div class="field full"><label for="g-desc">Descripción</label><input id="g-desc" placeholder="Ej. Consumo eléctrico de agosto"></div>
-            <div class="field"><label for="g-monto">Costo</label><input id="g-monto" type="number" min="0" placeholder="0"></div>
-            <div class="field full"><label>Factura (PDF, JPEG o PNG)</label>
-              <label class="filebox" for="g-archivo" id="g-archivo-box">
-                <div class="fi-ico">📎</div><div class="fi-t" id="g-archivo-t">Adjuntar factura</div><div class="fi-s">PDF, JPEG o PNG</div>
-              </label>
-              <input type="file" id="g-archivo" accept="application/pdf,image/jpeg,image/png" onchange="fileChosen(this,'g-archivo-box','g-archivo-t','Factura adjuntada')">
-            </div>
-          </div>
-          <div class="note late" id="g-err" hidden></div>
-          <div class="form-actions" style="margin-top:0"><button class="btn btn-primary btn-sm" onclick="addGasto()">Agregar gasto</button></div>
-          <div class="abm" id="gastos-list" style="margin-top:8px"></div>
         </div>
 
         <!-- Configuración -->
@@ -555,6 +546,44 @@
       </div>
     </div>
   </section>
+  </div>
+
+  <div id="sec-gastos" role="tabpanel" aria-labelledby="sec-tab-gastos" hidden>
+    <div class="page-head">
+      <span class="eyebrow">Gestión de gastos</span>
+      <h1>Gastos ordinarios y extraordinarios</h1>
+      <p>Cargá, editá o borrá los gastos de la galería. Los locatarios los ven reflejados en su cuenta, incluida la factura adjunta.</p>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Cargar gasto</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label for="g-tipo">Tipo de gasto</label>
+            <select id="g-tipo"><option value="ordinario">Ordinario</option><option value="extraordinario">Extraordinario</option></select></div>
+          <div class="field"><label for="g-prov">Proveedor</label>
+            <select id="g-prov"></select></div>
+          <div class="field"><label for="g-facttipo">Tipo de factura</label><input id="g-facttipo" placeholder="A, B, C, Nota de crédito…"></div>
+          <div class="field"><label for="g-factnro">Número de factura</label><input id="g-factnro" placeholder="0001-00001234"></div>
+          <div class="field full"><label for="g-desc">Descripción</label><input id="g-desc" placeholder="Ej. Consumo eléctrico de agosto"></div>
+          <div class="field"><label for="g-monto">Costo</label><input id="g-monto" type="number" min="0" placeholder="0"></div>
+          <div class="field full"><label>Factura (PDF, JPEG o PNG) · opcional</label>
+            <label class="filebox" for="g-archivo" id="g-archivo-box">
+              <div class="fi-ico">📎</div><div class="fi-t" id="g-archivo-t">Adjuntar factura</div><div class="fi-s">PDF, JPEG o PNG · opcional</div>
+            </label>
+            <input type="file" id="g-archivo" accept="application/pdf,image/jpeg,image/png" onchange="fileChosen(this,'g-archivo-box','g-archivo-t','Factura adjuntada')">
+          </div>
+        </div>
+        <div class="note late" id="g-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="addGasto()">Agregar gasto</button></div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Gastos cargados</h2><span class="st-sub" id="gastos-count"></span></div>
+    <section class="panel"><div class="panel-body">
+      <div class="abm" id="gastos-list"></div>
+    </div></section>
+  </div>
 </main>
 
 <!-- ============ TENANT ============ -->
@@ -630,18 +659,18 @@
           </table>
         </div>
       </section>
-
-      <section class="panel">
-        <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
-        <div class="panel-body">
-          <table class="hist" id="tenant-gastos-table">
-            <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th>Monto</th></tr></thead>
-            <tbody id="tenant-gastos-rows"></tbody>
-          </table>
-        </div>
-      </section>
     </div>
   </div>
+
+  <section class="panel" style="margin-top:20px">
+    <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
+    <div class="panel-body" style="overflow-x:auto">
+      <table class="hist" id="tenant-gastos-table">
+        <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th style="text-align:right">Monto</th><th>Adjunto</th></tr></thead>
+        <tbody id="tenant-gastos-rows"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
 
 <footer><div class="r">Maqueta de referencia · Galería Belgrano · Datos de ejemplo. Enunciado 1 — Locales en alquiler.</div></footer>
@@ -698,11 +727,17 @@
   ];
   let gastoSeq = 3;
   let gastos = [
-    {id:1, tipo:'ordinario', proveedorId:1, facturaTipo:'B', facturaNro:'0001-00004521', desc:'Consumo eléctrico de agosto', monto:185000, archivo:'edenor_ago2026.pdf', fecha:'2026-08-05'},
-    {id:2, tipo:'ordinario', proveedorId:5, facturaTipo:'C', facturaNro:'0002-00000891', desc:'Honorarios de administración · agosto', monto:420000, archivo:'honorarios_ago2026.pdf', fecha:'2026-08-03'},
-    {id:3, tipo:'extraordinario', proveedorId:3, facturaTipo:'B', facturaNro:'0001-00000142', desc:'Reparación de bomba de agua', monto:96000, archivo:'reparacion_bomba.jpg', fecha:'2026-08-14'},
+    {id:1, tipo:'ordinario', proveedorId:1, facturaTipo:'B', facturaNro:'0001-00004521', desc:'Consumo eléctrico de agosto', monto:185000, archivoNombre:'edenor_ago2026.pdf', archivoUrl:null, fecha:'2026-08-05'},
+    {id:2, tipo:'ordinario', proveedorId:5, facturaTipo:'C', facturaNro:'0002-00000891', desc:'Honorarios de administración · agosto', monto:420000, archivoNombre:'honorarios_ago2026.pdf', archivoUrl:null, fecha:'2026-08-03'},
+    {id:3, tipo:'extraordinario', proveedorId:3, facturaTipo:'B', facturaNro:'0001-00000142', desc:'Reparación de bomba de agua', monto:96000, archivoNombre:null, archivoUrl:null, fecha:'2026-08-14'},
   ];
   function fmtMoney(n){ return '$ ' + Number(n).toLocaleString('es-AR'); }
+  function makeDemoFileUrl(filename){
+    const ext = filename.split('.').pop().toLowerCase();
+    const mime = ext==='pdf' ? 'application/pdf' : (ext==='png' ? 'image/png' : 'image/jpeg');
+    return URL.createObjectURL(new Blob([`Factura simulada · ${filename}`], {type: mime}));
+  }
+  gastos.forEach(g=>{ if(g.archivoNombre) g.archivoUrl = makeDemoFileUrl(g.archivoNombre); });
 
   /* ---------- Plan (just tiles) ---------- */
   const plan = document.getElementById('plan');
@@ -863,8 +898,8 @@
       proveedores.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
   }
   function validarGasto(g, excludeId){
-    if(!g.proveedorId || !g.facturaTipo.trim() || !g.facturaNro.trim() || !g.desc.trim() || !g.archivo){
-      return {ok:false, msg:'Completá todos los campos y adjuntá la factura antes de guardar.'};
+    if(!g.proveedorId || !g.facturaTipo.trim() || !g.facturaNro.trim() || !g.desc.trim()){
+      return {ok:false, msg:'Completá todos los campos obligatorios antes de guardar (la factura adjunta es opcional).'};
     }
     if(!(g.monto > 0)){
       return {ok:false, msg:'El monto del gasto debe ser mayor a $ 0.'};
@@ -876,17 +911,24 @@
     }
     return {ok:true};
   }
+  function archivoLinkHTML(g){
+    return g.archivoUrl
+      ? `<a class="btn btn-ghost btn-sm" href="${g.archivoUrl}" download="${g.archivoNombre}">↓ ${g.archivoNombre}</a>`
+      : '<span class="hint">Sin factura adjunta</span>';
+  }
   function renderGastos(){
     const box = document.getElementById('gastos-list');
+    document.getElementById('gastos-count').textContent = gastos.length ? `${gastos.length} cargados` : '';
     if(!gastos.length){ box.innerHTML = '<div class="empty">Todavía no cargaste gastos.</div>'; return; }
     box.innerHTML = gastos.map(g=>`
       <div class="abm-row">
         <div class="an" style="font-size:.68rem">${g.tipo==='ordinario'?'ORD':'EXT'}</div>
         <div>
           <div class="aname">${provNombre(g.proveedorId)} · ${fmtMoney(g.monto)}</div>
-          <div class="acontact">${g.desc} · Fact. ${g.facturaTipo} N° ${g.facturaNro} · ${g.archivo}</div>
+          <div class="acontact">${g.desc} · Fact. ${g.facturaTipo} N° ${g.facturaNro}</div>
         </div>
         <div class="aacts">
+          ${archivoLinkHTML(g)}
           <button class="btn btn-ghost btn-sm" onclick="editGasto(${g.id})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick="confirmDeleteGasto(${g.id})">Borrar</button>
         </div>
@@ -894,19 +936,21 @@
   }
   function renderGastosTenant(){
     const box = document.getElementById('tenant-gastos-rows');
-    if(!gastos.length){ box.innerHTML = '<tr><td class="desc" colspan="5">Sin gastos cargados este mes.</td></tr>'; return; }
+    if(!gastos.length){ box.innerHTML = '<tr><td class="desc" colspan="6">Sin gastos cargados este mes.</td></tr>'; return; }
     box.innerHTML = gastos.map(g=>`
       <tr>
         <td class="desc">${g.tipo==='ordinario'?'Ordinario':'Extraordinario'}</td>
         <td class="desc">${provNombre(g.proveedorId)}</td>
         <td class="desc">${g.desc}</td>
         <td class="desc">${g.facturaTipo} N° ${g.facturaNro}</td>
-        <td>${fmtMoney(g.monto)}</td>
+        <td style="text-align:right">${fmtMoney(g.monto)}</td>
+        <td class="desc">${archivoLinkHTML(g)}</td>
       </tr>`).join('');
   }
   function addGasto(){
     const errBox = document.getElementById('g-err');
     const archivoInput = document.getElementById('g-archivo');
+    const hasFile = archivoInput.files.length > 0;
     const g = {
       tipo: document.getElementById('g-tipo').value,
       proveedorId: Number(document.getElementById('g-prov').value),
@@ -914,10 +958,14 @@
       facturaNro: document.getElementById('g-factnro').value,
       desc: document.getElementById('g-desc').value,
       monto: Number(document.getElementById('g-monto').value),
-      archivo: archivoInput.files.length ? archivoInput.files[0].name : ''
+      archivoNombre: hasFile ? archivoInput.files[0].name : null,
+      archivoUrl: hasFile ? URL.createObjectURL(archivoInput.files[0]) : null
     };
     const v = validarGasto(g, null);
-    if(!v.ok){ errBox.textContent = v.msg; errBox.hidden = false; return; }
+    if(!v.ok){
+      if(g.archivoUrl) URL.revokeObjectURL(g.archivoUrl);
+      errBox.textContent = v.msg; errBox.hidden = false; return;
+    }
     errBox.hidden = true;
     gastos.push({id: ++gastoSeq, fecha: new Date().toISOString().slice(0,10), ...g});
     renderGastos(); renderGastosTenant();
@@ -932,15 +980,16 @@
   }
   function editGasto(id){
     const g = gastos.find(x=>x.id===id);
+    const fileLabel = g.archivoNombre ? `Factura actual · ${g.archivoNombre}` : 'Adjuntar factura';
     openModal(`Editar gasto — ${provNombre(g.proveedorId)}`,
       `<div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><input id="eg-facttipo" value="${g.facturaTipo}"></div>
        <div class="field" style="margin-bottom:12px"><label>Número de factura</label><input id="eg-factnro" value="${g.facturaNro}"></div>
        <div class="field" style="margin-bottom:12px"><label>Descripción</label><input id="eg-desc" value="${g.desc}"></div>
        <div class="field" style="margin-bottom:12px"><label>Costo</label><input id="eg-monto" type="number" min="0" value="${g.monto}"></div>
        <div class="field">
-         <label>Factura (PDF, JPEG o PNG)</label>
-         <label class="filebox has" for="eg-archivo" id="eg-archivo-box">
-           <div class="fi-ico">📎</div><div class="fi-t" id="eg-archivo-t">Factura actual · ${g.archivo}</div><div class="fi-s">PDF, JPEG o PNG</div>
+         <label>Factura (PDF, JPEG o PNG) · opcional</label>
+         <label class="filebox${g.archivoNombre?' has':''}" for="eg-archivo" id="eg-archivo-box">
+           <div class="fi-ico">📎</div><div class="fi-t" id="eg-archivo-t">${fileLabel}</div><div class="fi-s">PDF, JPEG o PNG</div>
          </label>
          <input type="file" id="eg-archivo" accept="application/pdf,image/jpeg,image/png" onchange="fileChosen(this,'eg-archivo-box','eg-archivo-t','Nueva factura')">
        </div>
@@ -951,6 +1000,7 @@
   function saveGasto(id){
     const g = gastos.find(x=>x.id===id);
     const archivoInput = document.getElementById('eg-archivo');
+    const hasNewFile = archivoInput.files.length > 0;
     const updated = {
       tipo: g.tipo,
       proveedorId: g.proveedorId,
@@ -958,11 +1008,16 @@
       facturaNro: document.getElementById('eg-factnro').value,
       desc: document.getElementById('eg-desc').value,
       monto: Number(document.getElementById('eg-monto').value),
-      archivo: archivoInput.files.length ? archivoInput.files[0].name : g.archivo
+      archivoNombre: hasNewFile ? archivoInput.files[0].name : g.archivoNombre,
+      archivoUrl: hasNewFile ? URL.createObjectURL(archivoInput.files[0]) : g.archivoUrl
     };
     const errBox = document.getElementById('eg-err');
     const v = validarGasto(updated, id);
-    if(!v.ok){ errBox.textContent = v.msg; errBox.hidden = false; return; }
+    if(!v.ok){
+      if(hasNewFile) URL.revokeObjectURL(updated.archivoUrl);
+      errBox.textContent = v.msg; errBox.hidden = false; return;
+    }
+    if(hasNewFile && g.archivoUrl) URL.revokeObjectURL(g.archivoUrl);
     Object.assign(g, updated);
     closeModal();
     renderGastos(); renderGastosTenant();
@@ -976,6 +1031,8 @@
        {label:'Confirmar borrado', cls:'btn-danger', fn:()=>{ deleteGasto(id); closeModal(); }}]);
   }
   function deleteGasto(id){
+    const g = gastos.find(x=>x.id===id);
+    if(g && g.archivoUrl) URL.revokeObjectURL(g.archivoUrl);
     gastos = gastos.filter(x=>x.id!==id);
     renderGastos(); renderGastosTenant();
     toast('Gasto borrado');
@@ -1031,10 +1088,17 @@
     window.scrollTo({top:0});
   }
   function setTab(name){
-    ['contrato','cobranzas','locatarios','gastos','config','rendicion'].forEach(t=>{
+    ['contrato','cobranzas','locatarios','config','rendicion'].forEach(t=>{
       const sel = t===name;
       document.getElementById('tp-'+t).hidden = !sel;
       document.getElementById('t-'+t).setAttribute('aria-selected', sel);
+    });
+  }
+  function setSection(name){
+    ['panel','gastos'].forEach(s=>{
+      const sel = s===name;
+      document.getElementById('sec-'+s).hidden = !sel;
+      document.getElementById('sec-tab-'+s).setAttribute('aria-selected', sel);
     });
   }
   function setHist(name){
