@@ -87,6 +87,7 @@
   <nav class="section-nav" role="tablist" aria-label="Secciones de administración">
     <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
     <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>
+    <button role="tab" aria-selected="false" aria-controls="sec-config" id="sec-tab-config" onclick="setSection('config')">Configuración</button>
   </nav>
 
   <div id="sec-panel" role="tabpanel" aria-labelledby="sec-tab-panel">
@@ -284,6 +285,34 @@
       <div class="abm" id="gastos-list"></div>
     </div></section>
   </div>
+
+  <div id="sec-config" role="tabpanel" aria-labelledby="sec-tab-config" hidden>
+    <div class="page-head">
+      <span class="eyebrow">Configuración</span>
+      <h1>Expensas por comercio</h1>
+      <p>Definí qué porcentaje de las expensas le corresponde a cada comercio. La suma de todos los porcentajes no puede superar el 100%.</p>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Porcentaje de expensas</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label for="cf-unidad">Comercio</label>
+            <select id="cf-unidad" onchange="syncConfigPct()"></select></div>
+          <div class="field"><label for="cf-pct">Porcentaje de expensas</label>
+            <div class="suffix-wrap"><input id="cf-pct" inputmode="decimal" placeholder="0,00"><span class="sfx">%</span></div>
+            <span class="hint">Hasta dos decimales. Si el comercio ya tiene un porcentaje, se reemplaza.</span></div>
+        </div>
+        <div class="note late" id="cf-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="setPorcentajeExpensa()">Asignar porcentaje</button></div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Porcentajes asignados</h2><span class="st-sub" id="cf-total"></span></div>
+    <section class="panel"><div class="panel-body">
+      <div class="abm" id="cf-list"></div>
+    </div></section>
+  </div>
 </main>
 
 <!-- ============ TENANT ============ -->
@@ -393,11 +422,13 @@
 <script src="js/ui/nav.js"></script>
 <script src="js/data/units.js"></script>
 <script src="js/data/gastos.js"></script>
+<script src="js/data/expensas.js"></script>
 <script src="js/admin/plan.js"></script>
 <script src="js/admin/detail.js"></script>
 <script src="js/admin/cobranzas.js"></script>
 <script src="js/admin/locatarios.js"></script>
 <script src="js/admin/gastos.js"></script>
+<script src="js/admin/config.js"></script>
 <script src="js/admin/accounts.js"></script>
 <script src="js/admin/notifications.js"></script>
 <script src="js/tenant/tenant.js"></script>
