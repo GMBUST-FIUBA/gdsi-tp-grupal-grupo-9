@@ -26,6 +26,11 @@ function selectUnit(i){
         ? `<div class="note late"><strong>Estado de cobro:</strong> ${u.pago}</div>`
         : `<div class="note"><strong>Estado de cobro:</strong> ${u.pago}</div>`);
 
+  const a = ajustesExpensas[u.n];
+  const ajusteRow = a
+    ? `<dt>Ajuste de expensas</dt><dd class="mono">${ajusteTipoLabel(a.tipo)} ${fmtAjuste(a)}${a.motivo ? ' · '+a.motivo : ''}</dd>`
+    : '';
+
   detailBody.innerHTML = `
     <div class="contract-title"><span class="num">${u.n}</span>
       <div><h3>${u.loc}</h3><span class="sub" style="color:var(--muted);font-size:.8rem">${u.rubro}</span></div>
@@ -34,10 +39,11 @@ function selectUnit(i){
       <dt>Modalidad</dt><dd>${u.mod}</dd>
       <dt>Actualización</dt><dd>${u.act}</dd>
       <dt>Alquiler fijo</dt><dd class="mono">${u.fijo}</dd>
-      <dt>Gastos comunes</dt><dd class="mono">${u.exp}</dd>
+      <dt>Gastos comunes</dt><dd class="mono">${centsToMoney(expensasEfectivasCents(u))}</dd>
+      ${ajusteRow}
       <dt>Vencimiento</dt><dd>Día ${u.venc}</dd>
     </dl>
-    <table class="liq" style="margin-top:16px"><tr class="total"><td>A pagar en agosto</td><td>${u.tot}</td></tr></table>
+    <table class="liq" style="margin-top:16px"><tr class="total"><td>A pagar en agosto</td><td>${centsToMoney(totalEfectivoCents(u))}</td></tr></table>
     ${compBlock}
     <div class="form-actions">
       <button class="btn btn-ghost btn-sm" onclick="toast('Contrato (PDF) abierto')">Ver contrato</button>

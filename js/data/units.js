@@ -24,6 +24,8 @@ const units = [
   {n:'22', st:'ok',  loc:'Récord Sport', rubro:'Deportes', mod:'Fijo', fijo:'$ 870.000,00', exp:'$ 160.000,00', tot:'$ 1.030.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 04/08', email:'record@correo.com', tel:'+54 11 4001-0022', comp:false, nuevo:true, fact:'$ 1.030.000,00', cob:'$ 1.030.000,00'},
 ];
 
+units.forEach(u=>{ if(u.st!=='free'){ u.expCents = parseMoneyCents(u.exp); u.totCents = parseMoneyCents(u.tot); } });
+
 const stLabel = {ok:'Al día', warn:'Por vencer', late:'En mora', free:'Libre'};
 const stPill  = {ok:'ok', warn:'warn', late:'late', free:'free'};
 let selectedIdx = null;
