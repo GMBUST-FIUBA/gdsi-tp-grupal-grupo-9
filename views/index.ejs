@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><%= estado.galeria ? estado.galeria.nombre : 'Galería' %> · Administración de alquileres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/superadmin.css">
+<link rel="stylesheet" href="/css/tenant.css">
+<link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="plaque">GB</div>
+      <div>
+        <div class="brand-name"><%= estado.galeria ? estado.galeria.nombre : 'Galería' %></div>
+        <div class="brand-sub">Administración de alquileres</div>
+      </div>
+    </div>
+
+    <%# TODO: no hay login todavía. El rol se elige con estas solapas, igual que en el prototipo. %>
+    <div class="switch" role="tablist" aria-label="Rol">
+      <button role="tab" id="tab-super" aria-selected="false" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Superadmin</button>
+      <button role="tab" id="tab-admin" aria-selected="true" aria-controls="view-admin" onclick="setView('admin')"><span class="dot"></span> Administración</button>
+      <button role="tab" id="tab-tenant" aria-selected="false" aria-controls="view-tenant" onclick="setView('tenant')"><span class="dot"></span> Locatario</button>
+    </div>
+
+    <div class="bell-wrap" id="bell-wrap">
+      <button class="bell" id="bell" aria-label="Notificaciones" aria-haspopup="true" onclick="toggleNotif()">
+        🔔<span class="badge" id="bell-badge">0</span>
+      </button>
+      <div class="notif" id="notif" role="menu" hidden></div>
+    </div>
+  </div>
+</header>
+
+<%- include('partials/superadmin') %>
+<%- include('partials/admin') %>
+<%- include('partials/tenant') %>
+
+<footer><div class="r"><%= estado.galeria ? estado.galeria.nombre : 'Galería' %> · Enunciado 1 — Locales en alquiler. TP grupal GDSI · <a href="/prototipo/">ver el prototipo original</a></div></footer>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="m-head"><h3 id="modal-title">Título</h3><button class="m-close" onclick="closeModal()" aria-label="Cerrar">×</button></div>
+    <div class="m-body" id="modal-body"></div>
+    <div class="m-foot" id="modal-foot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span class="tk">✓</span><span id="toast-msg">Listo</span></div>
+
+<%# Estado inicial embebido: evita un fetch extra al abrir la página. %>
+<script>
+  window.__ESTADO__ = <%- JSON.stringify(estado) %>;
+  window.__PERIODO__ = <%- JSON.stringify(periodo) %>;
+</script>
+
+<script src="/js/ui/format.js"></script>
+<script src="/js/ui/files.js"></script>
+<script src="/js/ui/modal.js"></script>
+<script src="/js/ui/toast.js"></script>
+<script src="/js/ui/nav.js"></script>
+<script src="/js/data/api.js"></script>
+<script src="/js/data/estado.js"></script>
+<script src="/js/admin/plan.js"></script>
+<script src="/js/admin/kpis.js"></script>
+<script src="/js/admin/detail.js"></script>
+<script src="/js/admin/cobranzas.js"></script>
+<script src="/js/admin/locatarios.js"></script>
+<script src="/js/admin/contratos.js"></script>
+<script src="/js/admin/gastos.js"></script>
+<script src="/js/admin/config.js"></script>
+<script src="/js/admin/ajustes.js"></script>
+<script src="/js/admin/parametros.js"></script>
+<script src="/js/admin/accounts.js"></script>
+<script src="/js/admin/rendicion.js"></script>
+<script src="/js/admin/notifications.js"></script>
+<script src="/js/superadmin/superadmin.js"></script>
+<script src="/js/tenant/tenant.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

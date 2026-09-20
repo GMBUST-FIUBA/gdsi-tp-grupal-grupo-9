@@ -1,7 +1,0 @@
-/* Superadmin cards */
-.sa-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-.sa-list{display:flex;flex-direction:column}
-.sa-item{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid var(--line)}
-.sa-item:last-child{border-bottom:0}
-.sa-item .si{width:40px;height:40px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-size:1.1rem}
-.sa-item .sname{font-weight:600} .sa-item .ssub{font-size:.78rem;color:var(--muted)}

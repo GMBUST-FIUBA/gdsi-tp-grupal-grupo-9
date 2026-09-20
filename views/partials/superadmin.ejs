@@ -1,0 +1,56 @@
+<!-- ============ SUPERADMIN ============ -->
+<main class="wrap view" id="view-super" role="tabpanel" aria-labelledby="tab-super" hidden>
+  <div class="page-head">
+    <span class="eyebrow">Superadministración</span>
+    <h1>Galerías, locales y administradores</h1>
+    <p>Desde acá se dan de alta las galerías, se cargan sus locales y se asigna quién las administra. Cada administrador gestiona solo la galería que le corresponde.</p>
+  </div>
+
+  <div class="sa-grid">
+    <section class="panel">
+      <div class="panel-head"><h3>Alta de galería</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field full"><label for="sg-nom">Nombre de la galería</label><input id="sg-nom" placeholder="Ej. Galería Centro"></div>
+          <div class="field full"><label for="sg-dir">Dirección</label><input id="sg-dir" placeholder="Calle, número, localidad"></div>
+          <div class="field"><label for="sg-locs">Cantidad de locales</label><input id="sg-locs" type="number" value="22" min="1"></div>
+          <div class="field"><label for="sg-dueno">Dueño</label><input id="sg-dueno" placeholder="Nombre del propietario"></div>
+        </div>
+        <div class="note late" id="sg-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="crearGaleria()">Crear galería con sus locales</button></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Alta de administrador</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field full"><label for="sa-nom">Nombre / estudio</label><input id="sa-nom" placeholder="Administrador o estudio"></div>
+          <div class="field full"><label for="sa-mail">Email de acceso</label><input id="sa-mail" type="email" placeholder="admin@correo.com"></div>
+          <div class="field full"><label for="sa-gal">Galería asignada</label>
+            <select id="sa-gal">
+              <% galerias.forEach(function (g) { %>
+                <option><%= g.nombre %></option>
+              <% }); %>
+            </select></div>
+        </div>
+        <div class="note late" id="sa-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="crearAdministrador()">Crear administrador</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="section-title"><h2>Galerías en el sistema</h2><span class="st-sub"><%= galerias.filter(function (g) { return g.activa; }).length %> activas</span></div>
+  <section class="panel"><div class="panel-body"><div class="sa-list" id="sa-list">
+    <% galerias.forEach(function (g) { %>
+      <div class="sa-item">
+        <div class="si">🏬</div>
+        <div>
+          <div class="sname"><%= g.nombre %></div>
+          <div class="ssub"><%= g.locales %> locales · Admin: <%= g.admins.length ? g.admins.join(', ') : 'sin asignar' %> · Dueño: <%= g.dueno || '—' %></div>
+        </div>
+        <span class="st-tag cerrado"><%= g.activa ? 'Activa' : 'Inactiva' %></span>
+      </div>
+    <% }); %>
+  </div></div></section>
+</main>

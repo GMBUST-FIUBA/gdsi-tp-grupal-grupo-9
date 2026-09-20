@@ -1,0 +1,20 @@
+# Blueprint de Render: crea el servicio web y la base Postgres de una.
+# En Render: New > Blueprint > apuntar a este repo.
+services:
+  - type: web
+    name: galeria-belgrano
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /salud
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: galeria-db
+          property: connectionString
+
+databases:
+  - name: galeria-db
+    plan: free
+    databaseName: galeria

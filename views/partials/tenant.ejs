@@ -1,0 +1,127 @@
+<!-- ============ TENANT ============ -->
+<main class="wrap view" id="view-tenant" role="tabpanel" aria-labelledby="tab-tenant" hidden>
+<% if (!tenant) { %>
+  <div class="page-head"><h1>Sin locatario</h1><p>Todavía no hay contratos cargados en la galería.</p></div>
+<% } else {
+     var u = tenant.unidad;
+     var c = tenant.contrato;
+     var liq = tenant.liquidacion;
+     var vencido = liq && liq.diasMora > 0;
+%>
+  <div class="page-head">
+    <span class="eyebrow">Tu cuenta</span>
+    <h1><%= u.loc %></h1>
+    <p>Esto es lo que te toca pagar este mes por tu local en la <%= estado.galeria.nombre %>, con el detalle de cómo se compone.</p>
+  </div>
+
+  <section class="tenant-hero">
+    <div class="who">
+      <div class="loc">Local <%= u.n %></div>
+      <h2><%= u.loc %></h2>
+      <div class="meta"><%= u.rubro %> · Contrato #C-<%= String(u.contratoId).padStart(4, '0') %></div>
+    </div>
+    <div class="due">
+      <div class="due-label">Total a pagar — <%= periodoLabel %></div>
+      <div class="due-amt"><%= centsToMoney(liq ? liq.totalCents : 0) %></div>
+      <div class="due-when<%= vencido ? ' late' : '' %>">
+        <% if (vencido) { %>
+          Venció el <%= c.diaVencimiento %>/<%= periodo.split('-')[1] %> · <%= liq.diasMora %> días de atraso
+        <% } else { %>
+          Vence el día <%= c.diaVencimiento %> del mes
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <div class="tenant-cols">
+    <section class="panel">
+      <div class="panel-head"><h3>Detalle de la liquidación</h3><span class="sub"><%= periodoLabel %></span></div>
+      <div class="panel-body">
+        <table class="liq">
+          <tr><td>Alquiler fijo</td><td><%= centsToMoney(liq.alquilerFijoCents) %></td></tr>
+          <tr class="muted"><td>Actualización <%= c.indice %> (<%= c.proximaActualizacion || 'sin fecha' %>)</td><td></td></tr>
+          <% if (liq.variableCents > 0) { %>
+            <tr><td>Variable — <%= c.porcentajeFacturacion %>% de facturación declarada</td><td><%= centsToMoney(liq.variableCents) %></td></tr>
+            <tr class="muted"><td>Sobre <%= centsToMoney(liq.facturacionDeclaradaCents) %> declarados</td><td></td></tr>
+          <% } %>
+          <tr><td>Gastos comunes (expensas)</td><td><%= centsToMoney(liq.expensasCents) %></td></tr>
+          <% if (liq.ajuste) { %>
+            <tr class="muted"><td>Incluye <%= liq.ajuste.tipo === 'descuento' ? 'descuento' : 'cargo adicional' %> de <%= centsToMoney(liq.ajuste.montoCents) %><%= liq.ajuste.motivo ? ' · ' + liq.ajuste.motivo : '' %></td><td></td></tr>
+          <% } %>
+          <% if (liq.interesMoraCents > 0) { %>
+            <tr><td>Interés por mora (<%= liq.diasMora %> días)</td><td><%= centsToMoney(liq.interesMoraCents) %></td></tr>
+          <% } %>
+          <tr class="total"><td>Total a pagar</td><td><%= centsToMoney(liq.totalCents) %></td></tr>
+        </table>
+
+        <div id="pay-block" style="margin-top:18px">
+          <% if (liq.estado === 'cobrado') { %>
+            <div class="note"><strong>Pago acreditado.</strong> No tenés saldo pendiente este mes.</div>
+          <% } else if (liq.estado === 'en_revision') { %>
+            <div class="note rev"><strong>Comprobante enviado.</strong> Queda en revisión del administrador. Te avisamos cuando se acredite el pago.</div>
+          <% } else { %>
+            <label class="filebox" for="t-comp" id="t-comp-box">
+              <div class="fi-ico">🧾</div><div class="fi-t" id="t-comp-t">Subir comprobante de pago</div><div class="fi-s">Transferencia · imagen o PDF</div>
+            </label>
+            <input type="file" id="t-comp" accept="image/*,application/pdf" onchange="tenantUpload(this)">
+            <div class="note late" id="t-err" hidden></div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="t-send" disabled onclick="tenantSend(<%= liq.id %>)">Enviar comprobante</button>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;gap:20px">
+      <section class="panel">
+        <div class="panel-head"><h3>Tu contrato</h3></div>
+        <div class="panel-body">
+          <dl class="dl">
+            <dt>Modalidad</dt><dd><%= c.modalidad %></dd>
+            <dt>Inicio</dt><dd><%= c.inicio %></dd>
+            <dt>Plazo</dt><dd><%= c.plazoMeses %> meses</dd>
+            <dt>Actualización</dt><dd><%= c.indice %> · <%= (estado.config && estado.config.frecuencia) || '—' %></dd>
+            <dt>Próxima actualización</dt><dd><%= c.proximaActualizacion || '—' %></dd>
+            <dt>Vencimiento mensual</dt><dd>Día <%= c.diaVencimiento %></dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h3>Últimos pagos</h3></div>
+        <div class="panel-body">
+          <%# TODO: por ahora solo existe el período abierto. Cuando haya cierre mensual
+              esta tabla va a mostrar los meses anteriores. %>
+          <table class="hist">
+            <thead><tr><th>Período</th><th>Monto</th><th>Estado</th></tr></thead>
+            <tbody>
+              <% tenant.pagos.forEach(function (p) { %>
+                <tr>
+                  <td class="desc"><%= periodoLabelDe(p.periodo) %></td>
+                  <td><%= centsToMoney(p.totalCents) %></td>
+                  <td>
+                    <% if (p.estado === 'cobrado') { %><span class="st-tag pagado">Pagado</span>
+                    <% } else if (p.estado === 'en_revision') { %><span class="st-tag pend">En revisión</span>
+                    <% } else { %><span class="st-tag pend">Pendiente</span><% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" style="margin-top:20px">
+    <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
+    <div class="panel-body" style="overflow-x:auto">
+      <table class="hist" id="tenant-gastos-table">
+        <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th style="text-align:right">Monto</th><th>Adjunto</th></tr></thead>
+        <tbody id="tenant-gastos-rows"></tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
+</main>

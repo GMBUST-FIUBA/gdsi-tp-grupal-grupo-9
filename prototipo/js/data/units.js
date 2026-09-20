@@ -1,0 +1,31 @@
+/* ---------- Data ---------- */
+const units = [
+  {n:'01', st:'ok',  loc:'Alma Ropa', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 840.000,00', exp:'$ 160.000,00', tot:'$ 1.000.000,00', act:'ICL · Nov 2026', venc:'10', pago:'Cobrado 08/08', email:'alma@correo.com', tel:'+54 11 4001-0001', comp:false, fact:'$ 1.000.000,00', cob:'$ 1.000.000,00'},
+  {n:'02', st:'ok',  loc:'Cuero & Co.', rubro:'Marroquinería', mod:'Fijo', fijo:'$ 720.000,00', exp:'$ 160.000,00', tot:'$ 880.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 06/08', email:'cueroco@correo.com', tel:'+54 11 4001-0002', comp:false, fact:'$ 880.000,00', cob:'$ 880.000,00'},
+  {n:'03', st:'ok',  loc:'Áurea', rubro:'Joyería', mod:'Fijo', fijo:'$ 910.000,00', exp:'$ 160.000,00', tot:'$ 1.070.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 09/08', email:'aurea@correo.com', tel:'+54 11 4001-0003', comp:false, fact:'$ 1.070.000,00', cob:'$ 1.070.000,00'},
+  {n:'04', st:'late', loc:'Café del Pasaje', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 980.000,00', exp:'$ 160.000,00', tot:'$ 1.586.200,00', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'cafe@correo.com', tel:'+54 11 4001-0004', comp:true, compFecha:'27/08 14:12', fact:'$ 1.586.200,00', cob:'$ 0,00'},
+  {n:'05', st:'ok',  loc:'Esencia', rubro:'Perfumería', mod:'Fijo', fijo:'$ 680.000,00', exp:'$ 160.000,00', tot:'$ 840.000,00', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 07/08', email:'esencia@correo.com', tel:'+54 11 4001-0005', comp:false, fact:'$ 840.000,00', cob:'$ 840.000,00'},
+  {n:'06', st:'warn', loc:'Papel & Tinta', rubro:'Librería', mod:'Fijo', fijo:'$ 560.000,00', exp:'$ 160.000,00', tot:'$ 720.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Vence hoy', email:'papel@correo.com', tel:'+54 11 4001-0006', comp:false, fact:'$ 720.000,00', cob:'$ 0,00'},
+  {n:'07', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jun 2026'},
+  {n:'08', st:'ok',  loc:'Ver Más', rubro:'Óptica', mod:'Fijo', fijo:'$ 640.000,00', exp:'$ 160.000,00', tot:'$ 800.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 05/08', email:'vermas@correo.com', tel:'+54 11 4001-0008', comp:false, fact:'$ 800.000,00', cob:'$ 800.000,00'},
+  {n:'09', st:'warn', loc:'Zapatería Nova', rubro:'Calzado', mod:'Fijo', fijo:'$ 545.000,00', exp:'$ 160.000,00', tot:'$ 705.000,00', act:'ICL · Nov 2026', venc:'10', pago:'Pendiente', email:'nova@correo.com', tel:'+54 11 4001-0009', comp:false, fact:'$ 705.000,00', cob:'$ 0,00'},
+  {n:'10', st:'ok',  loc:'Farma Centro', rubro:'Farmacia', mod:'Fijo', fijo:'$ 1.240.000,00', exp:'$ 160.000,00', tot:'$ 1.400.000,00', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 04/08', email:'farma@correo.com', tel:'+54 11 4001-0010', comp:false, fact:'$ 1.400.000,00', cob:'$ 1.400.000,00'},
+  {n:'11', st:'warn', loc:'KioZone', rubro:'Kiosco', mod:'Fijo', fijo:'$ 530.000,00', exp:'$ 160.000,00', tot:'$ 690.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Comprobante en revisión', email:'kiozone@correo.com', tel:'+54 11 4001-0011', comp:true, compFecha:'28/08 09:40', fact:'$ 690.000,00', cob:'$ 0,00'},
+  {n:'12', st:'ok',  loc:'Urbano', rubro:'Indumentaria', mod:'Fijo + 3% fact.', fijo:'$ 760.000,00', exp:'$ 160.000,00', tot:'$ 1.180.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'urbano@correo.com', tel:'+54 11 4001-0012', comp:false, fact:'$ 1.180.000,00', cob:'$ 1.180.000,00'},
+  {n:'13', st:'ok',  loc:'ByteShop', rubro:'Tecnología', mod:'Fijo', fijo:'$ 990.000,00', exp:'$ 160.000,00', tot:'$ 1.150.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 03/08', email:'byteshop@correo.com', tel:'+54 11 4001-0013', comp:false, fact:'$ 1.150.000,00', cob:'$ 1.150.000,00'},
+  {n:'14', st:'free', loc:'Local libre', rubro:'—', desde:'Disponible desde Mar 2026'},
+  {n:'15', st:'ok',  loc:'Estilo D10', rubro:'Peluquería', mod:'Fijo', fijo:'$ 610.000,00', exp:'$ 160.000,00', tot:'$ 770.000,00', act:'ICL · Ene 2027', venc:'10', pago:'Cobrado 09/08', email:'estilo@correo.com', tel:'+54 11 4001-0015', comp:false, fact:'$ 770.000,00', cob:'$ 770.000,00'},
+  {n:'16', st:'ok',  loc:'Empanadas Sur', rubro:'Gastronomía', mod:'Fijo + 5% fact.', fijo:'$ 700.000,00', exp:'$ 160.000,00', tot:'$ 1.320.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 07/08', email:'empanadas@correo.com', tel:'+54 11 4001-0016', comp:false, nuevo:true, fact:'$ 1.320.000,00', cob:'$ 1.320.000,00'},
+  {n:'17', st:'late', loc:'Óptica Belgrano', rubro:'Óptica', mod:'Fijo', fijo:'$ 1.088.500,00', exp:'$ 160.000,00', tot:'$ 1.248.500,00', act:'ICL · Oct 2026', venc:'10', pago:'En mora · 18 días', email:'opticabelgrano@correo.com', tel:'+54 11 4001-0017', comp:false, fact:'$ 1.248.500,00', cob:'$ 0,00'},
+  {n:'18', st:'ok',  loc:'Detalles', rubro:'Regalería', mod:'Fijo', fijo:'$ 520.000,00', exp:'$ 160.000,00', tot:'$ 680.000,00', act:'ICL · Dic 2026', venc:'10', pago:'Cobrado 06/08', email:'detalles@correo.com', tel:'+54 11 4001-0018', comp:false, fact:'$ 680.000,00', cob:'$ 680.000,00'},
+  {n:'19', st:'ok',  loc:'Nena&Nene', rubro:'Indumentaria', mod:'Fijo', fijo:'$ 690.000,00', exp:'$ 160.000,00', tot:'$ 850.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 08/08', email:'nenaynene@correo.com', tel:'+54 11 4001-0019', comp:false, fact:'$ 850.000,00', cob:'$ 850.000,00'},
+  {n:'20', st:'ok',  loc:'Helados Polo', rubro:'Gastronomía', mod:'Fijo + 4% fact.', fijo:'$ 650.000,00', exp:'$ 160.000,00', tot:'$ 1.090.000,00', act:'ICL · Sep 2026', venc:'10', pago:'Cobrado 05/08', email:'polo@correo.com', tel:'+54 11 4001-0020', comp:false, fact:'$ 1.090.000,00', cob:'$ 1.090.000,00'},
+  {n:'21', st:'free', loc:'Local libre', rubro:'—', desde:'Baja: Jul 2026'},
+  {n:'22', st:'ok',  loc:'Récord Sport', rubro:'Deportes', mod:'Fijo', fijo:'$ 870.000,00', exp:'$ 160.000,00', tot:'$ 1.030.000,00', act:'ICL · Oct 2026', venc:'10', pago:'Cobrado 04/08', email:'record@correo.com', tel:'+54 11 4001-0022', comp:false, nuevo:true, fact:'$ 1.030.000,00', cob:'$ 1.030.000,00'},
+];
+
+units.forEach(u=>{ if(u.st!=='free'){ u.expCents = parseMoneyCents(u.exp); u.totCents = parseMoneyCents(u.tot); } });
+
+const stLabel = {ok:'Al día', warn:'Por vencer', late:'En mora', free:'Libre'};
+const stPill  = {ok:'ok', warn:'warn', late:'late', free:'free'};
+let selectedIdx = null;
