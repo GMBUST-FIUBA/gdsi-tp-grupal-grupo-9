@@ -48,8 +48,8 @@ function wrap(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
-async function localPorNumero(numero) {
-  const galeria = await galeriaActual();
+async function localPorNumero(req, numero) {
+  const galeria = await galeriaActual(req.galeriaId);
   if (!galeria) return null;
   return Local.findOne({ where: { galeriaId: galeria.id, numero } });
 }
@@ -63,7 +63,7 @@ async function tieneContratoVigente(localId) {
 /* ---------------- Estado general ---------------- */
 
 router.get('/estado', wrap(async (req, res) => {
-  res.json(await estadoCompleto());
+  res.json(await estadoCompleto(req.galeriaId));
 }));
 
 /* ---------------- Gastos ---------------- */
@@ -87,7 +87,7 @@ async function validarGasto({ proveedorId, facturaTipo, facturaNro, descripcion,
 }
 
 router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
-  const galeria = await galeriaActual();
+  const galeria = await galeriaActual(req.galeriaId);
   const datos = {
     tipo: req.body.tipo === 'extraordinario' ? 'extraordinario' : 'ordinario',
     proveedorId: Number(req.body.proveedorId),
@@ -159,7 +159,7 @@ router.post('/proveedores', wrap(async (req, res) => {
 /* ---------------- Porcentaje de expensas por local ---------------- */
 
 router.post('/locales/:numero/porcentaje', wrap(async (req, res) => {
-  const local = await localPorNumero(req.params.numero);
+  const local = await localPorNumero(req, req.params.numero);
   if (!local) return error(res, 'Elegí el comercio al que querés asignarle el porcentaje.');
   if (!(await tieneContratoVigente(local.id))) {
     return error(res, 'Elegí el comercio al que querés asignarle el porcentaje.');
@@ -188,7 +188,7 @@ router.post('/locales/:numero/porcentaje', wrap(async (req, res) => {
 /* ---------------- Ajuste de expensas (descuento / cargo) ---------------- */
 
 router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
-  const local = await localPorNumero(req.params.numero);
+  const local = await localPorNumero(req, req.params.numero);
   if (!local || !(await tieneContratoVigente(local.id))) {
     return error(res, 'Elegí el comercio al que querés aplicarle el ajuste.');
   }
@@ -226,7 +226,7 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
 }));
 
 router.delete('/locales/:numero/ajuste', wrap(async (req, res) => {
-  const local = await localPorNumero(req.params.numero);
+  const local = await localPorNumero(req, req.params.numero);
   if (!local) return error(res, 'No se encontró el local.', 404);
   await AjusteExpensa.destroy({ where: { localId: local.id, periodo: PERIODO_ACTUAL } });
   res.json({ ok: true });
@@ -269,7 +269,7 @@ router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
 /* ---------------- Contratos ---------------- */
 
 router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
-  const local = await localPorNumero(req.body.localNumero);
+  const local = await localPorNumero(req, req.body.localNumero);
   if (!local) return error(res, 'Elegí el local del contrato.');
   if (await tieneContratoVigente(local.id)) {
     return error(res, 'Ese local ya tiene un contrato vigente.');
@@ -362,7 +362,7 @@ router.post('/locatarios/:id/blanquear-clave', wrap(async (req, res) => {
 /* ---------------- Configuración de la galería ---------------- */
 
 router.put('/config', wrap(async (req, res) => {
-  const galeria = await galeriaActual();
+  const galeria = await galeriaActual(req.galeriaId);
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
   if (!config) return error(res, 'No hay configuración cargada.', 404);
 
@@ -465,8 +465,9 @@ router.post('/administradores', wrap(async (req, res) => {
 /* ---------------- Rendición al dueño ---------------- */
 
 router.get('/rendicion', wrap(async (req, res) => {
-  const galeria = await galeriaActual();
+  const galeria = await galeriaActual(req.galeriaId);
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const comisionPct = config ? Number(config.comisionAdmin) : 0;
   const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
   const liqs = await Liquidacion.findAll({
     where: { localId: locales.map((l) => l.id), periodo: PERIODO_ACTUAL },
@@ -492,7 +493,7 @@ router.get('/rendicion', wrap(async (req, res) => {
 
   const gastos = await Gasto.findAll({ where: { galeriaId: galeria.id } });
   const gastosPagados = gastos.reduce((acc, g) => acc + g.montoCents, 0);
-  const comision = Math.round(cobradoTotal * Number(config.comisionAdmin) / 100);
+  const comision = Math.round(cobradoTotal * comisionPct / 100);
   const neto = alquileresCobrados + expensasCobradas - gastosPagados - comision;
 
   res.json({
@@ -501,7 +502,7 @@ router.get('/rendicion', wrap(async (req, res) => {
     expensasCobradas,
     gastosPagados,
     comision,
-    comisionPct: Number(config.comisionAdmin),
+    comisionPct,
     neto,
     facturado,
     cobrado: cobradoTotal,
@@ -516,10 +517,11 @@ router.get('/historial', wrap(async (req, res) => {
   // TODO: todavía no existe el cierre mensual, así que el historial solo puede
   // mostrar el período abierto. Cuando se implemente el cierre, esto tiene que
   // recorrer todos los períodos con sus totales congelados.
-  const galeria = await galeriaActual();
+  const galeria = await galeriaActual(req.galeriaId);
   const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
   const liqs = await Liquidacion.findAll({ where: { localId: locales.map((l) => l.id) } });
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const comisionPct = config ? Number(config.comisionAdmin) : 0;
 
   const porPeriodo = {};
   for (const l of liqs) {
@@ -532,7 +534,7 @@ router.get('/historial', wrap(async (req, res) => {
 
   const filas = Object.keys(porPeriodo).sort().reverse().map((periodo) => {
     const p = porPeriodo[periodo];
-    const comision = Math.round(p.cobrado * Number(config.comisionAdmin) / 100);
+    const comision = Math.round(p.cobrado * comisionPct / 100);
     return {
       periodo,
       facturado: p.facturado,

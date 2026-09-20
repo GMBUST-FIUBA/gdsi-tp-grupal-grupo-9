@@ -8,6 +8,14 @@
 .brand-name{font-family:'Bricolage Grotesque';font-weight:700;color:#f6f1e6;font-size:1.05rem}
 .brand-sub{font-size:.74rem;color:#b9c6bd;letter-spacing:.08em;text-transform:uppercase}
 
+/* Selector de galería: se lee como texto hasta que lo tocás. */
+.brand-select{font-family:inherit;font-size:.78rem;font-weight:600;color:#cfdbd0;
+  background:rgba(0,0,0,.25);border:1px solid rgba(193,137,63,.35);border-radius:7px;
+  padding:3px 8px;margin-top:3px;max-width:230px;cursor:pointer}
+.brand-select:hover{border-color:var(--brass);color:#f6f1e6}
+.brand-select:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.brand-select option{color:var(--text);background:#fff}
+
 .switch{display:flex;background:rgba(0,0,0,.28);border:1px solid rgba(193,137,63,.35);border-radius:999px;padding:4px;gap:2px}
 .switch button{border:0;background:transparent;color:#cdd8ce;cursor:pointer;padding:8px 15px;border-radius:999px;
   font-size:.84rem;font-weight:600;display:flex;align-items:center;gap:7px;transition:background .18s,color .18s}

@@ -62,4 +62,13 @@ async function refrescarGalerias() {
   const previo = sel.value;
   sel.innerHTML = galerias.map((g) => `<option>${g.nombre}</option>`).join('');
   if (previo) sel.value = previo;
+
+  // El selector del panel superior también tiene que mostrar la galería nueva.
+  const brandSel = document.getElementById('galeria-sel');
+  if (brandSel) {
+    const actual = brandSel.value;
+    brandSel.innerHTML = galerias
+      .map((g) => `<option value="${g.id}">${g.nombre}</option>`).join('');
+    if (actual) brandSel.value = actual;
+  }
 }

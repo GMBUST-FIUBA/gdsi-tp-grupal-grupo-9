@@ -6,10 +6,18 @@ const {
 const { centsToMoney, PERIODO_ACTUAL, fechaCorta } = require('./formato');
 
 /**
- * TODO: mientras no haya login, toda la app trabaja sobre la primera galería.
- * Cuando exista autenticación, la galería tiene que salir del administrador logueado.
+ * La galería sobre la que se está trabajando. Viene del selector del panel
+ * superior, que guarda el id en una cookie; si no hay ninguna elegida (o la
+ * elegida ya no existe) se cae a la primera.
+ *
+ * TODO: cuando haya login, el administrador solo debería poder elegir entre las
+ * galerías que tiene asignadas, no entre todas.
  */
-async function galeriaActual() {
+async function galeriaActual(galeriaId) {
+  if (galeriaId) {
+    const elegida = await Galeria.findByPk(galeriaId);
+    if (elegida) return elegida;
+  }
   return Galeria.findOne({ order: [['id', 'ASC']] });
 }
 
@@ -173,8 +181,8 @@ function serializarGasto(g) {
 }
 
 /** Todo lo que el front necesita para arrancar, en una sola llamada. */
-async function estadoCompleto() {
-  const galeria = await galeriaActual();
+async function estadoCompleto(galeriaId) {
+  const galeria = await galeriaActual(galeriaId);
   if (!galeria) {
     return { galeria: null, units: [], ajustes: {}, porcentajes: {}, gastos: [], proveedores: [], config: null };
   }

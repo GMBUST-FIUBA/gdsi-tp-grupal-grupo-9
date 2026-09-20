@@ -64,10 +64,15 @@ async function seed() {
   });
 
   // Las otras galerías que listaba el panel de superadmin (todavía sin locales).
-  await Galeria.bulkCreate([
+  // Cada una necesita su configuración: el selector del panel permite entrar a
+  // administrarlas y sin config se rompen la rendición y los parámetros.
+  for (const otra of [
     { nombre: 'Galería Centro', direccion: 'Rivadavia 4500, CABA', dueno: 'Centro SA' },
     { nombre: 'Complejo Norte (oficinas)', direccion: 'Panamericana km 30', dueno: 'NorteInmuebles' },
-  ]);
+  ]) {
+    const g = await Galeria.create(otra);
+    await Configuracion.create({ galeriaId: g.id, expensasBaseCents: pesos(EXPENSAS_BASE) });
+  }
 
   const proveedores = {};
   for (const nombre of PROVEEDORES) {

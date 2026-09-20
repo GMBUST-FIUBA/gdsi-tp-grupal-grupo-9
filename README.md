@@ -1,8 +1,12 @@
-# Galería Belgrano — gestión de alquileres
+# Galex — gestión de galerías de locales comerciales
 
-TP grupal de GDSI (grupo 9). Aplicación para administrar una galería de locales
+TP grupal de GDSI (grupo 9). Aplicación para administrar galerías de locales
 comerciales: contratos, liquidaciones mensuales, cobranzas, gastos y rendición al
 dueño.
+
+Una misma instancia maneja varias galerías. Cuál se está administrando se elige
+con el selector del panel superior izquierdo; la elección se guarda en una cookie
+(`galeriaId`) y vale para todas las pantallas y llamadas a la API.
 
 ## Stack
 
@@ -72,7 +76,9 @@ uploads/              archivos subidos
 - **Los importes se guardan en centavos** (enteros) para no arrastrar errores de
   punto flotante. Se formatean a `$ 1.234,56` recién al mostrarlos.
 - **No hay login todavía.** El rol se elige con las solapas de arriba, igual que
-  en el prototipo. Todo lo que dependa de "quién soy" está marcado con `TODO`.
+  en el prototipo, y la galería con el selector de la izquierda. Cuando haya
+  autenticación, el administrador solo debería ver las galerías que tiene
+  asignadas. Todo lo que dependa de "quién soy" está marcado con `TODO`.
 - **El período está fijo en agosto 2026** (`PERIODO_ACTUAL` en
   `src/services/formato.js`), porque todavía no existe el cierre mensual.
 

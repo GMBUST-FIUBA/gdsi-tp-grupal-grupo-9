@@ -1,3 +1,13 @@
+/* ---------- Galería que se administra ---------- */
+/*
+ * La elección se guarda en una cookie para que viaje sola en todos los pedidos
+ * (la página y la API). Recargamos porque el HTML se arma en el servidor.
+ */
+function cambiarGaleria(id) {
+  document.cookie = 'galeriaId=' + id + '; path=/; max-age=' + (60 * 60 * 24 * 365);
+  window.location.reload();
+}
+
 /* ---------- View / tabs ---------- */
 function setView(v){
   ['super','admin','tenant'].forEach(x=>{

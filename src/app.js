@@ -27,12 +27,23 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
  */
 app.use('/prototipo', express.static(path.join(__dirname, '..', 'prototipo')));
 
+/*
+ * Galería seleccionada en el panel superior. El navegador la guarda en una
+ * cookie, así viaja sola en todos los pedidos (páginas y API) sin tener que
+ * agregarla a cada fetch.
+ */
+app.use((req, res, next) => {
+  const m = /(?:^|;\s*)galeriaId=(\d+)/.exec(req.headers.cookie || '');
+  req.galeriaId = m ? Number(m[1]) : null;
+  next();
+});
+
 app.use('/api', api);
 
 app.get('/', async (req, res, next) => {
   try {
-    const estado = await estadoCompleto();
-    const galeria = await galeriaActual();
+    const estado = await estadoCompleto(req.galeriaId);
+    const galeria = await galeriaActual(req.galeriaId);
     const tenant = galeria ? await detalleLocatario(galeria.id) : null;
     const galerias = await listadoGalerias();
     res.render('index', {
@@ -58,6 +69,7 @@ async function listadoGalerias() {
   const out = [];
   for (const g of galerias) {
     out.push({
+      id: g.id,
       nombre: g.nombre,
       dueno: g.dueno,
       activa: g.activa,
@@ -81,10 +93,22 @@ const PORT = process.env.PORT || 3000;
 
 (async () => {
   await sequelize.authenticate();
-  // Auto-migración: Sequelize crea y actualiza las tablas solo al arrancar.
-  await sequelize.sync({ alter: true });
+  /*
+   * Auto-migración: Sequelize crea y actualiza las tablas solo al arrancar.
+   *
+   * En SQLite NO usamos `alter`: para alterar una tabla, SQLite la recrea, y al
+   * borrar la tabla padre las claves foráneas se llevan puestas las filas hijas
+   * (locales, gastos, administradores). O sea, cada reinicio vaciaba la base de
+   * desarrollo. En Postgres `alter` emite ALTER TABLE de verdad y no toca los
+   * datos, así que ahí sí va.
+   *
+   * Consecuencia en desarrollo: si cambiás un modelo, borrá `dev.sqlite` (o
+   * corré `npm run seed -- --force`) para que se recree con la forma nueva.
+   */
+  const esSqlite = sequelize.getDialect() === 'sqlite';
+  await sequelize.sync({ alter: !esSqlite });
   await seedSiHaceFalta();
-  app.listen(PORT, () => console.log(`Galería Belgrano escuchando en http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`Galex escuchando en http://localhost:${PORT}`));
 })().catch((e) => {
   console.error('No se pudo arrancar:', e);
   process.exit(1);

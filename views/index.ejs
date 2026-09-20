@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><%= estado.galeria ? estado.galeria.nombre : 'Galería' %> · Administración de alquileres</title>
+<title>Galex · <%= estado.galeria ? estado.galeria.nombre : 'Sin galerías' %></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -19,10 +19,18 @@
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
-      <div class="plaque">GB</div>
+      <div class="plaque">GX</div>
       <div>
-        <div class="brand-name"><%= estado.galeria ? estado.galeria.nombre : 'Galería' %></div>
-        <div class="brand-sub">Administración de alquileres</div>
+        <div class="brand-name">Galex</div>
+        <% if (galerias.length) { %>
+          <select class="brand-select" id="galeria-sel" aria-label="Galería que se administra" onchange="cambiarGaleria(this.value)">
+            <% galerias.forEach(function (g) { %>
+              <option value="<%= g.id %>"<%= estado.galeria && estado.galeria.id === g.id ? ' selected' : '' %>><%= g.nombre %></option>
+            <% }); %>
+          </select>
+        <% } else { %>
+          <div class="brand-sub">Sin galerías cargadas</div>
+        <% } %>
       </div>
     </div>
 
@@ -46,7 +54,7 @@
 <%- include('partials/admin') %>
 <%- include('partials/tenant') %>
 
-<footer><div class="r"><%= estado.galeria ? estado.galeria.nombre : 'Galería' %> · Enunciado 1 — Locales en alquiler. TP grupal GDSI · <a href="/prototipo/">ver el prototipo original</a></div></footer>
+<footer><div class="r">Galex · Enunciado 1 — Locales en alquiler. TP grupal GDSI · <a href="/prototipo/">ver el prototipo original</a></div></footer>
 
 <!-- Modal -->
 <div class="modal-bg" id="modal" hidden>

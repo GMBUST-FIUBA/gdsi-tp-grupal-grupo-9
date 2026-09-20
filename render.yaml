@@ -2,19 +2,23 @@
 # En Render: New > Blueprint > apuntar a este repo.
 services:
   - type: web
-    name: galeria-belgrano
+    name: galex
     runtime: node
     plan: free
-    buildCommand: npm install
+    # Cada push a main dispara un deploy solo (es el default, lo dejamos explicito).
+    branch: main
+    autoDeploy: true
+    # --omit=dev saltea sqlite3, que solo se usa para desarrollo local.
+    buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /salud
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: galeria-db
+          name: galex-db
           property: connectionString
 
 databases:
-  - name: galeria-db
+  - name: galex-db
     plan: free
-    databaseName: galeria
+    databaseName: galex

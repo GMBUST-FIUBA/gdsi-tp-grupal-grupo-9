@@ -1,7 +1,7 @@
 {
-  "name": "galeria-belgrano",
+  "name": "galex",
   "version": "1.0.0",
-  "description": "Gestion de alquileres de una galeria de locales comerciales - TP grupal GDSI",
+  "description": "Galex - gestion de galerias de locales comerciales. TP grupal GDSI",
   "private": true,
   "main": "src/app.js",
   "scripts": {
@@ -18,7 +18,9 @@
     "express": "^4.19.2",
     "multer": "^2.4.0",
     "pg": "^8.12.0",
-    "sequelize": "^6.37.3",
+    "sequelize": "^6.37.3"
+  },
+  "devDependencies": {
     "sqlite3": "^6.0.1"
   }
 }
