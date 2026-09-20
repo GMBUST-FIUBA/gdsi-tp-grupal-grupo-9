@@ -60,7 +60,12 @@ app.get('/', async (req, res, next) => {
   }
 });
 
-app.get('/salud', (req, res) => res.json({ ok: true }));
+// Render expone el commit deployado en RENDER_GIT_COMMIT: sirve para confirmar
+// desde afuera qué versión está corriendo.
+app.get('/salud', (req, res) => res.json({
+  ok: true,
+  commit: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
+}));
 
 /** Listado para el panel de superadmin. */
 async function listadoGalerias() {
