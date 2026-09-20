@@ -312,6 +312,33 @@
     <section class="panel"><div class="panel-body">
       <div class="abm" id="cf-list"></div>
     </div></section>
+
+    <div class="section-title"><h2>Ajuste de expensas del mes</h2></div>
+    <section class="panel">
+      <div class="panel-head"><h3>Descuento o cargo adicional</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label for="aj-unidad">Comercio</label>
+            <select id="aj-unidad" onchange="syncAjuste()"></select>
+            <span class="hint" id="aj-base"></span></div>
+          <div class="field"><label for="aj-tipo">Tipo de ajuste</label>
+            <select id="aj-tipo"><option value="descuento">Descuento</option><option value="cargo">Cargo adicional</option></select></div>
+          <div class="field"><label for="aj-monto">Monto</label>
+            <input id="aj-monto" type="number" min="0" step="0.01" placeholder="0,00">
+            <span class="hint">Hasta dos decimales. El descuento no puede superar las expensas del comercio.</span></div>
+          <div class="field"><label for="aj-motivo">Motivo (opcional)</label>
+            <input id="aj-motivo" maxlength="120" placeholder="Ej.: bonificación por obra en el pasillo"></div>
+        </div>
+        <div class="field"><span class="hint">Aplica solo a la liquidación del mes actual. Si el comercio ya tiene un ajuste, se reemplaza.</span></div>
+        <div class="note late" id="aj-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="setAjusteExpensas()">Aplicar ajuste</button></div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Ajustes aplicados</h2><span class="st-sub" id="aj-count"></span></div>
+    <section class="panel"><div class="panel-body">
+      <div class="abm" id="aj-list"></div>
+    </div></section>
   </div>
 </main>
 
@@ -423,12 +450,14 @@
 <script src="js/data/units.js"></script>
 <script src="js/data/gastos.js"></script>
 <script src="js/data/expensas.js"></script>
+<script src="js/data/ajustes.js"></script>
 <script src="js/admin/plan.js"></script>
 <script src="js/admin/detail.js"></script>
 <script src="js/admin/cobranzas.js"></script>
 <script src="js/admin/locatarios.js"></script>
 <script src="js/admin/gastos.js"></script>
 <script src="js/admin/config.js"></script>
+<script src="js/admin/ajustes.js"></script>
 <script src="js/admin/accounts.js"></script>
 <script src="js/admin/notifications.js"></script>
 <script src="js/tenant/tenant.js"></script>
