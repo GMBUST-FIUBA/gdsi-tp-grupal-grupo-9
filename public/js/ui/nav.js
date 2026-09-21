@@ -9,13 +9,18 @@ function cambiarGaleria(id) {
 }
 
 /* ---------- View / tabs ---------- */
+/* Según el rol, algunas vistas no están en la página: se ignoran. */
 function setView(v){
   ['super','admin','tenant'].forEach(x=>{
-    document.getElementById('view-'+x).hidden = (x!==v);
-    document.getElementById('tab-'+x).setAttribute('aria-selected', x===v);
+    const view = document.getElementById('view-'+x);
+    const tab = document.getElementById('tab-'+x);
+    if(view) view.hidden = (x!==v);
+    if(tab) tab.setAttribute('aria-selected', x===v);
   });
-  document.getElementById('bell-wrap').style.display = (v==='admin') ? '' : 'none';
-  document.getElementById('notif').hidden = true;
+  const bell = document.getElementById('bell-wrap');
+  if(bell) bell.style.display = (v==='admin') ? '' : 'none';
+  const notif = document.getElementById('notif');
+  if(notif) notif.hidden = true;
   window.scrollTo({top:0});
 }
 function setTab(name){

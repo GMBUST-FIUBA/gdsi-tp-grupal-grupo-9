@@ -6,8 +6,10 @@
  */
 aplicarEstado(window.__ESTADO__ || {});
 renderTodo();
-refrescarGalerias();
+if (document.getElementById('view-super')) refrescarGalerias();
 
 // Deja seleccionado el primer local con contrato, como hacía el prototipo.
-const primerOcupado = units.findIndex((u) => u.st !== 'free');
-if (primerOcupado >= 0) selectUnit(primerOcupado);
+if (document.getElementById('view-admin')) {
+  const primerOcupado = units.findIndex((u) => u.st !== 'free');
+  if (primerOcupado >= 0) selectUnit(primerOcupado);
+}

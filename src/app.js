@@ -7,6 +7,7 @@ const sequelize = require('./db');
 require('./models');
 const { seedSiHaceFalta } = require('./seed');
 const api = require('./routes/api');
+const auth = require('./auth');
 const { estadoCompleto, galeriaActual, detalleLocatario } = require('./services/galeria');
 const { PERIODO_ACTUAL, periodoLabel, centsToMoney } = require('./services/formato');
 
@@ -27,33 +28,59 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
  */
 app.use('/prototipo', express.static(path.join(__dirname, '..', 'prototipo')));
 
+// Render termina el HTTPS en su proxy; sin esto la cookie de sesión no se marca bien.
+app.set('trust proxy', 1);
+app.use(auth.sesion);
+app.use(auth.cargarUsuario);
+
 /*
- * Galería seleccionada en el panel superior. El navegador la guarda en una
- * cookie, así viaja sola en todos los pedidos (páginas y API) sin tener que
- * agregarla a cada fetch.
+ * Galería elegida en el selector del panel superior (solo superadmin). El
+ * navegador la guarda en una cookie, así viaja sola en todos los pedidos.
+ * Para admin y locatario la galería es la suya y la cookie se ignora.
  */
 app.use((req, res, next) => {
   const m = /(?:^|;\s*)galeriaId=(\d+)/.exec(req.headers.cookie || '');
-  req.galeriaId = m ? Number(m[1]) : null;
+  req.galeriaCookie = m ? Number(m[1]) : null;
+  req.galeriaId = auth.galeriaDelUsuario(req);
   next();
 });
 
+app.use(auth.router);
 app.use('/api', api);
 
-app.get('/', async (req, res, next) => {
+app.get('/', auth.requiereLogin, async (req, res, next) => {
   try {
-    const estado = await estadoCompleto(req.galeriaId);
+    const usuario = req.usuario;
     const galeria = await galeriaActual(req.galeriaId);
-    const tenant = galeria ? await detalleLocatario(galeria.id) : null;
-    const galerias = await listadoGalerias();
-    res.render('index', {
-      estado,
-      tenant,
-      galerias,
+    const comunes = {
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
       periodo: PERIODO_ACTUAL,
       periodoLabel: periodoLabel(PERIODO_ACTUAL),
       centsToMoney,
       periodoLabelDe: periodoLabel,
+    };
+
+    if (usuario.rol === 'locatario') {
+      // El locatario recibe solo lo suyo: nada del resto de los locales.
+      const completo = await estadoCompleto(req.galeriaId);
+      const local = usuario.localId
+        ? completo.units.find((u) => u.id === usuario.localId)
+        : null;
+      const tenant = galeria && local ? await detalleLocatario(galeria.id, local.n) : null;
+      return res.render('index', {
+        ...comunes,
+        estado: { galeria: completo.galeria, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },
+        tenant,
+        galerias: [],
+      });
+    }
+
+    const estado = await estadoCompleto(req.galeriaId);
+    res.render('index', {
+      ...comunes,
+      estado,
+      tenant: null,
+      galerias: usuario.rol === 'superadmin' ? await listadoGalerias() : [],
     });
   } catch (e) {
     next(e);

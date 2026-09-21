@@ -22,37 +22,53 @@
       <div class="plaque">GX</div>
       <div>
         <div class="brand-name">Galex</div>
-        <% if (galerias.length) { %>
+        <% if (usuario.rol === 'superadmin' && galerias.length) { %>
           <select class="brand-select" id="galeria-sel" aria-label="Galería que se administra" onchange="cambiarGaleria(this.value)">
             <% galerias.forEach(function (g) { %>
               <option value="<%= g.id %>"<%= estado.galeria && estado.galeria.id === g.id ? ' selected' : '' %>><%= g.nombre %></option>
             <% }); %>
           </select>
+        <% } else if (estado.galeria) { %>
+          <div class="brand-sub"><%= estado.galeria.nombre %></div>
         <% } else { %>
           <div class="brand-sub">Sin galerías cargadas</div>
         <% } %>
       </div>
     </div>
 
-    <%# TODO: no hay login todavía. El rol se elige con estas solapas, igual que en el prototipo. %>
-    <div class="switch" role="tablist" aria-label="Rol">
-      <button role="tab" id="tab-super" aria-selected="false" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Superadmin</button>
-      <button role="tab" id="tab-admin" aria-selected="true" aria-controls="view-admin" onclick="setView('admin')"><span class="dot"></span> Administración</button>
-      <button role="tab" id="tab-tenant" aria-selected="false" aria-controls="view-tenant" onclick="setView('tenant')"><span class="dot"></span> Locatario</button>
-    </div>
+    <% if (usuario.rol === 'superadmin') { %>
+      <%# El superadmin da de alta galerías y además puede administrar cualquiera. %>
+      <div class="switch" role="tablist" aria-label="Sección">
+        <button role="tab" id="tab-super" aria-selected="true" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Galerías</button>
+        <button role="tab" id="tab-admin" aria-selected="false" aria-controls="view-admin" onclick="setView('admin')"><span class="dot"></span> Administración</button>
+      </div>
+    <% } %>
 
-    <div class="bell-wrap" id="bell-wrap">
-      <button class="bell" id="bell" aria-label="Notificaciones" aria-haspopup="true" onclick="toggleNotif()">
-        🔔<span class="badge" id="bell-badge">0</span>
-      </button>
-      <div class="notif" id="notif" role="menu" hidden></div>
-    </div>
+    <% if (usuario.rol !== 'locatario') { %>
+      <div class="bell-wrap" id="bell-wrap"<%= usuario.rol === 'superadmin' ? ' style="display:none"' : '' %>>
+        <button class="bell" id="bell" aria-label="Notificaciones" aria-haspopup="true" onclick="toggleNotif()">
+          🔔<span class="badge" id="bell-badge">0</span>
+        </button>
+        <div class="notif" id="notif" role="menu" hidden></div>
+      </div>
+    <% } %>
+
+    <form method="post" action="/logout" class="who-wrap">
+      <span class="who"><%= usuario.nombre || usuario.email %></span>
+      <button class="btn-logout" type="submit">Salir</button>
+    </form>
   </div>
 </header>
 
-<%- include('partials/superadmin') %>
-<%- include('partials/admin') %>
-<%- include('partials/tenant') %>
+<% if (usuario.rol === 'superadmin') { %>
+  <%- include('partials/superadmin') %>
+<% } %>
+<% if (usuario.rol !== 'locatario') { %>
+  <%- include('partials/admin', { oculto: usuario.rol === 'superadmin' }) %>
+<% } %>
+<% if (usuario.rol === 'locatario') { %>
+  <%- include('partials/tenant') %>
+<% } %>
 
 <footer><div class="r">Galex · Enunciado 1 — Locales en alquiler. TP grupal GDSI · <a href="/prototipo/">ver el prototipo original</a></div></footer>
 

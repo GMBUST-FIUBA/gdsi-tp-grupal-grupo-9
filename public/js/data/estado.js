@@ -39,27 +39,34 @@ async function recargarEstado() {
   }
 }
 
-/** Redibuja todas las secciones a partir del estado actual. */
+/**
+ * Redibuja las secciones presentes en la página. Según el rol, el servidor
+ * manda solo algunas vistas, así que cada bloque chequea que exista.
+ */
 function renderTodo() {
-  renderKpis();
-  renderPlan();
-  renderCobranzas();
-  renderAbm();
-  renderAccounts();
-  refreshNotif();
-  fillProveedorSelect();
-  renderGastos();
-  renderGastosTenant();
-  fillConfigUnidades();
-  renderConfig();
-  fillAjusteUnidades();
-  renderAjustes();
-  fillLocalesLibres();
-  renderRendicion();
-  renderHistorial();
+  if (document.getElementById('view-admin')) {
+    renderKpis();
+    renderPlan();
+    renderCobranzas();
+    renderAbm();
+    renderAccounts();
+    refreshNotif();
+    fillProveedorSelect();
+    renderGastos();
+    fillConfigUnidades();
+    renderConfig();
+    fillAjusteUnidades();
+    renderAjustes();
+    fillLocalesLibres();
+    renderRendicion();
+    renderHistorial();
 
-  // Mantiene seleccionado el mismo local después de recargar.
-  if (selectedIdx !== null && units[selectedIdx]) selectUnit(selectedIdx);
+    // Mantiene seleccionado el mismo local después de recargar.
+    if (selectedIdx !== null && units[selectedIdx]) selectUnit(selectedIdx);
+  }
+  if (document.getElementById('view-tenant')) {
+    renderGastosTenant();
+  }
 }
 
 /* ---------- Ajustes de expensas (se calculan en el navegador) ---------- */

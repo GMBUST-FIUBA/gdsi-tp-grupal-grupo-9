@@ -5,9 +5,10 @@ const multer = require('multer');
 const { Op } = require('sequelize');
 
 const {
-  Galeria, Administrador, Local, Locatario, Contrato,
+  Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion,
 } = require('../models');
+const { hashear, PASSWORD_INICIAL } = require('../auth');
 const {
   estadoCompleto, galeriaActual, serializarGasto, totalLiquidacionCents,
 } = require('../services/galeria');
@@ -60,10 +61,49 @@ async function tieneContratoVigente(localId) {
   return n > 0;
 }
 
+/* ---------------- Permisos ---------------- */
+
+/*
+ * Toda la API pide sesión. El locatario solo puede leer su estado y subir su
+ * comprobante; el alta de galerías y administradores es solo del superadmin;
+ * todo lo demás es para admin y superadmin.
+ */
+router.use((req, res, next) => {
+  const u = req.usuario;
+  if (!u) return error(res, 'Tenés que iniciar sesión.', 401);
+
+  const rutaLocatario =
+    (req.method === 'GET' && req.path === '/estado') ||
+    (req.method === 'POST' && req.path === '/tenant/comprobante');
+  if (u.rol === 'locatario' && !rutaLocatario) {
+    return error(res, 'No tenés permiso para hacer esto.', 403);
+  }
+
+  const rutaSuper = req.method === 'POST' && (req.path === '/galerias' || req.path === '/administradores');
+  if (rutaSuper && u.rol !== 'superadmin') {
+    return error(res, 'Solo el superadmin puede hacer esto.', 403);
+  }
+  next();
+});
+
+/** Crea el usuario de acceso si el mail no está tomado. Devuelve null si ya existía. */
+async function crearUsuarioSiNoExiste(datos) {
+  const email = String(datos.email || '').trim().toLowerCase();
+  if (!email) return null;
+  const existe = await Usuario.findOne({ where: { email } });
+  if (existe) return null;
+  return Usuario.create({ ...datos, email, passwordHash: hashear(PASSWORD_INICIAL) });
+}
+
 /* ---------------- Estado general ---------------- */
 
 router.get('/estado', wrap(async (req, res) => {
-  res.json(await estadoCompleto(req.galeriaId));
+  const completo = await estadoCompleto(req.galeriaId);
+  if (req.usuario.rol === 'locatario') {
+    // Al locatario no le mandamos los datos del resto de los locales.
+    return res.json({ galeria: completo.galeria, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} });
+  }
+  res.json(completo);
 }));
 
 /* ---------------- Gastos ---------------- */
@@ -289,6 +329,15 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     telefono: String(req.body.telefono || '').trim(),
   });
 
+  // Con el mail queda creado el acceso del locatario (contraseña inicial 1234).
+  await crearUsuarioSiNoExiste({
+    email: locatario.email,
+    nombre,
+    rol: 'locatario',
+    galeriaId: local.galeriaId,
+    localId: local.id,
+  });
+
   const esPct = req.body.modalidad === 'fijo_pct';
   const contrato = await Contrato.create({
     localId: local.id,
@@ -354,9 +403,16 @@ router.put('/locatarios/:id', wrap(async (req, res) => {
 router.post('/locatarios/:id/blanquear-clave', wrap(async (req, res) => {
   const l = await Locatario.findByPk(req.params.id);
   if (!l) return error(res, 'No se encontró el locatario.', 404);
-  // TODO: no hay login todavía, así que no hay clave que blanquear ni mail que
-  // enviar. Cuando exista autenticación, generar el token y mandar el mail.
-  res.json({ ok: true, msg: 'Mail para blanquear clave enviado' });
+
+  const email = String(l.email || '').trim().toLowerCase();
+  const usuario = email ? await Usuario.findOne({ where: { email } }) : null;
+  if (!usuario) {
+    return error(res, 'El locatario no tiene usuario de acceso (necesita un email).');
+  }
+  // TODO: sin mailer, el blanqueo deja la contraseña inicial en vez de mandar un enlace.
+  usuario.passwordHash = hashear(PASSWORD_INICIAL);
+  await usuario.save();
+  res.json({ ok: true, msg: `Clave blanqueada: vuelve a ser ${PASSWORD_INICIAL}` });
 }));
 
 /* ---------------- Configuración de la galería ---------------- */
@@ -389,6 +445,9 @@ router.post('/tenant/comprobante', upload.single('comprobante'), wrap(async (req
 
   const liq = await Liquidacion.findByPk(req.body.liquidacionId, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
+  if (req.usuario.rol === 'locatario' && liq.localId !== req.usuario.localId) {
+    return error(res, 'Esa liquidación no es de tu local.', 403);
+  }
 
   const ahora = new Date();
   const fecha = `${String(ahora.getDate()).padStart(2, '0')}/${String(ahora.getMonth() + 1).padStart(2, '0')} ${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
@@ -457,9 +516,11 @@ router.post('/administradores', wrap(async (req, res) => {
   const galeria = await Galeria.findOne({ where: { nombre: req.body.galeria } });
   if (!galeria) return error(res, 'Elegí una galería existente.');
 
+  const usuario = await crearUsuarioSiNoExiste({ email, nombre, rol: 'admin', galeriaId: galeria.id });
+  if (!usuario) return error(res, 'Ya existe un usuario con ese email.');
   await Administrador.create({ nombre, email, galeriaId: galeria.id });
-  // TODO: falta enviar el mail con el acceso (hoy no hay login ni mailer).
-  res.json({ ok: true });
+  // TODO: sin mailer, el acceso se comunica a mano: contraseña inicial 1234.
+  res.json({ ok: true, msg: `Administrador creado · accede con ${email} / ${PASSWORD_INICIAL}` });
 }));
 
 /* ---------------- Rendición al dueño ---------------- */

@@ -1,5 +1,5 @@
 <!-- ============ ADMIN ============ -->
-<main class="wrap view" id="view-admin" role="tabpanel" aria-labelledby="tab-admin">
+<main class="wrap view" id="view-admin" role="tabpanel" aria-labelledby="tab-admin"<%= (typeof oculto !== "undefined" && oculto) ? " hidden" : "" %>>
   <nav class="section-nav" role="tablist" aria-label="Secciones de administración">
     <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
     <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>

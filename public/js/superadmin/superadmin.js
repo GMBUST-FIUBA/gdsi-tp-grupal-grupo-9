@@ -39,8 +39,7 @@ async function crearAdministrador() {
   document.getElementById('sa-nom').value = '';
   document.getElementById('sa-mail').value = '';
   await refrescarGalerias();
-  // TODO: el mail de acceso todavía no se envía (no hay login ni mailer).
-  toast('Administrador dado de alta');
+  toast(r.msg || 'Administrador dado de alta');
 }
 
 /** Redibuja la lista de galerías y el select de asignación. */

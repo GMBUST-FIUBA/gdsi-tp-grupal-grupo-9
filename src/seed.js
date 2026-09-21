@@ -4,10 +4,14 @@
  * Se ejecuta solo si la base está vacía (o con `npm run seed -- --force`).
  */
 const {
-  sequelize, Galeria, Administrador, Local, Locatario, Contrato,
+  sequelize, Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, Proveedor, Gasto, Configuracion,
 } = require('./models');
 const { PERIODO_ACTUAL } = require('./services/formato');
+const { hashear, PASSWORD_INICIAL } = require('./auth');
+
+// Locales cuyos locatarios tienen usuario de acceso (mail del locatario, clave 1234).
+const LOCALES_CON_ACCESO = ['04', '10', '11'];
 
 const EXPENSAS_BASE = 160000; // pesos, por local
 
@@ -59,9 +63,14 @@ async function seed() {
 
   await Administrador.create({
     nombre: 'Estudio Ríos',
-    email: 'admin@estudiorios.com',
+    email: 'admin@galex.com',
     galeriaId: galeria.id,
   });
+
+  // Usuarios de acceso. Todos arrancan con la misma contraseña inicial.
+  const clave = hashear(PASSWORD_INICIAL);
+  await Usuario.create({ email: 'super@galex.com', nombre: 'Superadmin', rol: 'superadmin', passwordHash: clave });
+  await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
 
   // Las otras galerías que listaba el panel de superadmin (todavía sin locales).
   // Cada una necesita su configuración: el selector del panel permite entrar a
@@ -115,6 +124,13 @@ async function seed() {
     }
 
     const locatario = await Locatario.create({ nombre: d.loc, email: d.mail, telefono: d.tel });
+
+    if (LOCALES_CON_ACCESO.includes(d.n)) {
+      await Usuario.create({
+        email: d.mail, nombre: d.loc, rol: 'locatario',
+        galeriaId: galeria.id, localId: local.id, passwordHash: clave,
+      });
+    }
 
     const mora = pesos(d.mora || 0);
     const fijo = pesos(d.fijo);

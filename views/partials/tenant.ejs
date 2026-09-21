@@ -1,7 +1,7 @@
 <!-- ============ TENANT ============ -->
-<main class="wrap view" id="view-tenant" role="tabpanel" aria-labelledby="tab-tenant" hidden>
+<main class="wrap view" id="view-tenant" role="tabpanel" aria-labelledby="tab-tenant">
 <% if (!tenant) { %>
-  <div class="page-head"><h1>Sin locatario</h1><p>Todavía no hay contratos cargados en la galería.</p></div>
+  <div class="page-head"><h1>Sin contrato vigente</h1><p>Tu usuario no tiene un local con contrato activo. Consultá con la administración.</p></div>
 <% } else {
      var u = tenant.unidad;
      var c = tenant.contrato;

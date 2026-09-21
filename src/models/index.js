@@ -25,8 +25,21 @@ const Galeria = sequelize.define('Galeria', {
 const Administrador = sequelize.define('Administrador', {
   nombre: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false },
-  // TODO: autenticación real (hash de contraseña, sesión/JWT). Hoy no hay login:
-  // el rol se elige con las solapas de arriba, igual que en el prototipo.
+});
+
+/* ---------------- Usuarios con acceso ---------------- */
+
+/*
+ * Quién puede entrar y qué ve. El rol define la pantalla:
+ *  - superadmin: panel de galerías + puede administrar cualquiera (selector).
+ *  - admin: administra la galería `galeriaId`, sin selector.
+ *  - locatario: ve solo su local `localId`.
+ */
+const Usuario = sequelize.define('Usuario', {
+  email: { type: DataTypes.STRING, allowNull: false, unique: true },
+  nombre: DataTypes.STRING,
+  passwordHash: { type: DataTypes.STRING, allowNull: false },
+  rol: { type: DataTypes.ENUM('superadmin', 'admin', 'locatario'), allowNull: false },
 });
 
 /* ---------------- Locales, locatarios y contratos ---------------- */
@@ -135,6 +148,10 @@ Local.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 Galeria.hasMany(Administrador, { foreignKey: 'galeriaId' });
 Administrador.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 
+// galeriaId: la que administra (admin) o a la que pertenece su local (locatario).
+Usuario.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Usuario.belongsTo(Local, { foreignKey: 'localId' });
+
 Galeria.hasOne(Configuracion, { foreignKey: 'galeriaId' });
 Configuracion.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 
@@ -164,7 +181,7 @@ AjusteExpensa.belongsTo(Local, { foreignKey: 'localId' });
 
 module.exports = {
   sequelize,
-  Galeria, Administrador, Local, Locatario, Contrato,
+  Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa,
   Proveedor, Gasto, Configuracion,
 };

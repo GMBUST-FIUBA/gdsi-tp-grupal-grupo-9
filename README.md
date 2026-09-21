@@ -4,9 +4,29 @@ TP grupal de GDSI (grupo 9). Aplicación para administrar galerías de locales
 comerciales: contratos, liquidaciones mensuales, cobranzas, gastos y rendición al
 dueño.
 
-Una misma instancia maneja varias galerías. Cuál se está administrando se elige
-con el selector del panel superior izquierdo; la elección se guarda en una cookie
-(`galeriaId`) y vale para todas las pantallas y llamadas a la API.
+Una misma instancia maneja varias galerías. El superadmin elige cuál administra
+con el selector del panel superior izquierdo (se guarda en la cookie `galeriaId`);
+los administradores y locatarios ven siempre la suya.
+
+## Usuarios
+
+Hay login con sesión. Cada rol entra y ve solo su pantalla. Los usuarios de
+ejemplo (todos con contraseña `1234`):
+
+| Email | Rol | Ve |
+| --- | --- | --- |
+| `super@galex.com` | Superadmin | Alta de galerías y administradores, y puede administrar cualquier galería |
+| `admin@galex.com` | Administrador | Galería Belgrano |
+| `cafe@correo.com` | Locatario | Local 04 · Café del Pasaje |
+| `farma@correo.com` | Locatario | Local 10 · Farma Centro |
+| `kiozone@correo.com` | Locatario | Local 11 · KioZone |
+
+Cuando el superadmin da de alta un administrador, o el administrador registra un
+contrato con email, se crea el usuario correspondiente con la contraseña inicial
+`1234`. "Blanquear clave" la vuelve a dejar en `1234` (no hay mailer).
+
+La sesión vive en memoria del server: se pierde al reiniciar o redeployar, y hay
+que volver a loguearse. Para un TP alcanza.
 
 ## Stack
 
@@ -75,10 +95,8 @@ uploads/              archivos subidos
 
 - **Los importes se guardan en centavos** (enteros) para no arrastrar errores de
   punto flotante. Se formatean a `$ 1.234,56` recién al mostrarlos.
-- **No hay login todavía.** El rol se elige con las solapas de arriba, igual que
-  en el prototipo, y la galería con el selector de la izquierda. Cuando haya
-  autenticación, el administrador solo debería ver las galerías que tiene
-  asignadas. Todo lo que dependa de "quién soy" está marcado con `TODO`.
+- **Contraseñas hasheadas con bcrypt**, pero sin política ni recuperación por
+  mail: el blanqueo la vuelve a `1234`.
 - **El período está fijo en agosto 2026** (`PERIODO_ACTUAL` en
   `src/services/formato.js`), porque todavía no existe el cierre mensual.
 
@@ -86,7 +104,6 @@ uploads/              archivos subidos
 
 | Tema | Dónde |
 | --- | --- |
-| Login y roles reales | `src/models/index.js`, `views/index.ejs` |
 | Cierre mensual y períodos | `src/services/formato.js`, `src/routes/api.js` |
 | Cálculo de mora por vencimiento | `src/services/galeria.js` |
 | Declaración de facturación del locatario (alquiler variable) | `src/routes/api.js` |
