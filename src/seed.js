@@ -180,12 +180,45 @@ async function seed() {
   console.log('Datos de ejemplo cargados.');
 }
 
-/** Corre el seed solo si no hay galerías cargadas. */
+/**
+ * Para bases que ya existían antes de que hubiera login: crea los usuarios de
+ * acceso a partir de los datos cargados (primera galería, su administrador y
+ * los locatarios de LOCALES_CON_ACCESO).
+ */
+async function seedUsuariosSiFaltan() {
+  if ((await Usuario.count()) > 0) return false;
+
+  const galeria = await Galeria.findOne({ order: [['id', 'ASC']] });
+  if (!galeria) return false;
+
+  const clave = hashear(PASSWORD_INICIAL);
+  await Usuario.create({ email: 'super@galex.com', nombre: 'Superadmin', rol: 'superadmin', passwordHash: clave });
+  await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
+
+  const locales = await Local.findAll({
+    where: { galeriaId: galeria.id, numero: LOCALES_CON_ACCESO },
+    include: [{ model: Contrato, where: { estado: 'vigente' }, include: [Locatario] }],
+  });
+  for (const local of locales) {
+    const locatario = local.Contratos[0] && local.Contratos[0].Locatario;
+    if (!locatario || !locatario.email) continue;
+    await Usuario.create({
+      email: locatario.email, nombre: locatario.nombre, rol: 'locatario',
+      galeriaId: galeria.id, localId: local.id, passwordHash: clave,
+    });
+  }
+  console.log('Usuarios de acceso creados sobre la base existente.');
+  return true;
+}
+
+/** Corre el seed solo si no hay galerías cargadas; si hay, completa lo que falte. */
 async function seedSiHaceFalta() {
   const n = await Galeria.count();
-  if (n > 0) return false;
-  await seed();
-  return true;
+  if (n === 0) {
+    await seed();
+    return true;
+  }
+  return seedUsuariosSiFaltan();
 }
 
 module.exports = { seed, seedSiHaceFalta };
