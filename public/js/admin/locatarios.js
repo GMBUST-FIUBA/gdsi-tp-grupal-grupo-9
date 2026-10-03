@@ -13,6 +13,7 @@ function renderAbm() {
       <div class="aacts">
         <button class="btn btn-ghost btn-sm" onclick="editTenant('${u.n}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="resetPass('${u.n}')">Blanquear clave</button>
+        ${u.locatarioId ? `<button class="btn btn-ghost btn-sm" onclick="chatConLocatario(${Number(u.locatarioId)})">Mensaje</button>` : ''}
       </div>
     </div>`).join('');
 }

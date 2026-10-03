@@ -1,0 +1,7 @@
+<%# Caja para escribir en el chat. La usan el admin y el locatario; los ids son únicos porque cada página tiene un solo hilo. %>
+<div class="chat-input">
+  <textarea id="chat-texto" rows="2" maxlength="2000" placeholder="Escribí un mensaje…" aria-label="Mensaje" onkeydown="teclaChat(event)"></textarea>
+  <button class="btn btn-primary" id="chat-enviar" onclick="enviarMensaje()">Enviar</button>
+</div>
+<div class="chat-hint">Enter envía · Shift+Enter hace un salto de línea</div>
+<div class="note late" id="chat-err" hidden></div>

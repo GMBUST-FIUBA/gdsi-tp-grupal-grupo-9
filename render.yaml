@@ -17,6 +17,10 @@ services:
         fromDatabase:
           name: galex-db
           property: connectionString
+      # Firma la cookie de sesión. Render genera un valor aleatorio la primera vez;
+      # sin esto se usaría el valor por defecto de src/auth.js, que es público.
+      - key: SESSION_SECRET
+        generateValue: true
 
 databases:
   - name: galex-db

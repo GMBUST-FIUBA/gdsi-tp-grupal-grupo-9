@@ -4,6 +4,7 @@
     <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
     <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>
     <button role="tab" aria-selected="false" aria-controls="sec-config" id="sec-tab-config" onclick="setSection('config')">Configuración</button>
+    <button role="tab" aria-selected="false" aria-controls="sec-mensajes" id="sec-tab-mensajes" onclick="setSection('mensajes')">Mensajes</button>
   </nav>
 
   <div id="sec-panel" role="tabpanel" aria-labelledby="sec-tab-panel">
@@ -261,5 +262,32 @@
     <section class="panel"><div class="panel-body">
       <div class="abm" id="aj-list"></div>
     </div></section>
+  </div>
+
+  <div id="sec-mensajes" role="tabpanel" aria-labelledby="sec-tab-mensajes" hidden>
+    <div class="page-head">
+      <span class="eyebrow">Mensajes</span>
+      <h1>Chats con los locatarios</h1>
+      <p>Escribile a un locatario en particular o respondé las consultas que te mandan desde su cuenta.</p>
+    </div>
+
+    <div class="chat-cols">
+      <section class="panel">
+        <div class="panel-head"><h3>Chats abiertos</h3><button class="btn btn-primary btn-sm" onclick="nuevoChat()">Nuevo chat</button></div>
+        <div class="chat-list" id="chat-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h3 id="chat-titulo">Conversación</h3><span class="sub" id="chat-sub"></span></div>
+        <div class="panel-body">
+          <div class="chat-hilo" id="chat-hilo" aria-live="polite">
+            <div class="chat-vacio">Elegí un chat de la lista o creá uno nuevo.</div>
+          </div>
+          <div id="chat-form" hidden>
+            <%- include('chat-input') %>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </main>

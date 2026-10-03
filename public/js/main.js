@@ -7,6 +7,7 @@
 aplicarEstado(window.__ESTADO__ || {});
 renderTodo();
 if (document.getElementById('view-super')) refrescarGalerias();
+if (document.getElementById('tenant-chat')) initChatTenant();
 
 // Deja seleccionado el primer local con contrato, como hacía el prototipo.
 if (document.getElementById('view-admin')) {

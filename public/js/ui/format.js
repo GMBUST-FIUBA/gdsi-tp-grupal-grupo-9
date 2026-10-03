@@ -17,3 +17,17 @@ function periodoLabel(periodo) {
   const [anio, mes] = String(periodo).split('-');
   return `${MESES[Number(mes) - 1]} ${anio}`;
 }
+
+/**
+ * Escapa un texto para meterlo en innerHTML. Obligatorio para todo lo que
+ * escribe otro usuario (los mensajes del chat): si no, un `<img onerror=...>`
+ * se ejecutaría en el navegador de quien lo lee, con su sesión.
+ */
+function escaparHTML(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
