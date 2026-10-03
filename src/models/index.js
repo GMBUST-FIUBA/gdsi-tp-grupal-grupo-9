@@ -140,6 +140,22 @@ const Configuracion = sequelize.define('Configuracion', {
   expensasBaseCents: cents(16000000),
 });
 
+/* ---------------- Chat entre la administración y los locatarios ---------------- */
+
+/*
+ * Un chat por locatario dentro de su galería: si el local cambia de inquilino,
+ * el nuevo arranca con un chat propio y no ve la conversación del anterior.
+ */
+const Chat = sequelize.define('Chat', {}, {
+  indexes: [{ unique: true, fields: ['galeriaId', 'locatarioId'] }],
+});
+
+const Mensaje = sequelize.define('Mensaje', {
+  texto: { type: DataTypes.TEXT, allowNull: false },
+  // 'admin' cubre al admin y al superadmin: los dos hablan por la administración.
+  autorRol: { type: DataTypes.ENUM('admin', 'locatario'), allowNull: false },
+});
+
 /* ---------------- Relaciones ---------------- */
 
 Galeria.hasMany(Local, { foreignKey: { name: 'galeriaId', allowNull: false } });
@@ -179,9 +195,21 @@ Comprobante.belongsTo(Liquidacion, { foreignKey: 'liquidacionId' });
 Local.hasMany(AjusteExpensa, { foreignKey: 'localId' });
 AjusteExpensa.belongsTo(Local, { foreignKey: 'localId' });
 
+Galeria.hasMany(Chat, { foreignKey: { name: 'galeriaId', allowNull: false } });
+Chat.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+
+Locatario.hasMany(Chat, { foreignKey: { name: 'locatarioId', allowNull: false } });
+Chat.belongsTo(Locatario, { foreignKey: 'locatarioId' });
+
+Chat.hasMany(Mensaje, { foreignKey: { name: 'chatId', allowNull: false } });
+Mensaje.belongsTo(Chat, { foreignKey: 'chatId' });
+
+// Quién lo escribió, para mostrar el nombre en la burbuja.
+Mensaje.belongsTo(Usuario, { foreignKey: 'autorId' });
+
 module.exports = {
   sequelize,
   Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa,
-  Proveedor, Gasto, Configuracion,
+  Proveedor, Gasto, Configuracion, Chat, Mensaje,
 };

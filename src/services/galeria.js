@@ -263,7 +263,29 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
   };
 }
 
+/**
+ * El locatario que corresponde al usuario logueado, con su contrato vigente.
+ *
+ * El usuario queda atado al local (`localId`), no a la persona: después de una
+ * baja y un contrato nuevo en el mismo local, el usuario viejo seguiría
+ * apuntando a ese local. Por eso además pedimos que el email del usuario sea el
+ * del locatario vigente; si no coincide, no le corresponde nada.
+ */
+async function locatarioDelUsuario(usuario) {
+  if (!usuario || usuario.rol !== 'locatario' || !usuario.localId) return null;
+  const contrato = await Contrato.findOne({
+    where: { localId: usuario.localId, estado: 'vigente' },
+    include: [Locatario, Local],
+  });
+  const locatario = contrato && contrato.Locatario;
+  if (!locatario) return null;
+  const mismoEmail = String(locatario.email || '').trim().toLowerCase()
+    === String(usuario.email || '').trim().toLowerCase();
+  return mismoEmail ? { contrato, locatario } : null;
+}
+
 module.exports = {
+  locatarioDelUsuario,
   galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, contratoVigente, estadoLocal,
   totalLiquidacionCents, serializarLocal, serializarAjustes,
   serializarPorcentajes, serializarGasto, estadoCompleto,

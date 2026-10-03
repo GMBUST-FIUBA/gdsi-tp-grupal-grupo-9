@@ -5,7 +5,7 @@
  */
 const {
   sequelize, Galeria, Administrador, Usuario, Local, Locatario, Contrato,
-  Liquidacion, Comprobante, Proveedor, Gasto, Configuracion,
+  Liquidacion, Comprobante, Proveedor, Gasto, Configuracion, Chat, Mensaje,
 } = require('./models');
 const { PERIODO_ACTUAL } = require('./services/formato');
 const { hashear, PASSWORD_INICIAL } = require('./auth');
@@ -14,6 +14,9 @@ const { hashear, PASSWORD_INICIAL } = require('./auth');
 const LOCALES_CON_ACCESO = ['04', '10', '11'];
 
 const EXPENSAS_BASE = 160000; // pesos, por local
+
+// Chat de ejemplo entre la administración y el locatario de este local.
+const LOCAL_CON_CHAT = '04';
 
 // n, rubro, locatario, mail, tel, % de facturación, alquiler fijo, total del mes,
 // próxima actualización, texto de estado de cobro, comprobante, cobrado, días de mora, mora.
@@ -70,7 +73,7 @@ async function seed() {
   // Usuarios de acceso. Todos arrancan con la misma contraseña inicial.
   const clave = hashear(PASSWORD_INICIAL);
   await Usuario.create({ email: 'super@galex.com', nombre: 'Superadmin', rol: 'superadmin', passwordHash: clave });
-  await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
+  const admin = await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
 
   // Las otras galerías que listaba el panel de superadmin (todavía sin locales).
   // Cada una necesita su configuración: el selector del panel permite entrar a
@@ -101,6 +104,8 @@ async function seed() {
     });
   }
 
+  let chatDeEjemplo = null; // { locatario, usuario } del LOCAL_CON_CHAT
+
   for (const d of LOCALES) {
     const local = await Local.create({
       galeriaId: galeria.id,
@@ -126,10 +131,11 @@ async function seed() {
     const locatario = await Locatario.create({ nombre: d.loc, email: d.mail, telefono: d.tel });
 
     if (LOCALES_CON_ACCESO.includes(d.n)) {
-      await Usuario.create({
+      const usuario = await Usuario.create({
         email: d.mail, nombre: d.loc, rol: 'locatario',
         galeriaId: galeria.id, localId: local.id, passwordHash: clave,
       });
+      if (d.n === LOCAL_CON_CHAT) chatDeEjemplo = { locatario, usuario };
     }
 
     const mora = pesos(d.mora || 0);
@@ -175,6 +181,18 @@ async function seed() {
         estado: 'pendiente',
       });
     }
+  }
+
+  if (chatDeEjemplo) {
+    const chat = await Chat.create({ galeriaId: galeria.id, locatarioId: chatDeEjemplo.locatario.id });
+    await Mensaje.create({
+      chatId: chat.id, autorId: chatDeEjemplo.usuario.id, autorRol: 'locatario',
+      texto: 'Hola, ya subí el comprobante de agosto. ¿Me confirman cuando lo revisen?',
+    });
+    await Mensaje.create({
+      chatId: chat.id, autorId: admin.id, autorRol: 'admin',
+      texto: 'Hola, lo recibimos. Lo revisamos y te avisamos por acá.',
+    });
   }
 
   console.log('Datos de ejemplo cargados.');

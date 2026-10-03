@@ -7,8 +7,11 @@ const sequelize = require('./db');
 require('./models');
 const { seedSiHaceFalta } = require('./seed');
 const api = require('./routes/api');
+const chats = require('./routes/chats');
 const auth = require('./auth');
-const { estadoCompleto, galeriaActual, detalleLocatario } = require('./services/galeria');
+const {
+  estadoCompleto, galeriaActual, detalleLocatario, locatarioDelUsuario,
+} = require('./services/galeria');
 const { PERIODO_ACTUAL, periodoLabel, centsToMoney } = require('./services/formato');
 
 const app = express();
@@ -46,6 +49,8 @@ app.use((req, res, next) => {
 });
 
 app.use(auth.router);
+// Antes que /api: el chat tiene sus propios permisos (el locatario también escribe).
+app.use('/api/chats', chats);
 app.use('/api', api);
 
 app.get('/', auth.requiereLogin, async (req, res, next) => {
@@ -66,7 +71,9 @@ app.get('/', auth.requiereLogin, async (req, res, next) => {
       const local = usuario.localId
         ? completo.units.find((u) => u.id === usuario.localId)
         : null;
-      const tenant = galeria && local ? await detalleLocatario(galeria.id, local.n) : null;
+      // Si el contrato vigente del local es de otro (hubo baja y alta), no ve nada.
+      const propio = await locatarioDelUsuario(usuario);
+      const tenant = galeria && local && propio ? await detalleLocatario(galeria.id, local.n) : null;
       return res.render('index', {
         ...comunes,
         estado: { galeria: completo.galeria, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },

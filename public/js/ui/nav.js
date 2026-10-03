@@ -21,6 +21,8 @@ function setView(v){
   if(bell) bell.style.display = (v==='admin') ? '' : 'none';
   const notif = document.getElementById('notif');
   if(notif) notif.hidden = true;
+  // El chat del admin solo consulta mensajes mientras se está mirando.
+  syncPollMensajes();
   window.scrollTo({top:0});
 }
 function setTab(name){
@@ -31,11 +33,20 @@ function setTab(name){
   });
 }
 function setSection(name){
-  ['panel','gastos','config'].forEach(s=>{
+  ['panel','gastos','config','mensajes'].forEach(s=>{
     const sel = s===name;
     document.getElementById('sec-'+s).hidden = !sel;
     document.getElementById('sec-tab-'+s).setAttribute('aria-selected', sel);
   });
+  syncPollMensajes();
+}
+/* Arranca el polling del chat si la sección Mensajes del admin está a la vista; si no, lo frena. */
+function syncPollMensajes(){
+  const view = document.getElementById('view-admin');
+  const sec = document.getElementById('sec-mensajes');
+  if(!view || !sec) return;
+  if(!view.hidden && !sec.hidden) entrarMensajes();
+  else pararPoll();
 }
 function setHist(name){
   ['mes','local'].forEach(t=>{

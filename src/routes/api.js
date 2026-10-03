@@ -10,7 +10,7 @@ const {
 } = require('../models');
 const { hashear, PASSWORD_INICIAL } = require('../auth');
 const {
-  estadoCompleto, galeriaActual, serializarGasto, totalLiquidacionCents,
+  estadoCompleto, galeriaActual, serializarGasto, totalLiquidacionCents, locatarioDelUsuario,
 } = require('../services/galeria');
 const { tieneMasDeDosDecimales, PERIODO_ACTUAL, parseMoneyCents, centsToMoney } = require('../services/formato');
 
@@ -445,8 +445,13 @@ router.post('/tenant/comprobante', upload.single('comprobante'), wrap(async (req
 
   const liq = await Liquidacion.findByPk(req.body.liquidacionId, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
-  if (req.usuario.rol === 'locatario' && liq.localId !== req.usuario.localId) {
-    return error(res, 'Esa liquidación no es de tu local.', 403);
+  if (req.usuario.rol === 'locatario') {
+    // Tiene que ser de su contrato vigente, no solo de su local: después de una
+    // baja y un alta, el local es el mismo pero el contrato ya es de otro.
+    const propio = await locatarioDelUsuario(req.usuario);
+    if (!propio || liq.contratoId !== propio.contrato.id) {
+      return error(res, 'Esa liquidación no es de tu local.', 403);
+    }
   }
 
   const ahora = new Date();

@@ -114,6 +114,21 @@
     </div>
   </div>
 
+  <section class="panel" style="margin-top:20px" id="tenant-chat">
+    <div class="panel-head"><h3>Mensajes con la administración</h3><span class="sub"><%= estado.galeria.nombre %></span></div>
+    <div class="panel-body">
+      <div id="tc-vacio">
+        <p class="chat-intro">¿Tenés una consulta? Escribile a la administración de la galería desde acá.</p>
+        <div class="note late" id="tc-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="contactarAdministracion()">Contactar a la administración</button></div>
+      </div>
+      <div id="tc-chat" hidden>
+        <div class="chat-hilo" id="chat-hilo" aria-live="polite"></div>
+        <%- include('chat-input') %>
+      </div>
+    </div>
+  </section>
+
   <section class="panel" style="margin-top:20px">
     <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
     <div class="panel-body" style="overflow-x:auto">

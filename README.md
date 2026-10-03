@@ -28,6 +28,29 @@ contrato con email, se crea el usuario correspondiente con la contraseña inicia
 La sesión vive en memoria del server: se pierde al reiniciar o redeployar, y hay
 que volver a loguearse. Para un TP alcanza.
 
+La cookie de sesión se firma con `SESSION_SECRET`. En Render la genera el
+Blueprint (`render.yaml`); conviene confirmar en el dashboard que la variable
+existe. Al agregarla o cambiarla, todos tienen que volver a loguearse una vez.
+
+Un locatario accede a su local solo si el email de su usuario coincide con el
+del locatario del contrato vigente. Así, si un local cambia de inquilino, el
+usuario del anterior deja de ver la cuenta (y los mensajes) del nuevo.
+
+## Mensajes
+
+El administrador puede abrir un chat con cualquier locatario con contrato
+vigente (sección **Mensajes**, o el botón *Mensaje* en la pestaña Locatarios), y
+el locatario puede escribirle a la administración desde su cuenta. Hay un chat
+por locatario.
+
+- Los mensajes nuevos llegan por **polling**: mientras el chat está abierto, el
+  navegador pregunta cada 5 segundos si hay mensajes nuevos. No hay WebSockets.
+- Son solo mensajes de texto: no hay estado de leído ni notificaciones.
+- Cada usuario puede mandar hasta 10 mensajes cada 10 segundos. El contador
+  vive en memoria, igual que la sesión.
+- El texto de los mensajes se escapa antes de mostrarlo (`escaparHTML`): lo
+  escribe otro usuario y no puede inyectar HTML.
+
 ## Stack
 
 - **Node + Express** sirviendo las vistas con **EJS** y una API JSON.
@@ -83,6 +106,7 @@ src/
   db.js               conexión a Postgres
   models/index.js     todos los modelos y sus relaciones
   routes/api.js       la API JSON
+  routes/chats.js     la API del chat (con sus propios permisos)
   services/           lógica de dominio y formato de importes
   seed.js             datos de ejemplo
 views/                plantillas EJS (index + partials por rol)
