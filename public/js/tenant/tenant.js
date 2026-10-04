@@ -43,8 +43,6 @@ async function tenantSend(liquidacionId) {
     return mostrarError('t-err', r.msg);
   }
 
-  document.getElementById('pay-block').innerHTML =
-    '<div class="note rev"><strong>Comprobante enviado.</strong> Queda en revisión del administrador. Te avisamos cuando se acredite el pago.</div>';
-  await recargarEstado();
-  toast('Comprobante enviado a la administración');
+
+  window.location.reload();
 }
