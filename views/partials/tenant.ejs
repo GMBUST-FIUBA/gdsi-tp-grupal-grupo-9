@@ -114,6 +114,40 @@
     </div>
   </div>
 
+  <section class="panel" style="margin-top:20px" id="tenant-comprobantes">
+    <div class="panel-head"><h3>Mis comprobantes</h3><span class="sub">Los que subiste a la administración</span></div>
+    <div class="panel-body" style="overflow-x:auto">
+      <% if (!tenant.comprobantes.length) { %>
+        <p class="chat-intro">Todavía no subiste comprobantes.</p>
+      <% } else { %>
+        <table class="hist">
+          <thead><tr><th>Período</th><th>Subido el</th><th>Archivo</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            <% tenant.comprobantes.forEach(function (cp) { %>
+              <tr>
+                <td class="desc"><%= periodoLabelDe(cp.periodo) %></td>
+                <td><%= cp.fecha %></td>
+                <td class="desc"><%= cp.archivoNombre || '—' %></td>
+                <td>
+                  <% if (cp.estado === 'aceptado') { %><span class="st-tag pagado">Aceptado</span>
+                  <% } else if (cp.estado === 'rechazado') { %><span class="st-tag mora">Rechazado</span>
+                  <% } else { %><span class="st-tag pend">En revisión</span><% } %>
+                </td>
+                <td>
+                  <% if (cp.tieneArchivo) { %>
+                    <a class="btn btn-ghost btn-sm" href="/api/comprobantes/<%= cp.id %>/archivo">Descargar</a>
+                  <% } else { %>
+                    <span class="desc" style="color:var(--muted)">Sin archivo</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </section>
+
   <section class="panel" style="margin-top:20px" id="tenant-chat">
     <div class="panel-head"><h3>Mensajes con la administración</h3><span class="sub"><%= estado.galeria.nombre %></span></div>
     <div class="panel-body">

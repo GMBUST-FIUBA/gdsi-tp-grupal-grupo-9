@@ -97,11 +97,15 @@ const Liquidacion = sequelize.define('Liquidacion', {
 const Comprobante = sequelize.define('Comprobante', {
   archivoNombre: DataTypes.STRING,
   archivoPath: DataTypes.STRING,
+  datos: DataTypes.BLOB,
+  mimeType: DataTypes.STRING, // solo está cuando hay `datos`
   fechaSubida: DataTypes.STRING, // '27/08 14:12'
   estado: {
     type: DataTypes.ENUM('pendiente', 'aceptado', 'rechazado'),
     defaultValue: 'pendiente',
   },
+}, {
+  defaultScope: { attributes: { exclude: ['datos'] } },
 });
 
 const AjusteExpensa = sequelize.define('AjusteExpensa', {
@@ -189,7 +193,8 @@ Liquidacion.belongsTo(Contrato, { foreignKey: 'contratoId' });
 Local.hasMany(Liquidacion, { foreignKey: 'localId' });
 Liquidacion.belongsTo(Local, { foreignKey: 'localId' });
 
-Liquidacion.hasOne(Comprobante, { foreignKey: 'liquidacionId' });
+// Varios por liquidación: si rechazan uno y sube otro, el anterior queda en el historial.
+Liquidacion.hasMany(Comprobante, { foreignKey: 'liquidacionId' });
 Comprobante.belongsTo(Liquidacion, { foreignKey: 'liquidacionId' });
 
 Local.hasMany(AjusteExpensa, { foreignKey: 'localId' });

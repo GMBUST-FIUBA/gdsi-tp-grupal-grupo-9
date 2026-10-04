@@ -11,6 +11,7 @@ const {
 const { hashear, PASSWORD_INICIAL } = require('../auth');
 const {
   estadoCompleto, galeriaActual, serializarGasto, totalLiquidacionCents, locatarioDelUsuario,
+  comprobantePendiente,
 } = require('../services/galeria');
 const { tieneMasDeDosDecimales, PERIODO_ACTUAL, parseMoneyCents, centsToMoney } = require('../services/formato');
 
@@ -35,6 +36,29 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+/*
+ * Los comprobantes de pago no pasan por el disco: quedan en memoria y se
+ * guardan en la base (Comprobante.datos), así sobreviven a los deploys y no
+ * quedan expuestos en /uploads.
+ */
+const MAX_COMPROBANTE = 10 * 1024 * 1024;
+const uploadComprobante = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_COMPROBANTE } });
+
+/** Como upload.single(), pero un archivo muy grande vuelve como error legible y no como 500. */
+function subirComprobante(campo) {
+  const mw = uploadComprobante.single(campo);
+  return (req, res, next) => mw(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      return error(res, 'El comprobante no puede pesar más de 10 MB.');
+    }
+    next(err);
+  });
+}
+
+function esImagenOPdf(mime) {
+  return mime === 'application/pdf' || /^image\/[\w.+-]+$/.test(String(mime));
+}
 
 /* ---------------- Helpers ---------------- */
 
@@ -74,7 +98,9 @@ router.use((req, res, next) => {
 
   const rutaLocatario =
     (req.method === 'GET' && req.path === '/estado') ||
-    (req.method === 'POST' && req.path === '/tenant/comprobante');
+    (req.method === 'POST' && req.path === '/tenant/comprobante') ||
+    // La ruta de descarga chequea además que el comprobante sea suyo.
+    (req.method === 'GET' && /^\/comprobantes\/\d+\/archivo$/.test(req.path));
   if (u.rol === 'locatario' && !rutaLocatario) {
     return error(res, 'No tenés permiso para hacer esto.', 403);
   }
@@ -277,6 +303,7 @@ router.delete('/locales/:numero/ajuste', wrap(async (req, res) => {
 router.post('/liquidaciones/:id/aceptar', wrap(async (req, res) => {
   const liq = await Liquidacion.findByPk(req.params.id, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
+  const comp = comprobantePendiente(liq);
 
   liq.cobradoCents = totalLiquidacionCents(liq);
   liq.estado = 'cobrado';
@@ -284,9 +311,9 @@ router.post('/liquidaciones/:id/aceptar', wrap(async (req, res) => {
   liq.fechaPago = 'Cobrado (comprobante aceptado)';
   await liq.save();
 
-  if (liq.Comprobante) {
-    liq.Comprobante.estado = 'aceptado';
-    await liq.Comprobante.save();
+  if (comp) {
+    comp.estado = 'aceptado';
+    await comp.save();
   }
   res.json({ ok: true });
 }));
@@ -295,9 +322,10 @@ router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
   const liq = await Liquidacion.findByPk(req.params.id, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
 
-  if (liq.Comprobante) {
-    liq.Comprobante.estado = 'rechazado';
-    await liq.Comprobante.save();
+  const comp = comprobantePendiente(liq);
+  if (comp) {
+    comp.estado = 'rechazado';
+    await comp.save();
   }
   liq.estado = 'pendiente';
   liq.fechaPago = 'Comprobante rechazado';
@@ -440,8 +468,9 @@ router.put('/config', wrap(async (req, res) => {
 
 /* ---------------- Vista del locatario ---------------- */
 
-router.post('/tenant/comprobante', upload.single('comprobante'), wrap(async (req, res) => {
+router.post('/tenant/comprobante', subirComprobante('comprobante'), wrap(async (req, res) => {
   if (!req.file) return error(res, 'Adjuntá el comprobante antes de enviarlo.');
+  if (!esImagenOPdf(req.file.mimetype)) return error(res, 'El comprobante tiene que ser una imagen o un PDF.');
 
   const liq = await Liquidacion.findByPk(req.body.liquidacionId, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
@@ -453,15 +482,18 @@ router.post('/tenant/comprobante', upload.single('comprobante'), wrap(async (req
       return error(res, 'Esa liquidación no es de tu local.', 403);
     }
   }
+  if (liq.estado === 'cobrado') return error(res, 'Este mes ya está pagado.');
+  if (liq.estado === 'en_revision') return error(res, 'Ya hay un comprobante en revisión para este mes.');
 
   const ahora = new Date();
   const fecha = `${String(ahora.getDate()).padStart(2, '0')}/${String(ahora.getMonth() + 1).padStart(2, '0')} ${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
 
-  if (liq.Comprobante) await liq.Comprobante.destroy();
+  // Los anteriores (rechazados) quedan: son el historial del locatario.
   await Comprobante.create({
     liquidacionId: liq.id,
     archivoNombre: req.file.originalname,
-    archivoPath: req.file.filename,
+    datos: req.file.buffer,
+    mimeType: req.file.mimetype,
     fechaSubida: fecha,
     estado: 'pendiente',
   });
@@ -470,6 +502,43 @@ router.post('/tenant/comprobante', upload.single('comprobante'), wrap(async (req
   liq.fechaPago = 'Comprobante en revisión';
   await liq.save();
   res.json({ ok: true });
+}));
+
+/* ---------------- Descarga de comprobantes ---------------- */
+
+/**
+ * El archivo de un comprobante. Lo baja el locatario que lo subió (cualquiera
+ * de sus contratos) y la administración de esa galería. A cualquier otro se le
+ * responde 404, igual que si no existiera, para no confirmar qué ids hay.
+ */
+router.get('/comprobantes/:id/archivo', wrap(async (req, res) => {
+  const noEncontrado = () => error(res, 'No se encontró el comprobante.', 404);
+  if (!/^\d+$/.test(req.params.id)) return noEncontrado();
+
+  const comp = await Comprobante.unscoped().findByPk(req.params.id, {
+    include: [{ model: Liquidacion, include: [Contrato, Local] }],
+  });
+  const liq = comp && comp.Liquidacion;
+  if (!liq) return noEncontrado();
+
+  const u = req.usuario;
+  if (u.rol === 'locatario') {
+    const propio = await locatarioDelUsuario(u);
+    if (!propio || !liq.Contrato || liq.Contrato.locatarioId !== propio.locatario.id) return noEncontrado();
+  } else if (u.rol === 'admin') {
+    if (!liq.Local || liq.Local.galeriaId !== req.galeriaId) return noEncontrado();
+  }
+
+  if (!comp.datos) return error(res, 'Este comprobante no tiene archivo.', 404);
+
+  const nombre = comp.archivoNombre || `comprobante-${comp.id}`;
+  res.set({
+    'Content-Type': comp.mimeType || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${nombre.replace(/[^\w.-]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.send(comp.datos);
 }));
 
 /* ---------------- Superadmin ---------------- */

@@ -100,6 +100,9 @@ function viewReceipt(i) {
        <div class="r-amt">${centsToMoney(totalEfectivoCents(u))}</div>
        <div class="r-stamp">COMPROBANTE</div>
      </div>
+     ${u.compTieneArchivo
+    ? `<div class="form-actions" style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="/api/comprobantes/${u.compId}/archivo">Descargar comprobante</a></div>`
+    : ''}
      <p style="font-size:.82rem;color:var(--muted);margin:12px 0 0">Verificá que el monto coincida con la liquidación del mes antes de aceptar.</p>`,
     [{ label: 'Rechazar', cls: 'btn-ghost', fn: () => rejectPay(i) },
      { label: 'Aceptar pago', cls: 'btn-primary', fn: () => acceptPay(i) }]);

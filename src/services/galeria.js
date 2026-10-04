@@ -3,7 +3,9 @@ const {
   Galeria, Local, Contrato, Locatario, Liquidacion, Comprobante,
   AjusteExpensa, Configuracion, Gasto, Proveedor,
 } = require('../models');
-const { centsToMoney, PERIODO_ACTUAL, fechaCorta } = require('./formato');
+const {
+  centsToMoney, PERIODO_ACTUAL, fechaCorta, fechaHora,
+} = require('./formato');
 
 /**
  * La galería sobre la que se está trabajando. Viene del selector del panel
@@ -82,6 +84,13 @@ function totalLiquidacionCents(liq) {
   return liq.alquilerFijoCents + liq.variableCents + liq.expensasCents + liq.interesMoraCents;
 }
 
+/** El comprobante más nuevo que todavía espera revisión, o null. */
+function comprobantePendiente(liq) {
+  const pendientes = ((liq && liq.Comprobantes) || []).filter((c) => c.estado === 'pendiente');
+  pendientes.sort((a, b) => b.createdAt - a.createdAt || b.id - a.id);
+  return pendientes[0] || null;
+}
+
 /**
  * Arma el array `units` con la misma forma que consumía el prototipo, para que
  * el JS del navegador siga funcionando sin reescribirse.
@@ -107,9 +116,7 @@ function serializarLocal(local) {
   }
 
   const locatario = contrato.Locatario;
-  const comp = liq && liq.Comprobante && liq.Comprobante.estado === 'pendiente'
-    ? liq.Comprobante
-    : null;
+  const comp = comprobantePendiente(liq);
   const totCents = totalLiquidacionCents(liq);
 
   return {
@@ -131,6 +138,8 @@ function serializarLocal(local) {
     tel: locatario ? locatario.telefono : '',
     comp: !!comp,
     compFecha: comp ? comp.fechaSubida : null,
+    compId: comp ? comp.id : null,
+    compTieneArchivo: !!(comp && comp.mimeType),
     fact: centsToMoney(totCents),
     cob: centsToMoney(liq ? liq.cobradoCents : 0),
     cobCents: liq ? liq.cobradoCents : 0,
@@ -232,6 +241,17 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
     order: [['periodo', 'DESC']],
   });
 
+  // Todos los comprobantes que subió este locatario, de cualquiera de sus
+  // contratos (no los del inquilino anterior o siguiente del mismo local).
+  const comprobantes = await Comprobante.findAll({
+    include: [{
+      model: Liquidacion,
+      required: true,
+      include: [{ model: Contrato, required: true, attributes: [], where: { locatarioId: contrato.locatarioId } }],
+    }],
+    order: [['createdAt', 'DESC'], ['id', 'DESC']],
+  });
+
   return {
     unidad: serializarLocal(local),
     contrato: {
@@ -255,6 +275,14 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
       estado: liq.estado,
       ajuste: ajuste && { tipo: ajuste.tipo, montoCents: ajuste.montoCents, motivo: ajuste.motivo },
     },
+    comprobantes: comprobantes.map((c) => ({
+      id: c.id,
+      periodo: c.Liquidacion.periodo,
+      fecha: fechaHora(c.createdAt),
+      archivoNombre: c.archivoNombre,
+      estado: c.estado,
+      tieneArchivo: !!c.mimeType,
+    })),
     pagos: previas.map((l) => ({
       periodo: l.periodo,
       totalCents: totalLiquidacionCents(l),
@@ -287,6 +315,6 @@ async function locatarioDelUsuario(usuario) {
 module.exports = {
   locatarioDelUsuario,
   galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, contratoVigente, estadoLocal,
-  totalLiquidacionCents, serializarLocal, serializarAjustes,
+  totalLiquidacionCents, comprobantePendiente, serializarLocal, serializarAjustes,
   serializarPorcentajes, serializarGasto, estadoCompleto,
 };

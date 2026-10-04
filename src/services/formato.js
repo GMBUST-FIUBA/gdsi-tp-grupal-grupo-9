@@ -43,7 +43,21 @@ function fechaCorta(fecha) {
   return `${MESES_CORTOS[Number(mes) - 1]} ${anio}`;
 }
 
+const FORMATO_FECHA_HORA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Buenos_Aires',
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+/** Date -> '03/10/2026 19:49', en hora de Argentina (el server de Render corre en UTC). */
+function fechaHora(fecha) {
+  if (!fecha) return '';
+  const p = {};
+  FORMATO_FECHA_HORA.formatToParts(new Date(fecha)).forEach(({ type, value }) => { p[type] = value; });
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
+}
+
 module.exports = {
   centsToMoney, parseMoneyCents, tieneMasDeDosDecimales,
-  PERIODO_ACTUAL, periodoLabel, fechaCorta,
+  PERIODO_ACTUAL, periodoLabel, fechaCorta, fechaHora,
 };
