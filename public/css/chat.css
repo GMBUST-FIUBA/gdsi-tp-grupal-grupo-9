@@ -14,7 +14,13 @@
 .ci-nombre{font-weight:600;font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ci-fecha{font-size:.72rem;color:var(--muted);white-space:nowrap}
 .ci-local{font-size:.74rem;color:var(--muted)}
-.ci-ultimo{font-size:.82rem;color:#4d4838;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-bottom{display:flex;align-items:center;gap:8px;margin-top:2px}
+.ci-ultimo{flex:1;min-width:0;font-size:.82rem;color:#4d4838;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-ultimo .b-estado{color:var(--muted)}
+.ci-ultimo .b-estado.leido{color:var(--ok)}
+.chat-item.no-leido .ci-nombre,.chat-item.no-leido .ci-ultimo{font-weight:700;color:var(--ink)}
+.ci-badge{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--brass);color:#fff;
+  font-size:.72rem;font-weight:700;line-height:20px;text-align:center}
 
 /* Hilo */
 .chat-hilo{display:flex;flex-direction:column;gap:10px;height:420px;overflow-y:auto;padding:4px 2px 8px}
@@ -28,6 +34,15 @@
 .b-texto{font-size:.9rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .b-fecha{font-size:.68rem;color:var(--muted);text-align:right;margin-top:2px}
 .burbuja.mia .b-fecha{color:#c9c3b3}
+
+/* Estado de los mensajes propios */
+.b-estado{font-size:.72rem;letter-spacing:-.12em;margin-left:2px}
+.burbuja.mia .b-estado.leido{color:#8fd3b0}
+.burbuja.pendiente{opacity:.7}
+.burbuja.error{opacity:1;border-color:var(--late);box-shadow:0 0 0 1px var(--late)}
+.b-estado.error{letter-spacing:0;color:#f0a58e;font-weight:600}
+.b-reintentar{border:0;background:none;padding:0;font:inherit;color:#fff;text-decoration:underline;cursor:pointer}
+.b-reintentar:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
 /* Caja para escribir */
 .chat-input{display:flex;gap:10px;align-items:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}

@@ -185,14 +185,20 @@ async function seed() {
 
   if (chatDeEjemplo) {
     const chat = await Chat.create({ galeriaId: galeria.id, locatarioId: chatDeEjemplo.locatario.id });
-    await Mensaje.create({
+    const consulta = await Mensaje.create({
       chatId: chat.id, autorId: chatDeEjemplo.usuario.id, autorRol: 'locatario',
       texto: 'Hola, ya subí el comprobante de agosto. ¿Me confirman cuando lo revisen?',
     });
-    await Mensaje.create({
+    const respuesta = await Mensaje.create({
       chatId: chat.id, autorId: admin.id, autorRol: 'admin',
       texto: 'Hola, lo recibimos. Lo revisamos y te avisamos por acá.',
     });
+    await Mensaje.create({
+      chatId: chat.id, autorId: chatDeEjemplo.usuario.id, autorRol: 'locatario',
+      texto: 'Gracias. ¿La expensa de septiembre ya está liquidada?',
+    });
+    // El locatario leyó la respuesta; el admin todavía no vio la última consulta.
+    await chat.update({ leidoAdminHasta: consulta.id, leidoLocatarioHasta: respuesta.id });
   }
 
   console.log('Datos de ejemplo cargados.');

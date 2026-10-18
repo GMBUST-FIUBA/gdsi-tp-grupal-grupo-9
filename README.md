@@ -45,7 +45,17 @@ por locatario.
 
 - Los mensajes nuevos llegan por **polling**: mientras el chat está abierto, el
   navegador pregunta cada 5 segundos si hay mensajes nuevos. No hay WebSockets.
-- Son solo mensajes de texto: no hay estado de leído ni notificaciones.
+- Cada mensaje propio muestra su estado: **Enviándose** (◷) mientras viaja al
+  servidor, **Enviado** (✓) cuando quedó guardado y **Leído** (✓✓) cuando el
+  otro lado abrió el chat. Si el envío falla (sin conexión, límite de envío),
+  queda en el hilo como **No se envió** con un botón *Reintentar*.
+- El leído se guarda como un cursor por chat (`leidoAdminHasta` /
+  `leidoLocatarioHasta`: hasta qué mensaje leyó cada lado), no como una marca
+  por mensaje. Traer los mensajes de un chat abierto cuenta como leerlos.
+- En la lista de chats el admin ve cuántos mensajes sin leer tiene cada uno.
+- No hay notificaciones fuera de la sección de mensajes.
+- Si venís de una versión anterior con SQLite, recreá la base
+  (`npm run seed -- --force`) para que la tabla de chats tenga los cursores.
 - Cada usuario puede mandar hasta 10 mensajes cada 10 segundos. El contador
   vive en memoria, igual que la sesión.
 - El texto de los mensajes se escapa antes de mostrarlo (`escaparHTML`): lo
