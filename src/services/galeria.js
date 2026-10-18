@@ -56,6 +56,32 @@ function ultimoContrato(local) {
   return cs.reduce((masNuevo, c) => (c.id > masNuevo.id ? c : masNuevo), cs[0]);
 }
 
+/**
+ * Lo que el formulario de nuevo contrato puede copiar de un contrato anterior.
+ * Solo van las claves con un dato real: lo que falta no se completa con nada.
+ */
+function datosParaReplicar(contrato) {
+  if (!contrato) return null;
+  const texto = (v) => {
+    const t = String(v || '').trim();
+    return t && t !== '—' ? t : null;
+  };
+  const out = {};
+  const loc = contrato.Locatario;
+
+  if (texto(contrato.rubro)) out.rubro = texto(contrato.rubro);
+  if (loc && texto(loc.nombre)) out.locatario = texto(loc.nombre);
+  if (loc && texto(loc.email)) out.email = texto(loc.email);
+  if (loc && texto(loc.telefono)) out.telefono = texto(loc.telefono);
+  if (contrato.plazoMeses > 0) out.plazoMeses = contrato.plazoMeses;
+  if (contrato.alquilerFijoCents > 0) out.alquilerFijo = centsToMoney(contrato.alquilerFijoCents);
+  if (contrato.modalidad) out.modalidad = contrato.modalidad;
+  if (contrato.modalidad === 'fijo_pct' && Number(contrato.porcentajeFacturacion) > 0) {
+    out.porcentaje = Number(contrato.porcentajeFacturacion);
+  }
+  return out;
+}
+
 function modalidadLabel(contrato) {
   if (!contrato) return '—';
   return contrato.modalidad === 'fijo_pct'
@@ -112,6 +138,7 @@ function serializarLocal(local) {
       desde: previo && previo.fechaBaja
         ? `Baja: ${fechaCorta(previo.fechaBaja)}`
         : 'Disponible',
+      ultimoContrato: datosParaReplicar(previo),
     };
   }
 

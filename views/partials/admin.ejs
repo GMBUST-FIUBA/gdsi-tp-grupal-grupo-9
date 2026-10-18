@@ -79,6 +79,7 @@
           <div class="note late" id="f-err" hidden></div>
           <div class="form-actions">
             <%# TODO: guardar borrador necesita un estado 'borrador' en Contrato; hoy solo se registra el contrato completo. %>
+            <button class="btn btn-ghost" onclick="replicarUltimoContrato()">Replicar último contrato</button>
             <button class="btn btn-ghost" onclick="toast('Guardar borrador todavía no está implementado')">Guardar borrador</button>
             <button class="btn btn-primary" onclick="registrarContrato()">Registrar contrato</button>
           </div>

@@ -16,6 +16,41 @@ function syncModalidad() {
   document.getElementById('f-pct-wrap').hidden = !esPct;
 }
 
+/** Dato del último contrato -> campo del formulario donde se copia. */
+const camposReplicables = {
+  rubro: 'f-rubro',
+  locatario: 'f-locatario',
+  email: 'f-email',
+  telefono: 'f-tel',
+  plazoMeses: 'f-meses',
+  alquilerFijo: 'f-fijo',
+  modalidad: 'f-modo',
+  porcentaje: 'f-pct',
+};
+
+/**
+ * Completa el formulario con el último contrato del local elegido. Solo pisa
+ * los campos de los que hay dato; si el local nunca tuvo contrato, no toca nada.
+ */
+function replicarUltimoContrato() {
+  const numero = document.getElementById('f-local').value;
+  if (!numero) return toast('No hay locales libres para registrar un contrato.');
+
+  const u = units.find((x) => x.n === numero);
+  const previo = u && u.ultimoContrato;
+  if (!previo) return toast(`El Local ${numero} no tiene un contrato anterior para replicar`);
+
+  const claves = Object.keys(camposReplicables).filter((k) => previo[k] !== undefined);
+  if (!claves.length) return toast(`El último contrato del Local ${numero} no tiene datos para copiar`);
+
+  claves.forEach((k) => {
+    document.getElementById(camposReplicables[k]).value = previo[k];
+  });
+  syncModalidad();
+  mostrarError('f-err', null);
+  toast(`Se copiaron los datos del último contrato del Local ${numero}`);
+}
+
 async function registrarContrato() {
   const numero = document.getElementById('f-local').value;
   if (!numero) return mostrarError('f-err', 'No hay locales libres para registrar un contrato.');
