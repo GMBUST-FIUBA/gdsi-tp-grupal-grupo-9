@@ -21,15 +21,19 @@ function renderListaChats() {
     return;
   }
   box.innerHTML = chatsAdmin.map((c) => {
+    const propio = c.ultimo && c.ultimo.autorRol === 'admin';
     const ultimo = c.ultimo
-      ? (c.ultimo.autorRol === 'admin' ? 'Vos: ' : '') + escaparHTML(c.ultimo.texto)
+      ? (propio ? `${estadoHTML(c.ultimo.leido ? 'leido' : 'enviado')} Vos: ` : '') + escaparHTML(c.ultimo.texto)
       : 'Sin mensajes';
     const activo = chatAbierto && chatAbierto.id === c.id;
+    const badge = c.noLeidos
+      ? `<span class="ci-badge" aria-label="${c.noLeidos} sin leer">${c.noLeidos}</span>`
+      : '';
     return `
-      <button class="chat-item${activo ? ' activo' : ''}" onclick="abrirChat(${c.id})">
+      <button class="chat-item${activo ? ' activo' : ''}${c.noLeidos ? ' no-leido' : ''}" onclick="abrirChat(${c.id})">
         <div class="ci-top"><span class="ci-nombre">${escaparHTML(c.locatario)}</span><span class="ci-fecha">${fechaMensaje(c.fecha)}</span></div>
         <div class="ci-local">${c.local ? 'Local ' + escaparHTML(c.local) : 'Sin contrato vigente'}</div>
-        <div class="ci-ultimo">${ultimo}</div>
+        <div class="ci-bottom"><span class="ci-ultimo">${ultimo}</span>${badge}</div>
       </button>`;
   }).join('');
 }
@@ -41,9 +45,11 @@ async function abrirChat(id) {
   const c = chatsAdmin.find((x) => x.id === id);
   document.getElementById('chat-titulo').textContent = c ? c.locatario : 'Conversación';
   document.getElementById('chat-sub').textContent = c && c.local ? 'Local ' + c.local : '';
-  abrirHilo(id, 'admin', r.mensajes);
+  abrirHilo(id, 'admin', r.mensajes, r.leidoHasta);
   mostrarError('chat-err', null);
   document.getElementById('chat-form').hidden = false;
+  // Al abrirlo el server ya lo dio por leído; no esperar al próximo polling.
+  if (c) c.noLeidos = 0;
   renderListaChats();
   document.getElementById('chat-texto').focus();
 }

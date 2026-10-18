@@ -150,7 +150,15 @@ const Configuracion = sequelize.define('Configuracion', {
  * Un chat por locatario dentro de su galería: si el local cambia de inquilino,
  * el nuevo arranca con un chat propio y no ve la conversación del anterior.
  */
-const Chat = sequelize.define('Chat', {}, {
+const Chat = sequelize.define('Chat', {
+  /*
+   * Hasta qué mensaje (id) leyó cada lado. Los mensajes se leen en orden, así
+   * que alcanza con un cursor por lado en vez de marcar cada mensaje: uno propio
+   * está leído si su id es <= al cursor del otro lado.
+   */
+  leidoAdminHasta: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  leidoLocatarioHasta: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+}, {
   indexes: [{ unique: true, fields: ['galeriaId', 'locatarioId'] }],
 });
 

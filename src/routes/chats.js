@@ -13,7 +13,11 @@ const { galeriaActual, locatarioDelUsuario } = require('../services/galeria');
  * acá el locatario sí puede leer y escribir (pero solo en su chat).
  *
  * Los mensajes nuevos se buscan por polling desde el navegador (?desde=<id>).
- * No hay estado de leído: es solo el hilo de mensajes.
+ *
+ * Estado de leído: cada chat guarda hasta qué mensaje leyó cada lado
+ * (leidoAdminHasta / leidoLocatarioHasta). Leer los mensajes de un chat mueve el
+ * cursor de quien los pide, y la respuesta trae el cursor del otro lado
+ * (`leidoHasta`) para que el navegador marque como leídos los mensajes propios.
  */
 const router = express.Router();
 
@@ -39,6 +43,33 @@ function entero(v) {
 
 function esAdministracion(usuario) {
   return usuario.rol === 'admin' || usuario.rol === 'superadmin';
+}
+
+/** De qué lado del chat habla el usuario: el superadmin también habla por la administración. */
+function ladoDe(usuario) {
+  return esAdministracion(usuario) ? 'admin' : 'locatario';
+}
+
+function campoLeido(lado) {
+  return lado === 'admin' ? 'leidoAdminHasta' : 'leidoLocatarioHasta';
+}
+
+/** Cursor del otro lado: hasta qué mensaje leyó la contraparte del usuario. */
+function leidoPorElOtro(chat, lado) {
+  return chat[campoLeido(lado === 'admin' ? 'locatario' : 'admin')];
+}
+
+/**
+ * Mueve el cursor del lado hasta `hastaId`, nunca para atrás (el WHERE lo
+ * asegura aunque haya dos pestañas leyendo a la vez). Se le pasa el último
+ * mensaje que de verdad se devolvió, no el último de la base, para no dar por
+ * leído uno que llegó mientras tanto.
+ */
+async function marcarLeido(chat, lado, hastaId) {
+  const campo = campoLeido(lado);
+  if (!(hastaId > chat[campo])) return;
+  await Chat.update({ [campo]: hastaId }, { where: { id: chat.id, [campo]: { [Op.lt]: hastaId } } });
+  chat[campo] = hastaId;
 }
 
 /**
@@ -103,6 +134,13 @@ async function mensajesDe(chatId, desde = 0) {
   return mensajes.map((m) => serializarMensaje(m));
 }
 
+/** Mensajes del chat a partir de `desde`, marcándolos como leídos por `lado`. */
+async function leerMensajes(chat, lado, desde = 0) {
+  const mensajes = await mensajesDe(chat.id, desde);
+  if (mensajes.length) await marcarLeido(chat, lado, mensajes[mensajes.length - 1].id);
+  return mensajes;
+}
+
 /*
  * Límite de envío por usuario. Vive en memoria, igual que la sesión: alcanza
  * para una sola instancia y se reinicia con el server.
@@ -155,16 +193,22 @@ router.get('/', soloAdministracion, wrap(async (req, res) => {
   const out = [];
   for (const chat of chats) {
     const ultimo = await Mensaje.findOne({ where: { chatId: chat.id }, order: [['id', 'DESC']] });
+    const noLeidos = await Mensaje.count({
+      where: { chatId: chat.id, autorRol: 'locatario', id: { [Op.gt]: chat.leidoAdminHasta } },
+    });
     const contrato = chat.Locatario && (chat.Locatario.Contratos || [])[0];
     out.push({
       id: chat.id,
       locatarioId: chat.locatarioId,
       locatario: chat.Locatario ? chat.Locatario.nombre : 'Locatario',
       local: contrato && contrato.Local ? contrato.Local.numero : null,
+      noLeidos,
       ultimo: ultimo && {
+        id: ultimo.id,
         texto: ultimo.texto.slice(0, 120),
         autorRol: ultimo.autorRol,
         fecha: ultimo.createdAt,
+        leido: ultimo.id <= chat.leidoLocatarioHasta,
       },
       fecha: ultimo ? ultimo.createdAt : chat.createdAt,
     });
@@ -201,10 +245,13 @@ router.get('/mio', soloLocatario, wrap(async (req, res) => {
   const chat = await Chat.findOne({
     where: { galeriaId: propio.contrato.Local.galeriaId, locatarioId: propio.locatario.id },
   });
+  if (!chat) return res.json({ ok: true, chat: null, mensajes: [], leidoHasta: 0 });
+
   res.json({
     ok: true,
-    chat: chat ? { id: chat.id } : null,
-    mensajes: chat ? await mensajesDe(chat.id) : [],
+    chat: { id: chat.id },
+    mensajes: await leerMensajes(chat, 'locatario'),
+    leidoHasta: leidoPorElOtro(chat, 'locatario'),
   });
 }));
 
@@ -216,18 +263,29 @@ router.post('/mio', soloLocatario, wrap(async (req, res) => {
   const [chat] = await Chat.findOrCreate({
     where: { galeriaId: propio.contrato.Local.galeriaId, locatarioId: propio.locatario.id },
   });
-  res.json({ ok: true, chat: { id: chat.id }, mensajes: await mensajesDe(chat.id) });
+  res.json({
+    ok: true,
+    chat: { id: chat.id },
+    mensajes: await leerMensajes(chat, 'locatario'),
+    leidoHasta: leidoPorElOtro(chat, 'locatario'),
+  });
 }));
 
 /* ---------------- Mensajes (los dos lados) ---------------- */
 
+/*
+ * Solo lo llama una pantalla con el hilo abierto (y el polling no pide nada si
+ * la pestaña está oculta), así que traer los mensajes cuenta como leerlos.
+ */
 router.get('/:id/mensajes', wrap(async (req, res) => {
   const desde = req.query.desde === undefined ? 0 : entero(req.query.desde);
   if (desde === null) return error(res, 'El parámetro "desde" no es válido.');
 
   const chat = await chatAccesible(req, res);
   if (!chat) return;
-  res.json({ ok: true, mensajes: await mensajesDe(chat.id, desde) });
+  const lado = ladoDe(req.usuario);
+  const mensajes = await leerMensajes(chat, lado, desde);
+  res.json({ ok: true, mensajes, leidoHasta: leidoPorElOtro(chat, lado) });
 }));
 
 router.post('/:id/mensajes', wrap(async (req, res) => {
@@ -248,7 +306,7 @@ router.post('/:id/mensajes', wrap(async (req, res) => {
     chatId: chat.id,
     texto,
     autorId: req.usuario.id,
-    autorRol: esAdministracion(req.usuario) ? 'admin' : 'locatario',
+    autorRol: ladoDe(req.usuario),
   });
   res.json({ ok: true, mensaje: serializarMensaje(mensaje, req.usuario) });
 }));
