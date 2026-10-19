@@ -7,7 +7,9 @@ const {
   sequelize, Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, Proveedor, Gasto, Configuracion, Chat, Mensaje,
 } = require('./models');
-const { PERIODO_ACTUAL } = require('./services/formato');
+const { PERIODO_INICIAL, periodoDeTexto } = require('./services/formato');
+
+const PERIODO_ACTUAL = PERIODO_INICIAL;
 const { hashear, PASSWORD_INICIAL } = require('./auth');
 
 // Locales cuyos locatarios tienen usuario de acceso (mail del locatario, clave 1234).
@@ -17,6 +19,10 @@ const EXPENSAS_BASE = 160000; // pesos, por local
 
 // Chat de ejemplo entre la administración y el locatario de este local.
 const LOCAL_CON_CHAT = '04';
+
+// % de expensas: los 19 locales ocupados suman 100% (los más grandes pagan un poco más).
+const LOCALES_PCT_MAYOR = ['04', '10', '16', '20'];
+const pctExpensas = (d) => (d.libre ? null : (LOCALES_PCT_MAYOR.includes(d.n) ? 6.25 : 5));
 
 // n, rubro, locatario, mail, tel, % de facturación, alquiler fijo, total del mes,
 // próxima actualización, texto de estado de cobro, comprobante, cobrado, días de mora, mora.
@@ -101,6 +107,7 @@ async function seed() {
       descripcion: g.descripcion,
       montoCents: pesos(g.monto),
       fecha: g.fecha,
+      periodo: PERIODO_ACTUAL,
     });
   }
 
@@ -111,6 +118,7 @@ async function seed() {
       galeriaId: galeria.id,
       numero: d.n,
       superficie: '~ 38 m2',
+      expensasPct: pctExpensas(d),
     });
 
     if (d.libre) {
@@ -153,6 +161,7 @@ async function seed() {
       inicio: '2025-03-01',
       plazoMeses: 24,
       proximaActualizacion: d.act,
+      proximaActualizacionPeriodo: periodoDeTexto(d.act),
       diaVencimiento: 10,
       estado: 'vigente',
       esAlta: !!d.nuevo,
@@ -235,6 +244,30 @@ async function seedUsuariosSiFaltan() {
   return true;
 }
 
+/**
+ * Para bases que ya existían antes del cierre del mes: los gastos sin período
+ * pasan al mes abierto de su galería, y los contratos toman el período de su
+ * próxima actualización del texto que ya tenían ('ICL · Sep 2026').
+ */
+async function completarCierreSiFalta() {
+  const gastos = await Gasto.findAll({ where: { periodo: null } });
+  for (const g of gastos) {
+    const config = await Configuracion.findOne({ where: { galeriaId: g.galeriaId } });
+    g.periodo = (config && config.periodoActual) || PERIODO_INICIAL;
+    await g.save();
+  }
+  // Los contratos dados de baja no tienen texto: esos quedan sin período.
+  let contratos = 0;
+  for (const c of await Contrato.findAll({ where: { proximaActualizacionPeriodo: null } })) {
+    const p = periodoDeTexto(c.proximaActualizacion);
+    if (!p) continue;
+    c.proximaActualizacionPeriodo = p;
+    await c.save();
+    contratos++;
+  }
+  if (gastos.length || contratos) console.log('Datos completados para el cierre del mes.');
+}
+
 /** Corre el seed solo si no hay galerías cargadas; si hay, completa lo que falte. */
 async function seedSiHaceFalta() {
   const n = await Galeria.count();
@@ -242,7 +275,9 @@ async function seedSiHaceFalta() {
     await seed();
     return true;
   }
-  return seedUsuariosSiFaltan();
+  const usuarios = await seedUsuariosSiFaltan();
+  await completarCierreSiFalta();
+  return usuarios;
 }
 
 module.exports = { seed, seedSiHaceFalta };

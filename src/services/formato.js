@@ -19,10 +19,31 @@ function tieneMasDeDosDecimales(n) {
   return Math.abs(n * 100 - Math.round(n * 100)) > 1e-6;
 }
 
-// TODO: el período está fijo en agosto 2026 porque el prototipo mostraba ese mes.
-// Cuando exista el cierre mensual, esto tiene que salir de la config de la galería
-// (o del mes en curso) y no de una constante.
-const PERIODO_ACTUAL = '2026-08';
+// Período con el que arranca cada galería (el prototipo mostraba agosto 2026).
+// Después, el período abierto vive en la config de la galería y avanza con
+// cada cierre del mes.
+const PERIODO_INICIAL = '2026-08';
+
+/** '2026-11' + 3 -> '2027-02' */
+function sumarMeses(periodo, n) {
+  const [anio, mes] = String(periodo).split('-').map(Number);
+  const total = anio * 12 + (mes - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
+}
+
+/** Meses de '2026-08' a '2026-10' -> 2 */
+function mesesEntre(desde, hasta) {
+  const [a1, m1] = String(desde).split('-').map(Number);
+  const [a2, m2] = String(hasta).split('-').map(Number);
+  return (a2 * 12 + m2) - (a1 * 12 + m1);
+}
+
+const MESES_FRECUENCIA = { Trimestral: 3, Cuatrimestral: 4, Semestral: 6, Anual: 12 };
+
+/** 'Trimestral' -> 3. Lo que no se reconoce cuenta como trimestral. */
+function mesesDeFrecuencia(frecuencia) {
+  return MESES_FRECUENCIA[frecuencia] || 3;
+}
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -35,6 +56,19 @@ function periodoLabel(periodo) {
 
 const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+/** 'ICL · Sep 2026' | 'Sep 2026' -> '2026-09', o null si no trae un mes. */
+function periodoDeTexto(texto) {
+  const m = /(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic)\w*\s+(\d{4})/.exec(String(texto || ''));
+  if (!m) return null;
+  return `${m[2]}-${String(MESES_CORTOS.indexOf(m[1]) + 1).padStart(2, '0')}`;
+}
+
+/** '2026-09' -> 'Sep 2026' */
+function periodoCorto(periodo) {
+  const [anio, mes] = String(periodo).split('-');
+  return `${MESES_CORTOS[Number(mes) - 1]} ${anio}`;
+}
 
 /** '2026-06-30' -> 'Jun 2026' */
 function fechaCorta(fecha) {
@@ -59,5 +93,6 @@ function fechaHora(fecha) {
 
 module.exports = {
   centsToMoney, parseMoneyCents, tieneMasDeDosDecimales,
-  PERIODO_ACTUAL, periodoLabel, fechaCorta, fechaHora,
+  PERIODO_INICIAL, periodoLabel, periodoCorto, fechaCorta, fechaHora,
+  sumarMeses, mesesEntre, mesesDeFrecuencia, periodoDeTexto,
 };

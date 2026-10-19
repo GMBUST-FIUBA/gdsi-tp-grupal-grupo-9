@@ -1,5 +1,7 @@
 /* ---------- Modal ---------- */
-function openModal(title, bodyHTML, actions){
+/* opts.ancho: para tablas que no entran en el modal angosto. */
+function openModal(title, bodyHTML, actions, opts){
+  document.querySelector('#modal .modal').classList.toggle('ancho', !!(opts && opts.ancho));
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHTML;
   const foot = document.getElementById('modal-foot'); foot.innerHTML = '';

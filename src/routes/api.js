@@ -6,14 +6,19 @@ const { Op } = require('sequelize');
 
 const {
   Galeria, Administrador, Usuario, Local, Locatario, Contrato,
-  Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion,
+  Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion, CierreMes,
 } = require('../models');
 const { hashear, PASSWORD_INICIAL } = require('../auth');
 const {
-  estadoCompleto, galeriaActual, serializarGasto, totalLiquidacionCents, locatarioDelUsuario,
-  comprobantePendiente,
+  estadoCompleto, galeriaActual, serializarGasto, locatarioDelUsuario,
+  comprobantePendiente, periodoAbierto, cuentaCorriente,
 } = require('../services/galeria');
-const { tieneMasDeDosDecimales, PERIODO_ACTUAL, parseMoneyCents, centsToMoney } = require('../services/formato');
+const {
+  tieneMasDeDosDecimales, parseMoneyCents, centsToMoney, sumarMeses, mesesDeFrecuencia, periodoCorto,
+} = require('../services/formato');
+const { totalConAjusteCents, indiceCorto } = require('../services/calculo');
+const cierre = require('../services/cierre');
+const { pdfCierre, pdfLiquidacion, cabecerasPdf } = require('../services/documentos');
 
 /** Igual que el fmtPct del navegador: '12,50%'. */
 function fmtPct(n) {
@@ -99,8 +104,9 @@ router.use((req, res, next) => {
   const rutaLocatario =
     (req.method === 'GET' && req.path === '/estado') ||
     (req.method === 'POST' && req.path === '/tenant/comprobante') ||
-    // La ruta de descarga chequea además que el comprobante sea suyo.
-    (req.method === 'GET' && /^\/comprobantes\/\d+\/archivo$/.test(req.path));
+    // Las rutas de descarga chequean además que el comprobante o la liquidación sean suyos.
+    (req.method === 'GET' && /^\/comprobantes\/\d+\/archivo$/.test(req.path)) ||
+    (req.method === 'GET' && /^\/liquidaciones\/\d+\/pdf$/.test(req.path));
   if (u.rol === 'locatario' && !rutaLocatario) {
     return error(res, 'No tenés permiso para hacer esto.', 403);
   }
@@ -127,7 +133,7 @@ router.get('/estado', wrap(async (req, res) => {
   const completo = await estadoCompleto(req.galeriaId);
   if (req.usuario.rol === 'locatario') {
     // Al locatario no le mandamos los datos del resto de los locales.
-    return res.json({ galeria: completo.galeria, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} });
+    return res.json({ galeria: completo.galeria, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} });
   }
   res.json(completo);
 }));
@@ -176,14 +182,22 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
     archivoNombre: req.file ? req.file.originalname : null,
     archivoPath: req.file ? req.file.filename : null,
     fecha: new Date().toISOString().slice(0, 10),
+    periodo: await periodoAbierto(galeria.id),
   });
   const conProveedor = await Gasto.findByPk(gasto.id, { include: [Proveedor] });
   res.json({ ok: true, gasto: serializarGasto(conProveedor) });
 }));
 
+/** Los gastos de un mes cerrado ya se repartieron en las expensas: no se tocan. */
+async function gastoCerrado(gasto) {
+  return gasto.periodo !== await periodoAbierto(gasto.galeriaId);
+}
+const MSG_GASTO_CERRADO = 'Ese gasto es de un mes ya liquidado: no se puede modificar.';
+
 router.put('/gastos/:id', upload.single('archivo'), wrap(async (req, res) => {
   const gasto = await Gasto.findByPk(req.params.id);
   if (!gasto) return error(res, 'No se encontró el gasto.', 404);
+  if (await gastoCerrado(gasto)) return error(res, MSG_GASTO_CERRADO);
 
   const datos = {
     proveedorId: gasto.proveedorId,
@@ -211,6 +225,7 @@ router.put('/gastos/:id', upload.single('archivo'), wrap(async (req, res) => {
 router.delete('/gastos/:id', wrap(async (req, res) => {
   const gasto = await Gasto.findByPk(req.params.id);
   if (!gasto) return error(res, 'No se encontró el gasto.', 404);
+  if (await gastoCerrado(gasto)) return error(res, MSG_GASTO_CERRADO);
   await gasto.destroy();
   res.json({ ok: true });
 }));
@@ -269,7 +284,8 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
   if (!(monto > 0)) return error(res, 'El monto del ajuste debe ser mayor a $ 0,00.');
   if (tieneMasDeDosDecimales(monto)) return error(res, 'El monto solo puede tener hasta dos decimales.');
 
-  const liq = await Liquidacion.findOne({ where: { localId: local.id, periodo: PERIODO_ACTUAL } });
+  const periodo = await periodoAbierto(local.galeriaId);
+  const liq = await Liquidacion.findOne({ where: { localId: local.id, periodo } });
   const expensas = liq ? liq.expensasCents : 0;
   const montoCents = Math.round(monto * 100);
   if (tipo === 'descuento' && montoCents > expensas) {
@@ -277,12 +293,12 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
   }
 
   // Un solo ajuste por local y período: si ya había, se reemplaza.
-  const previo = await AjusteExpensa.findOne({ where: { localId: local.id, periodo: PERIODO_ACTUAL } });
+  const previo = await AjusteExpensa.findOne({ where: { localId: local.id, periodo } });
   const reemplazo = !!previo;
   if (previo) await previo.destroy();
   await AjusteExpensa.create({
     localId: local.id,
-    periodo: PERIODO_ACTUAL,
+    periodo,
     tipo,
     montoCents,
     motivo: String(req.body.motivo || '').trim(),
@@ -294,18 +310,27 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
 router.delete('/locales/:numero/ajuste', wrap(async (req, res) => {
   const local = await localPorNumero(req, req.params.numero);
   if (!local) return error(res, 'No se encontró el local.', 404);
-  await AjusteExpensa.destroy({ where: { localId: local.id, periodo: PERIODO_ACTUAL } });
+  await AjusteExpensa.destroy({ where: { localId: local.id, periodo: await periodoAbierto(local.galeriaId) } });
   res.json({ ok: true });
 }));
 
 /* ---------------- Cobranza: aceptar / rechazar comprobante ---------------- */
 
+/** Las liquidaciones de un mes cerrado quedan congeladas: su deuda ya pasó al mes siguiente. */
+async function liquidacionCerrada(liq) {
+  const local = await Local.findByPk(liq.localId);
+  return !local || liq.periodo !== await periodoAbierto(local.galeriaId);
+}
+const MSG_LIQ_CERRADA = 'Ese mes ya está liquidado: lo impago pasó a la liquidación del mes siguiente.';
+
 router.post('/liquidaciones/:id/aceptar', wrap(async (req, res) => {
   const liq = await Liquidacion.findByPk(req.params.id, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
+  if (await liquidacionCerrada(liq)) return error(res, MSG_LIQ_CERRADA);
   const comp = comprobantePendiente(liq);
+  const ajuste = await AjusteExpensa.findOne({ where: { localId: liq.localId, periodo: liq.periodo } });
 
-  liq.cobradoCents = totalLiquidacionCents(liq);
+  liq.cobradoCents = totalConAjusteCents(liq, ajuste);
   liq.estado = 'cobrado';
   liq.diasMora = 0;
   liq.fechaPago = 'Cobrado (comprobante aceptado)';
@@ -321,6 +346,7 @@ router.post('/liquidaciones/:id/aceptar', wrap(async (req, res) => {
 router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
   const liq = await Liquidacion.findByPk(req.params.id, { include: [Comprobante] });
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
+  if (await liquidacionCerrada(liq)) return error(res, MSG_LIQ_CERRADA);
 
   const comp = comprobantePendiente(liq);
   if (comp) {
@@ -367,6 +393,12 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
   });
 
   const esPct = req.body.modalidad === 'fijo_pct';
+  const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
+  const periodo = await periodoAbierto(local.galeriaId);
+  const inicio = req.body.inicio || new Date().toISOString().slice(0, 10);
+  // La primera actualización cae una frecuencia después del mes de inicio.
+  const indice = (config && config.indice) || 'ICL (BCRA)';
+  const proximaActualizacionPeriodo = sumarMeses(inicio.slice(0, 7), mesesDeFrecuencia(config && config.frecuencia));
   const contrato = await Contrato.create({
     localId: local.id,
     locatarioId: locatario.id,
@@ -374,7 +406,10 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     modalidad: esPct ? 'fijo_pct' : 'fijo',
     porcentajeFacturacion: esPct ? Number(req.body.porcentaje || 0) : 0,
     alquilerFijoCents: fijoCents,
-    inicio: req.body.inicio || new Date().toISOString().slice(0, 10),
+    inicio,
+    indice,
+    proximaActualizacionPeriodo,
+    proximaActualizacion: `${indiceCorto(indice)} · ${periodoCorto(proximaActualizacionPeriodo)}`,
     plazoMeses: Number(req.body.plazoMeses || 24),
     diaVencimiento: 10,
     estado: 'vigente',
@@ -384,16 +419,17 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
   });
 
   // Liquidación del período en curso para que el local aparezca en cobranzas.
-  const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
+  // Lleva solo el alquiler: las expensas se cobran desde el primer cierre, cuando
+  // hay gastos del mes para repartir.
   await Liquidacion.create({
     localId: local.id,
     contratoId: contrato.id,
-    periodo: PERIODO_ACTUAL,
+    periodo,
     alquilerFijoCents: fijoCents,
     // TODO: el variable por % de facturación necesita que el locatario declare
     // sus ventas del mes. Hasta que exista esa pantalla, arranca en 0.
     variableCents: 0,
-    expensasCents: config ? config.expensasBaseCents : 0,
+    expensasCents: 0,
     estado: 'pendiente',
     fechaPago: 'Pendiente',
   });
@@ -450,19 +486,18 @@ router.put('/config', wrap(async (req, res) => {
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
   if (!config) return error(res, 'No hay configuración cargada.', 404);
 
-  const expensas = parseMoneyCents(req.body.expensasBase);
-  if (Number.isNaN(expensas)) return error(res, 'Ingresá un importe válido para los gastos comunes.');
+  const punitorio = Number(String(req.body.interesMora).replace(',', '.'));
+  if (Number.isNaN(punitorio) || punitorio < 0) return error(res, 'Ingresá un punitorio válido (0 o más).');
+  if (tieneMasDeDosDecimales(punitorio)) return error(res, 'El punitorio solo puede tener hasta dos decimales.');
 
   config.indice = req.body.indice || config.indice;
   config.frecuencia = req.body.frecuencia || config.frecuencia;
-  config.interesMoraDiario = Number(String(req.body.interesMora).replace(',', '.')) || 0;
+  config.interesMoraDiario = punitorio; // % por mes de atraso (ver el modelo)
   config.comisionAdmin = Number(String(req.body.comision).replace(',', '.')) || 0;
   config.diaVencimiento = Number(req.body.diaVencimiento) || config.diaVencimiento;
   config.diasGracia = Number(req.body.diasGracia) || 0;
-  config.expensasBaseCents = expensas;
   await config.save();
-  // TODO: estos parámetros hoy se guardan pero solo se aplican a las liquidaciones
-  // que se generen después. Falta el recálculo del período abierto.
+  // Se aplican en el próximo cierre: la liquidación del mes abierto ya está emitida.
   res.json({ ok: true });
 }));
 
@@ -482,6 +517,7 @@ router.post('/tenant/comprobante', subirComprobante('comprobante'), wrap(async (
       return error(res, 'Esa liquidación no es de tu local.', 403);
     }
   }
+  if (await liquidacionCerrada(liq)) return error(res, MSG_LIQ_CERRADA);
   if (liq.estado === 'cobrado') return error(res, 'Este mes ya está pagado.');
   if (liq.estado === 'en_revision') return error(res, 'Ya hay un comprobante en revisión para este mes.');
 
@@ -599,14 +635,24 @@ router.post('/administradores', wrap(async (req, res) => {
 
 /* ---------------- Rendición al dueño ---------------- */
 
+/** Función liq -> total con el ajuste de su mes, con los ajustes traídos de una vez. */
+async function totalesConAjuste(liqs) {
+  const ajustes = liqs.length
+    ? await AjusteExpensa.findAll({ where: { localId: [...new Set(liqs.map((l) => l.localId))] } })
+    : [];
+  return (liq) => totalConAjusteCents(liq, ajustes.find((a) => a.localId === liq.localId && a.periodo === liq.periodo));
+}
+
 router.get('/rendicion', wrap(async (req, res) => {
   const galeria = await galeriaActual(req.galeriaId);
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
   const comisionPct = config ? Number(config.comisionAdmin) : 0;
+  const periodo = await periodoAbierto(galeria.id);
   const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
   const liqs = await Liquidacion.findAll({
-    where: { localId: locales.map((l) => l.id), periodo: PERIODO_ACTUAL },
+    where: { localId: locales.map((l) => l.id), periodo },
   });
+  const totalDe = await totalesConAjuste(liqs);
 
   let alquileresCobrados = 0;
   let expensasCobradas = 0;
@@ -615,7 +661,7 @@ router.get('/rendicion', wrap(async (req, res) => {
   let mora = 0;
 
   for (const l of liqs) {
-    const total = totalLiquidacionCents(l);
+    const total = totalDe(l);
     facturado += total;
     cobradoTotal += l.cobradoCents;
     if (l.cobradoCents >= total && total > 0) {
@@ -626,13 +672,13 @@ router.get('/rendicion', wrap(async (req, res) => {
     }
   }
 
-  const gastos = await Gasto.findAll({ where: { galeriaId: galeria.id } });
+  const gastos = await Gasto.findAll({ where: { galeriaId: galeria.id, periodo } });
   const gastosPagados = gastos.reduce((acc, g) => acc + g.montoCents, 0);
   const comision = Math.round(cobradoTotal * comisionPct / 100);
   const neto = alquileresCobrados + expensasCobradas - gastosPagados - comision;
 
   res.json({
-    periodo: PERIODO_ACTUAL,
+    periodo,
     alquileresCobrados,
     expensasCobradas,
     gastosPagados,
@@ -642,26 +688,25 @@ router.get('/rendicion', wrap(async (req, res) => {
     facturado,
     cobrado: cobradoTotal,
     mora,
-    localesCobrados: liqs.filter((l) => l.cobradoCents >= totalLiquidacionCents(l) && totalLiquidacionCents(l) > 0).length,
+    localesCobrados: liqs.filter((l) => l.cobradoCents >= totalDe(l) && totalDe(l) > 0).length,
   });
 }));
 
 /* ---------------- Historial de cierres ---------------- */
 
 router.get('/historial', wrap(async (req, res) => {
-  // TODO: todavía no existe el cierre mensual, así que el historial solo puede
-  // mostrar el período abierto. Cuando se implemente el cierre, esto tiene que
-  // recorrer todos los períodos con sus totales congelados.
   const galeria = await galeriaActual(req.galeriaId);
+  const periodoActual = await periodoAbierto(galeria.id);
   const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
   const liqs = await Liquidacion.findAll({ where: { localId: locales.map((l) => l.id) } });
+  const totalDe = await totalesConAjuste(liqs);
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
   const comisionPct = config ? Number(config.comisionAdmin) : 0;
 
   const porPeriodo = {};
   for (const l of liqs) {
     const p = (porPeriodo[l.periodo] = porPeriodo[l.periodo] || { facturado: 0, cobrado: 0, mora: 0 });
-    const total = totalLiquidacionCents(l);
+    const total = totalDe(l);
     p.facturado += total;
     p.cobrado += l.cobradoCents;
     if (l.cobradoCents < total) p.mora += total - l.cobradoCents;
@@ -677,10 +722,93 @@ router.get('/historial', wrap(async (req, res) => {
       mora: p.mora,
       comision,
       neto: p.cobrado - comision,
-      estado: periodo === PERIODO_ACTUAL ? 'Abierto' : 'Cerrado',
+      estado: periodo === periodoActual ? 'Abierto' : 'Cerrado',
     };
   });
   res.json(filas);
+}));
+
+/* ---------------- Estado de cuenta y cierre del mes ---------------- */
+
+router.get('/cuenta', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria) return error(res, 'No hay galería elegida.', 404);
+  res.json({ ok: true, ...(await cierre.resumenPeriodo(galeria.id)) });
+}));
+
+router.put('/cuenta/saldo-inicial', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  const cents = parseMoneyCents(req.body.saldo);
+  if (Number.isNaN(cents)) return error(res, 'Ingresá un saldo inicial válido.');
+  const r = await cierre.fijarSaldoInicial(galeria.id, cents);
+  if (!r.ok) return error(res, r.msg);
+  res.json({ ok: true });
+}));
+
+/** Lo que se emitiría si se confirma ahora. No guarda nada. */
+router.post('/cierres/preview', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  const p = await cierre.previewCierre(galeria.id, req.body.aumentos);
+  if (!p.ok) return error(res, p.msg);
+  res.json(cierre.previewPublica(p));
+}));
+
+router.post('/cierres', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  const r = await cierre.cerrarMes(galeria.id, req.body.aumentos, req.body.periodo);
+  if (!r.ok) return error(res, r.msg);
+  res.json(r);
+}));
+
+router.get('/cierres/:id/pdf', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  const c = /^\d+$/.test(req.params.id)
+    ? await CierreMes.findOne({ where: { id: req.params.id, galeriaId: galeria.id } })
+    : null;
+  if (!c) return error(res, 'No se encontró el cierre.', 404);
+  cabecerasPdf(res, `liquidacion-expensas-${c.periodo}.pdf`);
+  pdfCierre(c, galeria).pipe(res);
+}));
+
+/** Cuenta corriente del contrato vigente del local. */
+router.get('/locales/:numero/cuenta-corriente', wrap(async (req, res) => {
+  const local = await localPorNumero(req, req.params.numero);
+  if (!local) return error(res, 'No se encontró el local.', 404);
+  const contrato = await Contrato.findOne({ where: { localId: local.id, estado: 'vigente' } });
+  if (!contrato) return res.json({ ok: true, filas: [] });
+  const filas = await cuentaCorriente({ contratoId: contrato.id }, await periodoAbierto(local.galeriaId));
+  res.json({ ok: true, filas });
+}));
+
+/**
+ * PDF con el detalle de una liquidación. Lo baja el locatario de ese contrato y
+ * la administración de la galería; a cualquier otro, 404.
+ */
+router.get('/liquidaciones/:id/pdf', wrap(async (req, res) => {
+  const noEncontrada = () => error(res, 'No se encontró la liquidación.', 404);
+  if (!/^\d+$/.test(req.params.id)) return noEncontrada();
+
+  const liq = await Liquidacion.findByPk(req.params.id, {
+    include: [{ model: Contrato, include: [Locatario] }, Local],
+  });
+  if (!liq || !liq.Local) return noEncontrada();
+
+  const u = req.usuario;
+  if (u.rol === 'locatario') {
+    const propio = await locatarioDelUsuario(u);
+    if (!propio || !liq.Contrato || liq.Contrato.locatarioId !== propio.locatario.id) return noEncontrada();
+  } else if (u.rol === 'admin') {
+    if (liq.Local.galeriaId !== req.galeriaId) return noEncontrada();
+  }
+
+  const galeria = await Galeria.findByPk(liq.Local.galeriaId);
+  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const ajuste = await AjusteExpensa.findOne({ where: { localId: liq.localId, periodo: liq.periodo } });
+  cabecerasPdf(res, `liquidacion-local-${liq.Local.numero}-${liq.periodo}.pdf`);
+  pdfLiquidacion({
+    liq, ajuste, local: liq.Local, locatario: liq.Contrato && liq.Contrato.Locatario,
+    contrato: liq.Contrato, galeria, config,
+  }).pipe(res);
 }));
 
 module.exports = router;

@@ -10,9 +10,9 @@ const api = require('./routes/api');
 const chats = require('./routes/chats');
 const auth = require('./auth');
 const {
-  estadoCompleto, galeriaActual, detalleLocatario, locatarioDelUsuario,
+  estadoCompleto, galeriaActual, detalleLocatario, locatarioDelUsuario, periodoAbierto,
 } = require('./services/galeria');
-const { PERIODO_ACTUAL, periodoLabel, centsToMoney } = require('./services/formato');
+const { PERIODO_INICIAL, periodoLabel, centsToMoney } = require('./services/formato');
 
 const app = express();
 
@@ -57,10 +57,12 @@ app.get('/', auth.requiereLogin, async (req, res, next) => {
   try {
     const usuario = req.usuario;
     const galeria = await galeriaActual(req.galeriaId);
+    // El mes abierto de la galería: avanza con cada cierre.
+    const periodo = galeria ? await periodoAbierto(galeria.id) : PERIODO_INICIAL;
     const comunes = {
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
-      periodo: PERIODO_ACTUAL,
-      periodoLabel: periodoLabel(PERIODO_ACTUAL),
+      periodo,
+      periodoLabel: periodoLabel(periodo),
       centsToMoney,
       periodoLabelDe: periodoLabel,
     };
@@ -76,7 +78,7 @@ app.get('/', auth.requiereLogin, async (req, res, next) => {
       const tenant = galeria && local && propio ? await detalleLocatario(galeria.id, local.n) : null;
       return res.render('index', {
         ...comunes,
-        estado: { galeria: completo.galeria, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },
+        estado: { galeria: completo.galeria, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },
         tenant,
         galerias: [],
       });

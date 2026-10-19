@@ -66,6 +66,8 @@ const Contrato = sequelize.define('Contrato', {
   plazoMeses: { type: DataTypes.INTEGER, defaultValue: 24 },
   indice: { type: DataTypes.STRING, defaultValue: 'ICL (BCRA)' },
   proximaActualizacion: DataTypes.STRING, // 'ICL · Nov 2026' (texto, como en el prototipo)
+  // El mismo dato como período ('2026-11'): en ese mes el cierre le aplica el aumento del índice.
+  proximaActualizacionPeriodo: DataTypes.STRING,
   diaVencimiento: { type: DataTypes.INTEGER, defaultValue: 10 },
   estado: { type: DataTypes.ENUM('vigente', 'baja'), defaultValue: 'vigente' },
   motivoBaja: DataTypes.STRING,
@@ -83,6 +85,9 @@ const Liquidacion = sequelize.define('Liquidacion', {
   alquilerFijoCents: cents(),
   variableCents: cents(),
   expensasCents: cents(),
+  // Lo que quedó impago de meses anteriores (solo el capital, sin punitorios).
+  saldoAnteriorCents: cents(),
+  // Punitorios sobre los meses adeudados.
   interesMoraCents: cents(),
   diasMora: { type: DataTypes.INTEGER, defaultValue: 0 },
   cobradoCents: cents(),
@@ -92,6 +97,12 @@ const Liquidacion = sequelize.define('Liquidacion', {
   },
   fechaPago: DataTypes.STRING,        // 'Cobrado 08/08' — texto libre, como el prototipo
   facturacionDeclaradaCents: cents(),   // base del variable por % de facturación
+  /*
+   * Foto del cálculo al emitirla en el cierre: aumento del alquiler, gastos
+   * repartidos, meses adeudados con sus punitorios. Con esto se arma el PDF
+   * que explica el monto. Las del seed y las de contratos nuevos no lo tienen.
+   */
+  detalle: DataTypes.JSON,
 });
 
 const Comprobante = sequelize.define('Comprobante', {
@@ -130,6 +141,7 @@ const Gasto = sequelize.define('Gasto', {
   archivoNombre: DataTypes.STRING,
   archivoPath: DataTypes.STRING,
   fecha: DataTypes.DATEONLY,
+  periodo: DataTypes.STRING, // '2026-08': el mes en el que se cargó y se reparte
 });
 
 /* ---------------- Parámetros de la galería ---------------- */
@@ -137,11 +149,38 @@ const Gasto = sequelize.define('Gasto', {
 const Configuracion = sequelize.define('Configuracion', {
   indice: { type: DataTypes.STRING, defaultValue: 'ICL (BCRA)' },
   frecuencia: { type: DataTypes.STRING, defaultValue: 'Trimestral' },
-  interesMoraDiario: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0.5 },
+  // Pese al nombre (viene del prototipo), es el punitorio por MES de atraso: se
+  // cobra sobre el monto de cada mes adeudado, una vez por cada mes que pasó.
+  interesMoraDiario: { type: DataTypes.DECIMAL(5, 2), defaultValue: 5 },
   comisionAdmin: { type: DataTypes.DECIMAL(5, 2), defaultValue: 8 },
   diaVencimiento: { type: DataTypes.INTEGER, defaultValue: 10 },
   diasGracia: { type: DataTypes.INTEGER, defaultValue: 3 },
+  // Ya no se usa: las expensas salen de repartir los gastos del mes por el % de cada local.
   expensasBaseCents: cents(16000000),
+  // Mes abierto: el que se está liquidando. Avanza con cada cierre.
+  periodoActual: { type: DataTypes.STRING, allowNull: false, defaultValue: '2026-08' },
+  // Saldo de la cuenta antes del primer cierre. Después manda el saldo final del último cierre.
+  saldoInicialCents: cents(),
+});
+
+/* ---------------- Cierre del mes ---------------- */
+
+/*
+ * La foto de un mes cerrado: con qué saldo arrancó, qué gastos e ingresos tuvo
+ * y con cuánto terminó. El PDF del cierre se genera a partir de acá.
+ */
+const CierreMes = sequelize.define('CierreMes', {
+  periodo: { type: DataTypes.STRING, allowNull: false },
+  saldoAnteriorCents: cents(),
+  gastosOrdinariosCents: cents(),
+  gastosExtraordinariosCents: cents(),
+  ingresosCents: cents(),
+  saldoFinalCents: cents(),
+  detalle: DataTypes.JSON, // gastos, ingresos, aumentos aplicados, liquidaciones emitidas
+  fechaCierre: DataTypes.DATE,
+}, {
+  // Un solo cierre por mes: un doble click en Confirmar no cierra dos veces.
+  indexes: [{ unique: true, fields: ['galeriaId', 'periodo'] }],
 });
 
 /* ---------------- Chat entre la administración y los locatarios ---------------- */
@@ -208,6 +247,9 @@ Comprobante.belongsTo(Liquidacion, { foreignKey: 'liquidacionId' });
 Local.hasMany(AjusteExpensa, { foreignKey: 'localId' });
 AjusteExpensa.belongsTo(Local, { foreignKey: 'localId' });
 
+Galeria.hasMany(CierreMes, { foreignKey: { name: 'galeriaId', allowNull: false } });
+CierreMes.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+
 Galeria.hasMany(Chat, { foreignKey: { name: 'galeriaId', allowNull: false } });
 Chat.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 
@@ -224,5 +266,5 @@ module.exports = {
   sequelize,
   Galeria, Administrador, Usuario, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa,
-  Proveedor, Gasto, Configuracion, Chat, Mensaje,
+  Proveedor, Gasto, Configuracion, CierreMes, Chat, Mensaje,
 };

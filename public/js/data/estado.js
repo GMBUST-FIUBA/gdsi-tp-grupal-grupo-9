@@ -12,6 +12,7 @@ let ajustesExpensas = {};   // { '04': {tipo, montoCents, motivo} }
 let expensasPct = {};       // { '04': 12.5 }
 let configGaleria = null;
 let galeriaActual = null;
+let periodoActual = window.__PERIODO__ || null;
 
 let selectedIdx = null;
 
@@ -28,6 +29,7 @@ function aplicarEstado(e) {
   expensasPct = e.porcentajes || {};
   configGaleria = e.config || null;
   galeriaActual = e.galeria || null;
+  if (e.periodo) periodoActual = e.periodo;
 }
 
 /** Vuelve a pedir todo al servidor y redibuja la pantalla. */
@@ -60,6 +62,7 @@ function renderTodo() {
     fillLocalesLibres();
     renderRendicion();
     renderHistorial();
+    renderCuenta();
 
     // Mantiene seleccionado el mismo local después de recargar.
     if (selectedIdx !== null && units[selectedIdx]) selectUnit(selectedIdx);

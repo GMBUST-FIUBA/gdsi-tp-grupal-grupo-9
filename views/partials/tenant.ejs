@@ -6,7 +6,10 @@
      var u = tenant.unidad;
      var c = tenant.contrato;
      var liq = tenant.liquidacion;
-     var vencido = liq && liq.diasMora > 0;
+     var det = liq && liq.detalle;
+     var deudas = (det && det.deudas) || [];
+     var vencido = liq && (liq.saldoAnteriorCents > 0 || liq.diasMora > 0);
+     function pct(n) { return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
 %>
   <div class="page-head">
     <span class="eyebrow">Tu cuenta</span>
@@ -24,7 +27,9 @@
       <div class="due-label">Total a pagar — <%= periodoLabel %></div>
       <div class="due-amt"><%= centsToMoney(liq ? liq.totalCents : 0) %></div>
       <div class="due-when<%= vencido ? ' late' : '' %>">
-        <% if (vencido) { %>
+        <% if (deudas.length) { %>
+          Incluye deuda de <%= deudas.map(function (d) { return periodoLabelDe(d.periodo); }).join(', ') %> · vence el día <%= c.diaVencimiento %>
+        <% } else if (vencido) { %>
           Venció el <%= c.diaVencimiento %>/<%= periodo.split('-')[1] %> · <%= liq.diasMora %> días de atraso
         <% } else { %>
           Vence el día <%= c.diaVencimiento %> del mes
@@ -37,22 +42,42 @@
     <section class="panel">
       <div class="panel-head"><h3>Detalle de la liquidación</h3><span class="sub"><%= periodoLabel %></span></div>
       <div class="panel-body">
+        <% var aum = det && det.alquiler && det.alquiler.aumento; %>
         <table class="liq">
           <tr><td>Alquiler fijo</td><td><%= centsToMoney(liq.alquilerFijoCents) %></td></tr>
-          <tr class="muted"><td>Actualización <%= c.indice %> (<%= c.proximaActualizacion || 'sin fecha' %>)</td><td></td></tr>
+          <% if (aum && !aum.falta) { %>
+            <tr class="muted"><td>Actualizado <%= pct(aum.pct) %> por <%= aum.indice %> (antes <%= centsToMoney(aum.baseCents) %>)</td><td></td></tr>
+          <% } %>
+          <tr class="muted"><td>Próxima actualización: <%= c.proximaActualizacion || 'sin fecha' %></td><td></td></tr>
           <% if (liq.variableCents > 0) { %>
             <tr><td>Variable — <%= c.porcentajeFacturacion %>% de facturación declarada</td><td><%= centsToMoney(liq.variableCents) %></td></tr>
             <tr class="muted"><td>Sobre <%= centsToMoney(liq.facturacionDeclaradaCents) %> declarados</td><td></td></tr>
           <% } %>
           <tr><td>Gastos comunes (expensas)</td><td><%= centsToMoney(liq.expensasCents) %></td></tr>
+          <% if (det && det.expensas) { %>
+            <tr class="muted"><td>
+              <% if (det.expensas.pct === null) { %>Tu local no tiene porcentaje de expensas asignado
+              <% } else { %><%= pct(det.expensas.pct) %> de <%= centsToMoney(det.expensas.gastosTotalCents) %> de gastos de <%= periodoLabelDe(det.periodoGastos) %> (detalle en el PDF)<% } %>
+            </td><td></td></tr>
+          <% } %>
           <% if (liq.ajuste) { %>
             <tr class="muted"><td>Incluye <%= liq.ajuste.tipo === 'descuento' ? 'descuento' : 'cargo adicional' %> de <%= centsToMoney(liq.ajuste.montoCents) %><%= liq.ajuste.motivo ? ' · ' + liq.ajuste.motivo : '' %></td><td></td></tr>
           <% } %>
-          <% if (liq.interesMoraCents > 0) { %>
-            <tr><td>Interés por mora (<%= liq.diasMora %> días)</td><td><%= centsToMoney(liq.interesMoraCents) %></td></tr>
+          <% deudas.forEach(function (d) { %>
+            <tr><td><%= periodoLabelDe(d.periodo) %> impago · <%= d.meses === 1 ? '1 mes' : d.meses + ' meses' %> de atraso</td><td><%= centsToMoney(d.totalCents) %></td></tr>
+            <tr class="muted"><td><%= centsToMoney(d.montoCents) %> × (1 + <%= d.meses %> × <%= pct(det.punitorio.tasaPct) %>) · punitorio <%= centsToMoney(d.punitorioCents) %></td><td></td></tr>
+          <% }); %>
+          <% if (!deudas.length && liq.saldoAnteriorCents > 0) { %>
+            <tr><td>Saldo anterior impago</td><td><%= centsToMoney(liq.saldoAnteriorCents) %></td></tr>
+          <% } %>
+          <% if (!deudas.length && liq.interesMoraCents > 0) { %>
+            <tr><td>Interés por mora<%= liq.diasMora ? ' (' + liq.diasMora + ' días)' : '' %></td><td><%= centsToMoney(liq.interesMoraCents) %></td></tr>
           <% } %>
           <tr class="total"><td>Total a pagar</td><td><%= centsToMoney(liq.totalCents) %></td></tr>
         </table>
+        <div class="form-actions" style="margin-top:12px">
+          <a class="btn btn-ghost btn-sm" href="/api/liquidaciones/<%= liq.id %>/pdf">Descargar detalle (PDF)</a>
+        </div>
 
         <div id="pay-block" style="margin-top:18px">
           <% if (liq.estado === 'cobrado') { %>
@@ -87,32 +112,35 @@
           </dl>
         </div>
       </section>
-
-      <section class="panel">
-        <div class="panel-head"><h3>Últimos pagos</h3></div>
-        <div class="panel-body">
-          <%# TODO: por ahora solo existe el período abierto. Cuando haya cierre mensual
-              esta tabla va a mostrar los meses anteriores. %>
-          <table class="hist">
-            <thead><tr><th>Período</th><th>Monto</th><th>Estado</th></tr></thead>
-            <tbody>
-              <% tenant.pagos.forEach(function (p) { %>
-                <tr>
-                  <td class="desc"><%= periodoLabelDe(p.periodo) %></td>
-                  <td><%= centsToMoney(p.totalCents) %></td>
-                  <td>
-                    <% if (p.estado === 'cobrado') { %><span class="st-tag pagado">Pagado</span>
-                    <% } else if (p.estado === 'en_revision') { %><span class="st-tag pend">En revisión</span>
-                    <% } else { %><span class="st-tag pend">Pendiente</span><% } %>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   </div>
+
+  <section class="panel" style="margin-top:20px" id="tenant-cuenta">
+    <div class="panel-head"><h3>Cuenta corriente</h3><span class="sub">Tus liquidaciones mes a mes</span></div>
+    <div class="panel-body" style="overflow-x:auto">
+      <table class="hist">
+        <thead><tr><th>Período</th><th>Del mes</th><th>Deuda ant.</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          <% tenant.cuenta.forEach(function (p) { %>
+            <tr>
+              <td class="desc"><%= periodoLabelDe(p.periodo) %></td>
+              <td><%= centsToMoney(p.delMesCents) %></td>
+              <td><%= centsToMoney(p.deudaAnteriorCents) %></td>
+              <td><%= centsToMoney(p.totalCents) %></td>
+              <td>
+                <% if (p.cobradoCents >= p.totalCents && p.totalCents > 0) { %><span class="st-tag pagado">Pagado</span>
+                <% } else if (p.trasladada) { %><span class="st-tag mora">Pasó al mes siguiente</span>
+                <% } else if (p.estado === 'en_revision') { %><span class="st-tag pend">En revisión</span>
+                <% } else { %><span class="st-tag pend">Pendiente</span><% } %>
+              </td>
+              <td><a class="btn btn-ghost btn-sm" href="/api/liquidaciones/<%= p.id %>/pdf">PDF</a></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      <p class="chat-intro" style="margin-top:10px">Si un mes queda impago, su monto pasa al siguiente con un punitorio por cada mes de atraso.</p>
+    </div>
+  </section>
 
   <section class="panel" style="margin-top:20px" id="tenant-comprobantes">
     <div class="panel-head"><h3>Mis comprobantes</h3><span class="sub">Los que subiste a la administración</span></div>
@@ -164,7 +192,7 @@
   </section>
 
   <section class="panel" style="margin-top:20px">
-    <div class="panel-head"><h3>Gastos de la galería</h3><span class="sub">Ordinarios y extraordinarios</span></div>
+    <div class="panel-head"><h3>Gastos de la galería · <%= periodoLabel %></h3><span class="sub">Los del mes en curso: se reparten en las expensas del mes que viene</span></div>
     <div class="panel-body" style="overflow-x:auto">
       <table class="hist" id="tenant-gastos-table">
         <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th style="text-align:right">Monto</th><th>Adjunto</th></tr></thead>
