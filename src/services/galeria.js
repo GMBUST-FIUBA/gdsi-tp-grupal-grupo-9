@@ -4,8 +4,9 @@ const {
   AjusteExpensa, Configuracion, Gasto, Proveedor,
 } = require('../models');
 const {
-  centsToMoney, PERIODO_ACTUAL, fechaCorta, fechaHora,
+  centsToMoney, PERIODO_INICIAL, fechaCorta, fechaHora,
 } = require('./formato');
+const { deltaAjuste, totalConAjusteCents } = require('./calculo');
 
 /**
  * La galería sobre la que se está trabajando. Viene del selector del panel
@@ -23,8 +24,14 @@ async function galeriaActual(galeriaId) {
   return Galeria.findOne({ order: [['id', 'ASC']] });
 }
 
+/** El mes abierto de la galería (el que se está liquidando). */
+async function periodoAbierto(galeriaId) {
+  const config = await Configuracion.findOne({ where: { galeriaId } });
+  return (config && config.periodoActual) || PERIODO_INICIAL;
+}
+
 /** Trae el local con su contrato vigente, locatario, liquidación del período y comprobante. */
-async function localesConDatos(galeriaId, periodo = PERIODO_ACTUAL) {
+async function localesConDatos(galeriaId, periodo) {
   return Local.findAll({
     where: { galeriaId },
     order: [['numero', 'ASC']],
@@ -92,22 +99,22 @@ function modalidadLabel(contrato) {
 /**
  * Estado que pinta el plano: ok / warn / late / free.
  *
- * TODO: hoy los días de mora vienen cargados en la liquidación. Lo correcto es
- * calcularlos contra el día de vencimiento + días de gracia de la configuración,
- * y derivar de ahí el interés por mora.
+ * En mora = arrastra meses impagos (lo que deja el cierre en `saldoAnteriorCents`).
+ * Los días de mora solo vienen escritos a mano en los datos de ejemplo.
  */
 function estadoLocal(local, contrato, liq) {
   if (!contrato) return 'free';
   if (!liq) return 'warn';
   const total = totalLiquidacionCents(liq);
   if (liq.cobradoCents >= total && total > 0) return 'ok';
-  if (liq.diasMora > 0) return 'late';
+  if (liq.saldoAnteriorCents > 0 || liq.diasMora > 0) return 'late';
   return 'warn';
 }
 
 function totalLiquidacionCents(liq) {
   if (!liq) return 0;
-  return liq.alquilerFijoCents + liq.variableCents + liq.expensasCents + liq.interesMoraCents;
+  return liq.alquilerFijoCents + liq.variableCents + liq.expensasCents
+    + (liq.saldoAnteriorCents || 0) + liq.interesMoraCents;
 }
 
 /** El comprobante más nuevo que todavía espera revisión, o null. */
@@ -158,6 +165,8 @@ function serializarLocal(local) {
     tot: centsToMoney(totCents),
     expCents: liq ? liq.expensasCents : 0,
     totCents,
+    // Lo que arrastra de meses anteriores, punitorios incluidos.
+    deudaCents: liq ? (liq.saldoAnteriorCents || 0) + liq.interesMoraCents : 0,
     act: contrato.proximaActualizacion || contrato.indice,
     venc: String(contrato.diaVencimiento),
     pago: liq ? (liq.fechaPago || 'Pendiente') : 'Sin liquidación',
@@ -213,6 +222,7 @@ function serializarGasto(g) {
     archivoNombre: g.archivoNombre,
     archivoUrl: g.archivoPath ? `/uploads/${g.archivoPath}` : null,
     fecha: g.fecha,
+    periodo: g.periodo,
   };
 }
 
@@ -220,11 +230,13 @@ function serializarGasto(g) {
 async function estadoCompleto(galeriaId) {
   const galeria = await galeriaActual(galeriaId);
   if (!galeria) {
-    return { galeria: null, units: [], ajustes: {}, porcentajes: {}, gastos: [], proveedores: [], config: null };
+    return { galeria: null, periodo: PERIODO_INICIAL, units: [], ajustes: {}, porcentajes: {}, gastos: [], proveedores: [], config: null };
   }
-  const locales = await localesConDatos(galeria.id);
+  const periodo = await periodoAbierto(galeria.id);
+  const locales = await localesConDatos(galeria.id, periodo);
+  // Solo los del mes abierto: los de meses cerrados ya se repartieron en las expensas.
   const gastos = await Gasto.findAll({
-    where: { galeriaId: galeria.id },
+    where: { galeriaId: galeria.id, periodo },
     include: [Proveedor],
     order: [['id', 'ASC']],
   });
@@ -233,6 +245,7 @@ async function estadoCompleto(galeriaId) {
 
   return {
     galeria: { id: galeria.id, nombre: galeria.nombre, direccion: galeria.direccion, dueno: galeria.dueno },
+    periodo,
     units: locales.map(serializarLocal),
     ajustes: serializarAjustes(locales),
     porcentajes: serializarPorcentajes(locales),
@@ -243,14 +256,49 @@ async function estadoCompleto(galeriaId) {
 }
 
 /**
- * Datos de la pantalla del locatario: contrato, desglose de la liquidación del
- * mes y últimos pagos.
+ * Cuenta corriente: una fila por liquidación, de la más nueva a la más vieja.
+ * `where` elige cuáles (las de un contrato, las de un locatario...).
  *
- * TODO: no hay login todavía, así que el locatario se elige por número de local
- * (el prototipo mostraba siempre el 04). Cuando exista autenticación, tiene que
- * salir de la sesión.
+ * Cada mes muestra lo generado en el mes y la deuda que arrastraba (con sus
+ * punitorios); si se cerró impago, esa deuda pasó a la liquidación siguiente.
  */
-async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTUAL) {
+async function cuentaCorriente(where, periodoActual) {
+  const liqs = await Liquidacion.findAll({
+    where,
+    include: [{ model: Contrato, attributes: ['id', 'localId'], include: [{ model: Local, attributes: ['numero'] }] }],
+    order: [['periodo', 'DESC'], ['id', 'DESC']],
+  });
+  const ajustes = liqs.length
+    ? await AjusteExpensa.findAll({ where: { localId: [...new Set(liqs.map((l) => l.localId))] } })
+    : [];
+  return liqs.map((l) => {
+    const ajuste = ajustes.find((a) => a.localId === l.localId && a.periodo === l.periodo) || null;
+    const totalCents = totalConAjusteCents(l, ajuste);
+    const deudaAnteriorCents = (l.saldoAnteriorCents || 0) + l.interesMoraCents;
+    const abierta = l.periodo === periodoActual;
+    const pagada = l.cobradoCents >= totalCents && totalCents > 0;
+    return {
+      id: l.id,
+      periodo: l.periodo,
+      localNumero: l.Contrato && l.Contrato.Local ? l.Contrato.Local.numero : null,
+      delMesCents: totalCents - deudaAnteriorCents,
+      deudaAnteriorCents,
+      totalCents,
+      cobradoCents: l.cobradoCents,
+      estado: l.estado,
+      abierta,
+      // Cerrada sin pagar: la deuda se pasó a la liquidación del mes siguiente.
+      trasladada: !abierta && !pagada,
+    };
+  });
+}
+
+/**
+ * Datos de la pantalla del locatario: contrato, desglose de la liquidación del
+ * mes abierto y su cuenta corriente.
+ */
+async function detalleLocatario(galeriaId, numero) {
+  const periodo = await periodoAbierto(galeriaId);
   const locales = await localesConDatos(galeriaId, periodo);
   const local = locales.find((l) => l.numero === numero)
     || locales.find((l) => contratoVigente(l));
@@ -260,13 +308,15 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
   if (!contrato) return null;
   const liq = (local.Liquidacions || [])[0] || null;
   const ajuste = (local.AjusteExpensas || [])[0] || null;
-  const delta = ajuste ? (ajuste.tipo === 'descuento' ? -ajuste.montoCents : ajuste.montoCents) : 0;
+  const delta = deltaAjuste(ajuste);
 
-  // Historial de pagos del locatario, del más nuevo al más viejo.
-  const previas = await Liquidacion.findAll({
-    where: { localId: local.id },
-    order: [['periodo', 'DESC']],
+  // Las liquidaciones de los contratos de este locatario en el local (no las del
+  // inquilino anterior).
+  const contratosPropios = await Contrato.findAll({
+    where: { localId: local.id, locatarioId: contrato.locatarioId },
+    attributes: ['id'],
   });
+  const cuenta = await cuentaCorriente({ contratoId: contratosPropios.map((c) => c.id) }, periodo);
 
   // Todos los comprobantes que subió este locatario, de cualquiera de sus
   // contratos (no los del inquilino anterior o siguiente del mismo local).
@@ -292,10 +342,13 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
     },
     liquidacion: liq && {
       id: liq.id,
+      periodo: liq.periodo,
       alquilerFijoCents: liq.alquilerFijoCents,
       variableCents: liq.variableCents,
       expensasCents: liq.expensasCents + delta,
+      saldoAnteriorCents: liq.saldoAnteriorCents || 0,
       interesMoraCents: liq.interesMoraCents,
+      detalle: liq.detalle || null,
       diasMora: liq.diasMora,
       facturacionDeclaradaCents: liq.facturacionDeclaradaCents,
       totalCents: totalLiquidacionCents(liq) + delta,
@@ -310,11 +363,7 @@ async function detalleLocatario(galeriaId, numero = '04', periodo = PERIODO_ACTU
       estado: c.estado,
       tieneArchivo: !!c.mimeType,
     })),
-    pagos: previas.map((l) => ({
-      periodo: l.periodo,
-      totalCents: totalLiquidacionCents(l),
-      estado: l.estado,
-    })),
+    cuenta,
   };
 }
 
@@ -340,7 +389,7 @@ async function locatarioDelUsuario(usuario) {
 }
 
 module.exports = {
-  locatarioDelUsuario,
+  locatarioDelUsuario, periodoAbierto, cuentaCorriente,
   galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, contratoVigente, estadoLocal,
   totalLiquidacionCents, comprobantePendiente, serializarLocal, serializarAjustes,
   serializarPorcentajes, serializarGasto, estadoCompleto,

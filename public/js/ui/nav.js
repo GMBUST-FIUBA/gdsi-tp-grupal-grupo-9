@@ -33,7 +33,7 @@ function setTab(name){
   });
 }
 function setSection(name){
-  ['panel','gastos','config','mensajes'].forEach(s=>{
+  ['panel','gastos','cuenta','config','mensajes'].forEach(s=>{
     const sel = s===name;
     document.getElementById('sec-'+s).hidden = !sel;
     document.getElementById('sec-tab-'+s).setAttribute('aria-selected', sel);

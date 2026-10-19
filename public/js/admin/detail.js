@@ -13,8 +13,7 @@ function selectUnit(i) {
     detailBody.innerHTML = `
       <div class="contract-title"><span class="num">${u.n}</span><div><h3>Local disponible</h3></div>
         <span class="pill free" style="margin-left:auto"><i></i>Libre</span></div>
-      <dl class="dl"><dt>Situación</dt><dd>${u.desde || 'Sin contrato'}</dd><dt>Superficie</dt><dd>~ 38 m²</dd>
-        <dt>Expensas base</dt><dd class="mono">${centsToMoney(configGaleria ? configGaleria.expensasBaseCents : 0)}</dd></dl>
+      <dl class="dl"><dt>Situación</dt><dd>${u.desde || 'Sin contrato'}</dd><dt>Superficie</dt><dd>~ 38 m²</dd></dl>
       <div class="note">Local sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
     return;
   }
@@ -49,11 +48,13 @@ function selectUnit(i) {
       ${ajusteRow}
       ${pctRow}
       <dt>Vencimiento</dt><dd>Día ${u.venc}</dd>
+      ${u.deudaCents > 0 ? `<dt>Deuda de meses anteriores</dt><dd class="mono">${centsToMoney(u.deudaCents)} <span style="color:var(--muted)">(con punitorios)</span></dd>` : ''}
     </dl>
     <table class="liq" style="margin-top:16px"><tr class="total"><td>A pagar en el mes</td><td>${centsToMoney(totalEfectivoCents(u))}</td></tr></table>
     ${compBlock}
     <div class="form-actions">
       <button class="btn btn-ghost btn-sm" onclick="verContrato(${i})">Ver contrato</button>
+      <button class="btn btn-ghost btn-sm" onclick="verCuentaCorriente(${i})">Cuenta corriente</button>
       <button class="btn btn-danger btn-sm" onclick="confirmBaja(${i})">Dar de baja contrato</button>
     </div>`;
 }

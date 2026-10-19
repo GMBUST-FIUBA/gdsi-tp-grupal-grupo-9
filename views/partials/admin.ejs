@@ -3,6 +3,7 @@
   <nav class="section-nav" role="tablist" aria-label="Secciones de administración">
     <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
     <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>
+    <button role="tab" aria-selected="false" aria-controls="sec-cuenta" id="sec-tab-cuenta" onclick="setSection('cuenta')">Estado de cuenta</button>
     <button role="tab" aria-selected="false" aria-controls="sec-config" id="sec-tab-config" onclick="setSection('config')">Configuración</button>
     <button role="tab" aria-selected="false" aria-controls="sec-mensajes" id="sec-tab-mensajes" onclick="setSection('mensajes')">Mensajes</button>
   </nav>
@@ -118,17 +119,16 @@
                   <option<%= cfg.frecuencia === o ? ' selected' : '' %>><%= o %></option>
                 <% }); %>
               </select></div>
-            <div class="field"><label for="c-mora">Interés por mora</label>
-              <div class="suffix-wrap"><input id="c-mora" value="<%= String(cfg.interesMoraDiario || 0).replace('.', ',') %>"><span class="sfx">% diario</span></div>
-              <span class="hint">Se aplica sobre el saldo impago pasado el vencimiento.</span></div>
+            <div class="field"><label for="c-mora">Punitorio por mes impago</label>
+              <div class="suffix-wrap"><input id="c-mora" value="<%= String(cfg.interesMoraDiario || 0).replace('.', ',') %>"><span class="sfx">% por mes</span></div>
+              <span class="hint">Se cobra por cada mes de atraso sobre el monto de cada mes adeudado.</span></div>
             <div class="field"><label for="c-comision">Comisión del administrador</label>
               <div class="suffix-wrap"><input id="c-comision" value="<%= String(cfg.comisionAdmin || 0).replace('.', ',') %>"><span class="sfx">% cobrado</span></div>
               <span class="hint">Se liquida solo sobre lo efectivamente cobrado.</span></div>
             <div class="field"><label for="c-venc">Día de vencimiento mensual</label><input id="c-venc" type="number" value="<%= cfg.diaVencimiento || 10 %>" min="1" max="28"></div>
             <div class="field"><label for="c-gracia">Días de gracia</label><input id="c-gracia" type="number" value="<%= cfg.diasGracia || 0 %>" min="0"></div>
-            <div class="field full"><label for="c-exp">Gastos comunes base (por local)</label><input id="c-exp" value="<%= centsToMoney(cfg.expensasBaseCents || 0) %>"></div>
           </div>
-          <div class="note">Estos parámetros se aplican a todas las liquidaciones de la galería a partir del próximo cierre.</div>
+          <div class="note">Estos parámetros se aplican a todas las liquidaciones de la galería a partir del próximo cierre. Las expensas de cada local salen de repartir los gastos del mes según su porcentaje (sección <strong>Configuración</strong>).</div>
           <div class="note late" id="c-err" hidden></div>
           <div class="form-actions"><button class="btn btn-primary" onclick="guardarParametros()">Guardar configuración</button></div>
         </div>
@@ -208,6 +208,65 @@
     <section class="panel"><div class="panel-body">
       <div class="abm" id="gastos-list"></div>
     </div></section>
+  </div>
+
+  <div id="sec-cuenta" role="tabpanel" aria-labelledby="sec-tab-cuenta" hidden>
+    <div class="page-head">
+      <span class="eyebrow">Estado de cuenta · <%= periodoLabel %></span>
+      <h1>Gastos, ingresos y saldo del mes</h1>
+      <p>Resumen del mes en curso. Al liquidar las expensas el mes se cierra: los gastos se reparten entre los locales según su porcentaje y lo que queda en la cuenta pasa como saldo anterior del mes siguiente.</p>
+    </div>
+
+    <section class="kpis" aria-label="Estado de cuenta del mes">
+      <div class="kpi"><div class="k-label">Saldo anterior</div><div class="k-value mono" id="cta-ant">—</div><div class="k-foot" id="cta-ant-foot"></div></div>
+      <div class="kpi accent-late"><div class="k-label">Gastos del mes</div><div class="k-value mono" id="cta-gastos">—</div><div class="k-foot" id="cta-gastos-foot"></div></div>
+      <div class="kpi accent-ok"><div class="k-label">Ingresos del mes</div><div class="k-value mono" id="cta-ing">—</div><div class="k-foot" id="cta-ing-foot"></div></div>
+      <div class="kpi"><div class="k-label">Saldo en la cuenta</div><div class="k-value mono" id="cta-saldo">—</div><div class="k-foot">Saldo anterior + ingresos − gastos</div></div>
+    </section>
+
+    <div class="cols">
+      <section class="panel">
+        <div class="panel-head"><h3>Gastos</h3><span class="sub" id="cta-gastos-sub"></span></div>
+        <div class="panel-body" id="cta-gastos-body"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h3>Ingresos</h3><span class="sub">Pagos aceptados de los locatarios</span></div>
+        <div class="panel-body" id="cta-ing-body"></div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="panel-head"><h3>Estado de cuenta</h3><span class="sub"><%= periodoLabel %></span></div>
+      <div class="panel-body">
+        <div class="rend" id="cta-resumen"></div>
+        <div id="cta-saldo-inicial"></div>
+        <div class="form-actions"><button class="btn btn-primary" id="cta-liquidar" onclick="abrirLiquidar()">Liquidar expensas</button></div>
+      </div>
+    </section>
+
+    <section class="panel" id="liq-panel" style="margin-top:20px" hidden>
+      <div class="panel-head"><h3>Liquidar expensas · <%= periodoLabel %></h3><span class="sub" id="liq-sub"></span></div>
+      <div class="panel-body">
+        <div class="rend" id="liq-resumen"></div>
+        <div id="liq-aumentos"></div>
+        <div id="liq-avisos"></div>
+        <h3 style="margin:20px 0 10px;font-size:1rem" id="liq-tabla-titulo"></h3>
+        <div style="overflow-x:auto">
+          <table class="data">
+            <thead><tr><th>Local</th><th>Locatario</th><th class="r">Alquiler</th><th class="r">Expensas</th><th class="r">Deuda anterior</th><th class="r">Punitorios</th><th class="r">Total</th></tr></thead>
+            <tbody id="liq-rows"></tbody>
+          </table>
+        </div>
+        <div class="note late" id="liq-err" hidden></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" onclick="cerrarLiquidar()">Cancelar</button>
+          <button class="btn btn-primary" id="liq-confirmar" onclick="confirmarCierre()">Confirmar</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Meses liquidados</h2><span class="st-sub" id="cta-cierres-count"></span></div>
+    <section class="panel"><div class="panel-body" style="overflow-x:auto" id="cta-cierres"></div></section>
   </div>
 
   <div id="sec-config" role="tabpanel" aria-labelledby="sec-tab-config" hidden>

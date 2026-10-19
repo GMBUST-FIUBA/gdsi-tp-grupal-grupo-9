@@ -78,6 +78,43 @@ revisarlo.
 - Los comprobantes de los datos de ejemplo no tienen archivo: figuran como
   *Sin archivo*.
 
+## Cierre del mes ("Liquidar expensas")
+
+La pestaña **Estado de cuenta** del administrador muestra el mes abierto:
+
+- **Saldo anterior**: el saldo final del último cierre (o el saldo inicial que se
+  carga ahí mismo, solo antes del primer cierre).
+- **Gastos**: los cargados en el mes, ordinarios y extraordinarios.
+- **Ingresos**: los pagos aceptados de los locatarios en el mes.
+- **Saldo en la cuenta** = saldo anterior + ingresos − gastos.
+
+*Liquidar expensas* muestra la vista previa de lo que va a pagar cada local el
+mes siguiente y *Confirmar* cierra el mes: guarda la foto del cierre
+(`CierreMes`), baja un PDF con el resumen, emite las liquidaciones nuevas y
+avanza el período. A partir de ahí, los gastos del mes cerrado ya no se pueden
+editar y la lista de gastos arranca vacía. Para confirmar no puede haber
+comprobantes sin revisar.
+
+Lo que paga cada local con contrato vigente en el mes nuevo
+(`src/services/calculo.js`, probado con `npm test`):
+
+| Concepto | Cómo se calcula |
+| --- | --- |
+| Alquiler | El del contrato. Si ese mes le toca actualizar (inicio + frecuencia de Configuración), se le suma el % del índice que el admin carga al liquidar. |
+| Expensas | Gastos del mes cerrado × % de expensas del local. Sin % asignado, paga $ 0 (la vista previa avisa). |
+| Ajuste | El descuento o cargo extra del mes, si hay. |
+| Deuda anterior | Cada mes impago se arrastra con su monto (sin punitorios). |
+| Punitorios | Por cada mes adeudado: monto × meses de atraso × tasa (Configuración › "Punitorio por mes impago"). Interés simple: $ 100 de agosto y $ 100 de septiembre al 5% → en octubre se deben $ 110 + $ 105. |
+
+El locatario ve el cálculo explicado, su **cuenta corriente** mes a mes y baja un
+PDF de cada liquidación con el detalle (qué gastos se pagaron y cuánto le toca de
+cada uno). Los PDF se arman con `pdfkit` a partir de lo guardado en la base.
+
+Si venís de una base anterior: en SQLite recreala (`npm run seed -- --force`). En
+Postgres las columnas se agregan solas y al arrancar se completa el período de
+los gastos y de las actualizaciones de los contratos. Ojo: el punitorio antes era
+"% diario" y quedó con el valor viejo (0,5): revisalo en Configuración.
+
 ## Stack
 
 - **Node + Express** sirviendo las vistas con **EJS** y una API JSON.
@@ -149,15 +186,14 @@ uploads/              archivos subidos
   punto flotante. Se formatean a `$ 1.234,56` recién al mostrarlos.
 - **Contraseñas hasheadas con bcrypt**, pero sin política ni recuperación por
   mail: el blanqueo la vuelve a `1234`.
-- **El período está fijo en agosto 2026** (`PERIODO_ACTUAL` en
-  `src/services/formato.js`), porque todavía no existe el cierre mensual.
+- **Cada galería tiene su mes abierto** (`Configuracion.periodoActual`, arranca
+  en agosto 2026). Avanza solo con el cierre del mes.
 
 ## Lo que falta (buscá `TODO` en el código)
 
 | Tema | Dónde |
 | --- | --- |
-| Cierre mensual y períodos | `src/services/formato.js`, `src/routes/api.js` |
-| Cálculo de mora por vencimiento | `src/services/galeria.js` |
+| Estado de cuenta final de un contrato dado de baja con deuda (hoy la deuda queda en su última liquidación) | `src/services/cierre.js` |
 | Declaración de facturación del locatario (alquiler variable) | `src/routes/api.js` |
 | Envío de mails (recordatorios, rendición, blanqueo de clave) | `src/routes/api.js` |
 | Generación del PDF de la rendición | `views/partials/admin.ejs` |
