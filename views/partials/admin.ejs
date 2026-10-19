@@ -119,7 +119,7 @@
                   <option<%= cfg.frecuencia === o ? ' selected' : '' %>><%= o %></option>
                 <% }); %>
               </select></div>
-            <div class="field"><label for="c-mora">Punitorio por mes impago</label>
+            <div class="field"><label for="c-mora">Interés por mora</label>
               <div class="suffix-wrap"><input id="c-mora" value="<%= String(cfg.interesMoraDiario || 0).replace('.', ',') %>"><span class="sfx">% por mes</span></div>
               <span class="hint">Se cobra por cada mes de atraso sobre el monto de cada mes adeudado.</span></div>
             <div class="field"><label for="c-comision">Comisión del administrador</label>

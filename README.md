@@ -104,7 +104,7 @@ Lo que paga cada local con contrato vigente en el mes nuevo
 | Expensas | Gastos del mes cerrado × % de expensas del local. Sin % asignado, paga $ 0 (la vista previa avisa). |
 | Ajuste | El descuento o cargo extra del mes, si hay. |
 | Deuda anterior | Cada mes impago se arrastra con su monto (sin punitorios). |
-| Punitorios | Por cada mes adeudado: monto × meses de atraso × tasa (Configuración › "Punitorio por mes impago"). Interés simple: $ 100 de agosto y $ 100 de septiembre al 5% → en octubre se deben $ 110 + $ 105. |
+| Punitorios | Por cada mes adeudado: monto × meses de atraso × tasa (Configuración › "Interés por mora", en % por mes). Interés simple: $ 100 de agosto y $ 100 de septiembre al 5% → en octubre se deben $ 110 + $ 105. |
 
 El locatario ve el cálculo explicado, su **cuenta corriente** mes a mes y baja un
 PDF de cada liquidación con el detalle (qué gastos se pagaron y cuánto le toca de
@@ -112,8 +112,9 @@ cada uno). Los PDF se arman con `pdfkit` a partir de lo guardado en la base.
 
 Si venís de una base anterior: en SQLite recreala (`npm run seed -- --force`). En
 Postgres las columnas se agregan solas y al arrancar se completa el período de
-los gastos y de las actualizaciones de los contratos. Ojo: el punitorio antes era
-"% diario" y quedó con el valor viejo (0,5): revisalo en Configuración.
+los gastos y de las actualizaciones de los contratos. Ojo: el interés por mora antes
+era "% diario" y ahora es "% por mes"; quedó con el valor viejo (0,5): revisalo en
+Configuración.
 
 ## Stack
 
