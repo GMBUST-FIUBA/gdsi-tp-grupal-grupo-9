@@ -293,6 +293,53 @@ function pdfLiquidacion({ liq, ajuste, local, locatario, contrato, galeria, conf
   return doc;
 }
 
+/* ------------------------------------------------------------------ */
+
+/**
+ * Rendición de cuentas del mes: lo cobrado de los locales, los gastos que les
+ * tocan, la comisión y el neto a transferir. `r` es lo que devuelve
+ * GET /api/rendicion.
+ */
+function pdfRendicion(r, galeria) {
+  const aQuien = r.dueno ? r.dueno.nombre : 'la galería';
+  const doc = nuevoDoc(`Rendición ${periodoLabel(r.periodo)}`);
+  encabezado(doc, galeria, `Rendición de cuentas · ${periodoLabel(r.periodo)}`,
+    r.dueno
+      ? `${r.dueno.nombre} · ${r.locales} local${r.locales === 1 ? '' : 'es'}`
+      : `Todos los locales de la galería (${r.locales})`);
+
+  seccion(doc, 'Resumen del mes');
+  renglon(doc, `Alquileres cobrados (${r.localesCobrados} de ${r.locales} locales)`, centsToMoney(r.alquileresCobrados));
+  renglon(doc, 'Gastos comunes cobrados', centsToMoney(r.expensasCobradas));
+  renglon(doc, r.dueno
+    ? `Gastos comunes pagados (${fmtPct(r.pctGastos)} de los gastos de la galería)`
+    : 'Gastos comunes pagados (ordinarios y extraordinarios)', '- ' + centsToMoney(r.gastosPagados));
+  renglon(doc, `Comisión del administrador (${fmtPct(r.comisionPct)} sobre lo cobrado)`, '- ' + centsToMoney(r.comision));
+  linea(doc);
+  renglon(doc, `Neto a transferir a ${aQuien}`, centsToMoney(r.neto), { negrita: true, tam: 12 });
+
+  seccion(doc, 'Cobranza del período');
+  renglon(doc, 'Facturado', centsToMoney(r.facturado));
+  renglon(doc, 'Cobrado', centsToMoney(r.cobrado));
+  renglon(doc, 'Pendiente de cobro', centsToMoney(r.mora));
+
+  pie(doc, r.dueno
+    ? 'Los gastos de la galería se prorratean según la suma de los porcentajes de expensas de los locales del dueño, que es la parte que se les cobró a sus inquilinos.'
+    : 'Incluye todos los locales de la galería.');
+  doc.end();
+  return doc;
+}
+
+/** Junta el PDF en un Buffer, para adjuntarlo a un mail. */
+function pdfABuffer(doc) {
+  return new Promise((resolve, reject) => {
+    const partes = [];
+    doc.on('data', (p) => partes.push(p));
+    doc.on('end', () => resolve(Buffer.concat(partes)));
+    doc.on('error', reject);
+  });
+}
+
 /** Cabeceras para que el navegador lo baje con un nombre legible. */
 function cabecerasPdf(res, nombre) {
   res.set({
@@ -302,4 +349,4 @@ function cabecerasPdf(res, nombre) {
   });
 }
 
-module.exports = { pdfCierre, pdfLiquidacion, cabecerasPdf };
+module.exports = { pdfCierre, pdfLiquidacion, pdfRendicion, pdfABuffer, cabecerasPdf };

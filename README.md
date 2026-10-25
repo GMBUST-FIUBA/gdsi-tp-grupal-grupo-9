@@ -36,6 +36,73 @@ Un locatario accede a su local solo si el email de su usuario coincide con el
 del locatario del contrato vigente. Así, si un local cambia de inquilino, el
 usuario del anterior deja de ver la cuenta (y los mensajes) del nuevo.
 
+## Dueños de los locales
+
+Cada local pertenece a un dueño. La sección **Dueños** del administrador gira
+alrededor del selector que está arriba de todo:
+
+1. **Selector de dueño** (o "Toda la galería"), con el botón *Agregar dueño* al
+   lado: el formulario de alta arranca colapsado y se abre con ese botón. Debajo
+   se avisa qué locales todavía no tienen dueño.
+2. **Rendición de cuentas** del dueño elegido.
+3. **Datos del dueño**, en modo lectura, con *Editar* para habilitar los campos
+   (nombre, contacto y los locales que le corresponden) y *Borrar dueño*.
+
+Con "Toda la galería" elegida se ve la rendición completa y el panel de datos no
+aparece. Al borrar un dueño sus locales quedan sin asignar, no se borran.
+
+**Solo se pueden asignar locales sin dueño.** Los que ya tienen uno aparecen
+deshabilitados en la grilla, con el nombre de su dueño; para pasarlos hay que
+quitárselos primero desde la ficha de ese dueño. El servidor lo revalida, así que
+tampoco se puede forzar por API.
+
+Para un dueño la rendición toma solo sus locales, y los gastos se prorratean por
+la suma de los porcentajes de expensas de esos locales —la parte que
+efectivamente se les cobró a sus inquilinos—, así los netos de todos los dueños
+suman el neto de la galería.
+
+**Descargar PDF** baja la rendición armada con `pdfkit`, igual que los otros
+documentos. **Enviar al dueño** manda ese mismo PDF adjunto a su email.
+
+### Mandar mails (SMTP)
+
+La app no trae servidor de correo: hay que apuntarla a uno con estas variables
+de entorno (en Render se cargan a mano en el dashboard, el Blueprint las deja
+declaradas):
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=usuario@gmail.com
+SMTP_PASS=contraseña-de-aplicación
+SMTP_FROM=Galex <usuario@gmail.com>
+```
+
+Sirve cualquiera: Gmail con una *contraseña de aplicación* (no la del usuario),
+Brevo o Mailtrap para probar sin que salgan mails de verdad. El puerto 465 usa
+SSL directo; 587 y 2525 arrancan en claro y hacen STARTTLS.
+
+Sin esas variables la app anda igual: el botón *Enviar al dueño* queda
+deshabilitado y explica por qué (también si el dueño no tiene email cargado o si
+está elegida toda la galería, que no tiene destinatario). El PDF se puede
+descargar siempre.
+
+### El locatario es el dueño
+
+Al registrar un contrato hay un checkbox **"El locatario es el dueño del
+local"**. Si se marca:
+
+- No se le cobra alquiler (los campos de alquiler y modalidad se ocultan y el
+  contrato queda en $ 0), y tampoco se le aplican las actualizaciones por índice.
+- Paga **solo expensas de los gastos extraordinarios**: los ordinarios son el
+  costo de administrar lo que ya es suyo. Si en el mes no hubo extraordinarios,
+  no paga nada.
+- Queda dado de alta como dueño (o se reusa el que ya existía con ese nombre) y
+  se le asigna ese local.
+
+La deuda impaga y sus punitorios se arrastran igual que para cualquier otro
+locatario. En los datos de ejemplo, el Local 16 lo ocupa su propio dueño.
+
 ## Mensajes
 
 El administrador puede abrir un chat con cualquier locatario con contrato

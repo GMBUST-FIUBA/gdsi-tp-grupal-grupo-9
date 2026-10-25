@@ -13,7 +13,20 @@ function fillLocalesLibres() {
 
 function syncModalidad() {
   const esPct = document.getElementById('f-modo').value === 'fijo_pct';
-  document.getElementById('f-pct-wrap').hidden = !esPct;
+  document.getElementById('f-pct-wrap').hidden = !esPct || esDuenoMarcado();
+}
+
+function esDuenoMarcado() {
+  const chk = document.getElementById('f-dueno');
+  return !!(chk && chk.checked);
+}
+
+/* Si el locatario es el dueño no paga alquiler: se ocultan alquiler y modalidad. */
+function syncEsDueno() {
+  const esDueno = esDuenoMarcado();
+  document.getElementById('f-fijo-wrap').hidden = esDueno;
+  document.getElementById('f-modo-wrap').hidden = esDueno;
+  syncModalidad();
 }
 
 /** Dato del último contrato -> campo del formulario donde se copia. */
@@ -46,7 +59,8 @@ function replicarUltimoContrato() {
   claves.forEach((k) => {
     document.getElementById(camposReplicables[k]).value = previo[k];
   });
-  syncModalidad();
+  document.getElementById('f-dueno').checked = !!previo.locatarioEsDueno;
+  syncEsDueno();
   mostrarError('f-err', null);
   toast(`Se copiaron los datos del último contrato del Local ${numero}`);
 }
@@ -63,6 +77,7 @@ async function registrarContrato() {
   fd.append('telefono', document.getElementById('f-tel').value);
   fd.append('inicio', document.getElementById('f-desde').value);
   fd.append('plazoMeses', document.getElementById('f-meses').value);
+  fd.append('locatarioEsDueno', esDuenoMarcado() ? 'true' : 'false');
   fd.append('alquilerFijo', document.getElementById('f-fijo').value);
   fd.append('modalidad', document.getElementById('f-modo').value);
   fd.append('porcentaje', document.getElementById('f-pct').value);
@@ -80,6 +95,8 @@ async function registrarContrato() {
 }
 
 function limpiarFormContrato() {
+  document.getElementById('f-dueno').checked = false;
+  syncEsDueno();
   ['f-rubro', 'f-locatario', 'f-email', 'f-tel'].forEach((id) => {
     document.getElementById(id).value = '';
   });

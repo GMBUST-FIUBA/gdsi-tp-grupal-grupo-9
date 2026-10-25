@@ -5,7 +5,7 @@ const multer = require('multer');
 const { Op } = require('sequelize');
 
 const {
-  Galeria, Administrador, Usuario, Local, Locatario, Contrato,
+  Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion, CierreMes,
 } = require('../models');
 const { hashear, PASSWORD_INICIAL } = require('../auth');
@@ -15,10 +15,12 @@ const {
 } = require('../services/galeria');
 const {
   tieneMasDeDosDecimales, parseMoneyCents, centsToMoney, sumarMeses, mesesDeFrecuencia, periodoCorto,
+  periodoLabel,
 } = require('../services/formato');
 const { totalConAjusteCents, indiceCorto } = require('../services/calculo');
 const cierre = require('../services/cierre');
-const { pdfCierre, pdfLiquidacion, cabecerasPdf } = require('../services/documentos');
+const { pdfCierre, pdfLiquidacion, pdfRendicion, pdfABuffer, cabecerasPdf } = require('../services/documentos');
+const { enviarMail, estaConfigurado, MSG_SIN_CONFIGURAR } = require('../services/mailer');
 
 /** Igual que el fmtPct del navegador: '12,50%'. */
 function fmtPct(n) {
@@ -372,9 +374,14 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
   const nombre = String(req.body.locatario || '').trim();
   if (!nombre) return error(res, 'Ingresá el nombre o razón social del locatario.');
 
-  const fijoCents = parseMoneyCents(req.body.alquilerFijo);
-  if (Number.isNaN(fijoCents) || fijoCents <= 0) {
-    return error(res, 'Ingresá un alquiler fijo mensual válido.');
+  // El dueño que ocupa su propio local no paga alquiler, así que no se le pide.
+  const locatarioEsDueno = req.body.locatarioEsDueno === 'true' || req.body.locatarioEsDueno === true;
+  let fijoCents = 0;
+  if (!locatarioEsDueno) {
+    fijoCents = parseMoneyCents(req.body.alquilerFijo);
+    if (Number.isNaN(fijoCents) || fijoCents <= 0) {
+      return error(res, 'Ingresá un alquiler fijo mensual válido.');
+    }
   }
 
   const locatario = await Locatario.create({
@@ -392,7 +399,7 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     localId: local.id,
   });
 
-  const esPct = req.body.modalidad === 'fijo_pct';
+  const esPct = !locatarioEsDueno && req.body.modalidad === 'fijo_pct';
   const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
   const periodo = await periodoAbierto(local.galeriaId);
   const inicio = req.body.inicio || new Date().toISOString().slice(0, 10);
@@ -408,15 +415,33 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     alquilerFijoCents: fijoCents,
     inicio,
     indice,
-    proximaActualizacionPeriodo,
-    proximaActualizacion: `${indiceCorto(indice)} · ${periodoCorto(proximaActualizacionPeriodo)}`,
+    // Un dueño no paga alquiler, así que no hay actualización que agendarle.
+    proximaActualizacionPeriodo: locatarioEsDueno ? null : proximaActualizacionPeriodo,
+    proximaActualizacion: locatarioEsDueno
+      ? null
+      : `${indiceCorto(indice)} · ${periodoCorto(proximaActualizacionPeriodo)}`,
     plazoMeses: Number(req.body.plazoMeses || 24),
     diaVencimiento: 10,
     estado: 'vigente',
     esAlta: true,
+    locatarioEsDueno,
     archivoNombre: req.file ? req.file.originalname : null,
     archivoPath: req.file ? req.file.filename : null,
   });
+
+  /*
+   * Si el locatario es el dueño del local, lo damos de alta como dueño (o lo
+   * reusamos si ya está por nombre) y le asignamos este local.
+   */
+  if (locatarioEsDueno) {
+    const [dueno] = await Dueno.findOrCreate({
+      where: { galeriaId: local.galeriaId, nombre },
+      defaults: { email: locatario.email, telefono: locatario.telefono },
+    });
+    // Solo si el local estaba libre: si ya tenía dueño, se respeta el existente
+    // y queda para que la administración lo corrija desde la sección Dueños.
+    if (!local.duenoId) await local.update({ duenoId: dueno.id });
+  }
 
   // Liquidación del período en curso para que el local aparezca en cobranzas.
   // Lleva solo el alquiler: las expensas se cobran desde el primer cierre, cuando
@@ -643,15 +668,179 @@ async function totalesConAjuste(liqs) {
   return (liq) => totalConAjusteCents(liq, ajustes.find((a) => a.localId === liq.localId && a.periodo === liq.periodo));
 }
 
-router.get('/rendicion', wrap(async (req, res) => {
+/* ---------------- Dueños de los locales ---------------- */
+
+/** Lee y valida el cuerpo del alta/edición de un dueño. */
+function datosDeDueno(body) {
+  const nombre = String(body.nombre || '').trim();
+  if (!nombre) return { msg: 'Ingresá el nombre del dueño.' };
+  return {
+    datos: {
+      nombre,
+      email: String(body.email || '').trim(),
+      telefono: String(body.telefono || '').trim(),
+      contacto: String(body.contacto || '').trim(),
+    },
+  };
+}
+
+/** Dueño de la galería en la que se está trabajando (null si es de otra). */
+async function duenoDeLaGaleria(req, id) {
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria) return null;
+  return Dueno.findOne({ where: { id, galeriaId: galeria.id } });
+}
+
+router.get('/duenos', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria) return res.json({ duenos: [], sinDueno: [] });
+
+  const duenos = await Dueno.findAll({
+    where: { galeriaId: galeria.id },
+    include: [{ model: Local, required: false }],
+    order: [['nombre', 'ASC']],
+  });
+  const locales = await Local.findAll({
+    where: { galeriaId: galeria.id },
+    order: [['numero', 'ASC']],
+  });
+
+  const comoOpcion = (l) => ({ id: l.id, numero: l.numero, duenoId: l.duenoId });
+  res.json({
+    duenos: duenos.map((d) => ({
+      id: d.id,
+      nombre: d.nombre,
+      email: d.email,
+      telefono: d.telefono,
+      contacto: d.contacto,
+      locales: (d.Locals || [])
+        .map(comoOpcion)
+        .sort((a, b) => a.numero.localeCompare(b.numero)),
+    })),
+    locales: locales.map(comoOpcion),
+    sinDueno: locales.filter((l) => !l.duenoId).map(comoOpcion),
+  });
+}));
+
+router.post('/duenos', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria) return error(res, 'No hay una galería seleccionada.');
+
+  const { datos, msg } = datosDeDueno(req.body);
+  if (msg) return error(res, msg);
+
+  // Se valida antes de crear: si los locales no sirven, no queda un dueño suelto.
+  const malos = await localesDeOtroDueno(galeria.id, null, req.body.locales);
+  if (malos) return error(res, malos);
+
+  const dueno = await Dueno.create({ ...datos, galeriaId: galeria.id });
+  await asignarLocales(galeria.id, dueno.id, req.body.locales);
+  res.json({ ok: true, duenoId: dueno.id });
+}));
+
+router.put('/duenos/:id', wrap(async (req, res) => {
+  const dueno = await duenoDeLaGaleria(req, req.params.id);
+  if (!dueno) return error(res, 'No se encontró el dueño.', 404);
+
+  const { datos, msg } = datosDeDueno(req.body);
+  if (msg) return error(res, msg);
+
+  const malos = await localesDeOtroDueno(dueno.galeriaId, dueno.id, req.body.locales);
+  if (malos) return error(res, malos);
+
+  await dueno.update(datos);
+  await asignarLocales(dueno.galeriaId, dueno.id, req.body.locales);
+  res.json({ ok: true });
+}));
+
+router.delete('/duenos/:id', wrap(async (req, res) => {
+  const dueno = await duenoDeLaGaleria(req, req.params.id);
+  if (!dueno) return error(res, 'No se encontró el dueño.', 404);
+  // Los locales no se borran: quedan sin dueño asignado.
+  await Local.update({ duenoId: null }, { where: { duenoId: dueno.id } });
+  await dueno.destroy();
+  res.json({ ok: true });
+}));
+
+/** Normaliza el campo `locales` del cuerpo a una lista de ids. */
+function idsDeLocales(ids) {
+  return (Array.isArray(ids) ? ids : [ids]).map(Number).filter((n) => !Number.isNaN(n));
+}
+
+/**
+ * Un local solo se puede asignar si está libre: los que ya tienen dueño hay que
+ * liberarlos primero desde la ficha de ese dueño. Devuelve el mensaje de error,
+ * o null si todos los pedidos se pueden asignar.
+ *
+ * `duenoId` es el dueño que se está editando (sus propios locales son válidos);
+ * en un alta va null.
+ */
+async function localesDeOtroDueno(galeriaId, duenoId, ids) {
+  if (ids === undefined) return null;
+  const pedidos = idsDeLocales(ids);
+  if (!pedidos.length) return null;
+
+  const locales = await Local.findAll({ where: { galeriaId, id: pedidos } });
+  if (locales.length !== pedidos.length) return 'Alguno de los locales elegidos no es de esta galería.';
+
+  const ocupados = locales.filter((l) => l.duenoId && l.duenoId !== duenoId);
+  if (!ocupados.length) return null;
+
+  const duenos = await Dueno.findAll({ where: { id: [...new Set(ocupados.map((l) => l.duenoId))] } });
+  const nombreDe = (id) => {
+    const d = duenos.find((x) => x.id === id);
+    return d ? d.nombre : 'otro dueño';
+  };
+  const detalle = ocupados
+    .map((l) => `Local ${l.numero} (${nombreDe(l.duenoId)})`)
+    .join(', ');
+  return ocupados.length === 1
+    ? `El ${detalle} ya tiene dueño. Quitáselo primero desde su ficha.`
+    : `Estos locales ya tienen dueño: ${detalle}. Quitáselos primero desde sus fichas.`;
+}
+
+/**
+ * Deja al dueño con exactamente los locales de `ids`. Los que tenía y ya no
+ * están quedan sin dueño. Se asume que `localesDeOtroDueno` ya validó que
+ * ninguno pertenece a otro.
+ */
+async function asignarLocales(galeriaId, duenoId, ids) {
+  if (ids === undefined) return; // no vino el campo: no se toca la asignación
+  const pedidos = idsDeLocales(ids);
+
+  await Local.update({ duenoId: null }, { where: { duenoId } });
+  if (!pedidos.length) return;
+  await Local.update({ duenoId }, { where: { galeriaId, id: pedidos } });
+}
+
+/*
+ * Rendición del mes. Sin `duenoId` es la de toda la galería; con uno, solo sus
+ * locales, y los gastos se prorratean por la suma de los porcentajes de
+ * expensas de esos locales (es la parte que se les cobró a sus inquilinos).
+ */
+/*
+ * Rendición del mes. Sin `duenoId` es la de toda la galería; con uno, solo sus
+ * locales, y los gastos se prorratean por la suma de los porcentajes de
+ * expensas de esos locales (es la parte que se les cobró a sus inquilinos).
+ *
+ * Devuelve { msg } si el dueño pedido no existe.
+ */
+async function calcularRendicion(req, duenoIdRaw) {
   const galeria = await galeriaActual(req.galeriaId);
   const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
   const comisionPct = config ? Number(config.comisionAdmin) : 0;
   const periodo = await periodoAbierto(galeria.id);
-  const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
-  const liqs = await Liquidacion.findAll({
-    where: { localId: locales.map((l) => l.id), periodo },
-  });
+
+  const duenoId = duenoIdRaw ? Number(duenoIdRaw) : null;
+  const dueno = duenoId ? await duenoDeLaGaleria(req, duenoId) : null;
+  if (duenoId && !dueno) return { msg: 'No se encontró el dueño.' };
+
+  const todos = await Local.findAll({ where: { galeriaId: galeria.id } });
+  const locales = dueno ? todos.filter((l) => l.duenoId === dueno.id) : todos;
+
+  const liqs = locales.length
+    ? await Liquidacion.findAll({ where: { localId: locales.map((l) => l.id), periodo } })
+    : [];
   const totalDe = await totalesConAjuste(liqs);
 
   let alquileresCobrados = 0;
@@ -673,23 +862,92 @@ router.get('/rendicion', wrap(async (req, res) => {
   }
 
   const gastos = await Gasto.findAll({ where: { galeriaId: galeria.id, periodo } });
-  const gastosPagados = gastos.reduce((acc, g) => acc + g.montoCents, 0);
+  const gastosGaleria = gastos.reduce((acc, g) => acc + g.montoCents, 0);
+
+  // Al dueño le toca la porción de gastos que se le cobró a sus locales.
+  const pctDelDueno = locales.reduce((acc, l) => acc + Math.round(Number(l.expensasPct || 0) * 100), 0);
+  const gastosPagados = dueno
+    ? Math.round(gastosGaleria * pctDelDueno / 10000)
+    : gastosGaleria;
+
   const comision = Math.round(cobradoTotal * comisionPct / 100);
   const neto = alquileresCobrados + expensasCobradas - gastosPagados - comision;
 
-  res.json({
-    periodo,
-    alquileresCobrados,
-    expensasCobradas,
-    gastosPagados,
-    comision,
-    comisionPct,
-    neto,
-    facturado,
-    cobrado: cobradoTotal,
-    mora,
-    localesCobrados: liqs.filter((l) => l.cobradoCents >= totalDe(l) && totalDe(l) > 0).length,
+  return {
+    galeria,
+    duenoRow: dueno,
+    rendicion: {
+      periodo,
+      dueno: dueno ? { id: dueno.id, nombre: dueno.nombre, email: dueno.email } : null,
+      locales: locales.length,
+      pctGastos: dueno ? pctDelDueno / 100 : 100,
+      alquileresCobrados,
+      expensasCobradas,
+      gastosPagados,
+      comision,
+      comisionPct,
+      neto,
+      facturado,
+      cobrado: cobradoTotal,
+      mora,
+      localesCobrados: liqs.filter((l) => l.cobradoCents >= totalDe(l) && totalDe(l) > 0).length,
+    },
+  };
+}
+
+router.get('/rendicion', wrap(async (req, res) => {
+  const r = await calcularRendicion(req, req.query.duenoId);
+  if (r.msg) return error(res, r.msg, 404);
+  // `mailConfigurado` deja que el botón de envío avise antes de intentarlo.
+  res.json({ ...r.rendicion, mailConfigurado: estaConfigurado() });
+}));
+
+router.get('/rendicion/pdf', wrap(async (req, res) => {
+  const r = await calcularRendicion(req, req.query.duenoId);
+  if (r.msg) return error(res, r.msg, 404);
+
+  const quien = r.rendicion.dueno ? r.rendicion.dueno.nombre : 'galeria';
+  cabecerasPdf(res, `rendicion-${quien}-${r.rendicion.periodo}.pdf`);
+  pdfRendicion(r.rendicion, r.galeria).pipe(res);
+}));
+
+/** Manda la rendición al dueño por mail, con el PDF adjunto. */
+router.post('/rendicion/enviar', wrap(async (req, res) => {
+  if (!estaConfigurado()) return error(res, MSG_SIN_CONFIGURAR);
+
+  const r = await calcularRendicion(req, req.body.duenoId);
+  if (r.msg) return error(res, r.msg, 404);
+  if (!r.rendicion.dueno) {
+    return error(res, 'Elegí un dueño: la rendición de toda la galería no tiene a quién enviarse.');
+  }
+  if (!r.rendicion.dueno.email) {
+    return error(res, `${r.rendicion.dueno.nombre} no tiene email cargado. Agregalo en sus datos.`);
+  }
+
+  const mes = periodoLabel(r.rendicion.periodo);
+  const pdf = await pdfABuffer(pdfRendicion(r.rendicion, r.galeria));
+
+  const envio = await enviarMail({
+    para: r.rendicion.dueno.email,
+    asunto: `Rendición de cuentas ${mes} · ${r.galeria.nombre}`,
+    texto: [
+      `Hola ${r.rendicion.dueno.nombre},`,
+      '',
+      `Te adjuntamos la rendición de cuentas de ${mes} por tus locales en ${r.galeria.nombre}.`,
+      `Neto a transferir: ${centsToMoney(r.rendicion.neto)}.`,
+      '',
+      'Saludos,',
+      'La administración',
+    ].join('\n'),
+    adjuntos: [{
+      filename: `rendicion-${r.rendicion.periodo}.pdf`,
+      content: pdf,
+      contentType: 'application/pdf',
+    }],
   });
+  if (!envio.ok) return error(res, envio.msg);
+
+  res.json({ ok: true, msg: `Rendición enviada a ${r.rendicion.dueno.email}` });
 }));
 
 /* ---------------- Historial de cierres ---------------- */

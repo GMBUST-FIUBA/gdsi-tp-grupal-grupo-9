@@ -82,6 +82,7 @@ function datosParaReplicar(contrato) {
   if (loc && texto(loc.telefono)) out.telefono = texto(loc.telefono);
   if (contrato.plazoMeses > 0) out.plazoMeses = contrato.plazoMeses;
   if (contrato.alquilerFijoCents > 0) out.alquilerFijo = centsToMoney(contrato.alquilerFijoCents);
+  out.locatarioEsDueno = !!contrato.locatarioEsDueno;
   if (contrato.modalidad) out.modalidad = contrato.modalidad;
   if (contrato.modalidad === 'fijo_pct' && Number(contrato.porcentajeFacturacion) > 0) {
     out.porcentaje = Number(contrato.porcentajeFacturacion);
@@ -91,6 +92,7 @@ function datosParaReplicar(contrato) {
 
 function modalidadLabel(contrato) {
   if (!contrato) return '—';
+  if (contrato.locatarioEsDueno) return 'Dueño · sin alquiler';
   return contrato.modalidad === 'fijo_pct'
     ? `Fijo + ${Number(contrato.porcentajeFacturacion)}% fact.`
     : 'Fijo';
@@ -142,6 +144,7 @@ function serializarLocal(local) {
       loc: 'Local libre',
       rubro: '—',
       baja: !!(previo && previo.estado === 'baja'),
+      duenoId: local.duenoId || null,
       desde: previo && previo.fechaBaja
         ? `Baja: ${fechaCorta(previo.fechaBaja)}`
         : 'Disponible',
@@ -167,7 +170,9 @@ function serializarLocal(local) {
     totCents,
     // Lo que arrastra de meses anteriores, punitorios incluidos.
     deudaCents: liq ? (liq.saldoAnteriorCents || 0) + liq.interesMoraCents : 0,
-    act: contrato.proximaActualizacion || contrato.indice,
+    act: contrato.locatarioEsDueno
+      ? 'Sin alquiler que actualizar'
+      : (contrato.proximaActualizacion || contrato.indice),
     venc: String(contrato.diaVencimiento),
     pago: liq ? (liq.fechaPago || 'Pendiente') : 'Sin liquidación',
     email: locatario ? locatario.email : '',
@@ -180,6 +185,8 @@ function serializarLocal(local) {
     cob: centsToMoney(liq ? liq.cobradoCents : 0),
     cobCents: liq ? liq.cobradoCents : 0,
     nuevo: !!contrato.esAlta,
+    esDueno: !!contrato.locatarioEsDueno,
+    duenoId: local.duenoId || null,
     liquidacionId: liq ? liq.id : null,
     contratoId: contrato.id,
     locatarioId: locatario ? locatario.id : null,

@@ -4,7 +4,7 @@
  * Se ejecuta solo si la base está vacía (o con `npm run seed -- --force`).
  */
 const {
-  sequelize, Galeria, Administrador, Usuario, Local, Locatario, Contrato,
+  sequelize, Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
   Liquidacion, Comprobante, Proveedor, Gasto, Configuracion, Chat, Mensaje,
 } = require('./models');
 const { PERIODO_INICIAL, periodoDeTexto } = require('./services/formato');
@@ -111,6 +111,33 @@ async function seed() {
     });
   }
 
+  /*
+   * Dueños de ejemplo: la galería está repartida entre tres propietarios, y el
+   * Local 16 lo ocupa su propio dueño (no paga alquiler).
+   */
+  const DUENOS = [
+    { nombre: 'Jorge Belgrano', email: 'jorge.belgrano@correo.com', telefono: '+54 11 4777-1000',
+      contacto: 'Av. Cabildo 2200, CABA',
+      locales: ['01', '02', '03', '04', '05', '06', '07', '08'] },
+    { nombre: 'Marta Duarte', email: 'marta.duarte@correo.com', telefono: '+54 11 4777-2000',
+      contacto: 'Mendoza 1540, CABA',
+      locales: ['09', '10', '11', '12', '13', '14', '15'] },
+    { nombre: 'Ricardo Sosa', email: 'empanadas@correo.com', telefono: '+54 11 4001-0016',
+      contacto: 'Ocupa su propio local (16)',
+      locales: ['16', '17', '18', '19', '20', '21', '22'] },
+  ];
+  const duenoPorLocal = {};   // '04' -> instancia de Dueno
+  for (const d of DUENOS) {
+    const dueno = await Dueno.create({
+      galeriaId: galeria.id, nombre: d.nombre, email: d.email,
+      telefono: d.telefono, contacto: d.contacto,
+    });
+    d.locales.forEach((n) => { duenoPorLocal[n] = dueno; });
+  }
+
+  // El locatario del 16 es el dueño del local: solo paga expensas.
+  const LOCAL_DEL_DUENO = '16';
+
   let chatDeEjemplo = null; // { locatario, usuario } del LOCAL_CON_CHAT
 
   for (const d of LOCALES) {
@@ -119,6 +146,7 @@ async function seed() {
       numero: d.n,
       superficie: '~ 38 m2',
       expensasPct: pctExpensas(d),
+      duenoId: duenoPorLocal[d.n] ? duenoPorLocal[d.n].id : null,
     });
 
     if (d.libre) {
@@ -146,25 +174,28 @@ async function seed() {
       if (d.n === LOCAL_CON_CHAT) chatDeEjemplo = { locatario, usuario };
     }
 
+    // El dueño que ocupa su propio local no paga alquiler.
+    const esDueno = d.n === LOCAL_DEL_DUENO;
     const mora = pesos(d.mora || 0);
-    const fijo = pesos(d.fijo);
+    const fijo = esDueno ? 0 : pesos(d.fijo);
     const exp = pesos(EXPENSAS_BASE);
-    const variable = pesos(d.tot) - fijo - exp - mora;
+    const variable = esDueno ? 0 : pesos(d.tot) - fijo - exp - mora;
 
     const contrato = await Contrato.create({
       localId: local.id,
       locatarioId: locatario.id,
       rubro: d.rubro,
-      modalidad: d.pct > 0 ? 'fijo_pct' : 'fijo',
-      porcentajeFacturacion: d.pct,
+      modalidad: !esDueno && d.pct > 0 ? 'fijo_pct' : 'fijo',
+      porcentajeFacturacion: esDueno ? 0 : d.pct,
       alquilerFijoCents: fijo,
       inicio: '2025-03-01',
       plazoMeses: 24,
-      proximaActualizacion: d.act,
-      proximaActualizacionPeriodo: periodoDeTexto(d.act),
+      proximaActualizacion: esDueno ? null : d.act,
+      proximaActualizacionPeriodo: esDueno ? null : periodoDeTexto(d.act),
       diaVencimiento: 10,
       estado: 'vigente',
       esAlta: !!d.nuevo,
+      locatarioEsDueno: esDueno,
     });
 
     const liq = await Liquidacion.create({
@@ -176,7 +207,7 @@ async function seed() {
       expensasCents: exp,
       interesMoraCents: mora,
       diasMora: d.diasMora || 0,
-      cobradoCents: pesos(d.cobrado || 0),
+      cobradoCents: esDueno ? exp : pesos(d.cobrado || 0),
       estado: d.comp ? 'en_revision' : (d.cobrado ? 'cobrado' : 'pendiente'),
       fechaPago: d.pago,
       facturacionDeclaradaCents: d.pct > 0 ? Math.round(variable / (d.pct / 100)) : 0,

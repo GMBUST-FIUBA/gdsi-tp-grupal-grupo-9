@@ -24,6 +24,15 @@ function deltaAjuste(ajuste) {
   return ajuste.tipo === 'descuento' ? -ajuste.montoCents : ajuste.montoCents;
 }
 
+/*
+ * Cuando el locatario es el dueño del local no paga alquiler: solo le tocan las
+ * expensas, y esas salen únicamente de los gastos extraordinarios (los
+ * ordinarios son el costo de administrar lo que ya es suyo).
+ */
+function gastosQueLeTocan(gastos, locatarioEsDueno) {
+  return locatarioEsDueno ? gastos.filter((g) => g.tipo === 'extraordinario') : gastos;
+}
+
 /** Lo que se generó en el mes, sin deuda anterior ni punitorios. */
 function montoDelMesCents(liq, ajuste) {
   return liq.alquilerFijoCents + liq.variableCents + liq.expensasCents + deltaAjuste(ajuste);
@@ -121,7 +130,7 @@ function calcularDeudas(anterior, periodoNuevo, tasaPct) {
 /**
  * La liquidación que se emite para `periodoNuevo` al cerrar el mes anterior.
  *
- * - contrato: { alquilerFijoCents, indice, proximaActualizacionPeriodo }
+ * - contrato: { alquilerFijoCents, indice, proximaActualizacionPeriodo, locatarioEsDueno }
  * - anterior: { periodo, montoDelMesCents, pagada, deudas } o null
  * - gastos: los del mes que se cierra, [{ tipo, montoCents, ... }]
  * - expensasPct: % de expensas del local (null/undefined = sin asignar)
@@ -132,10 +141,13 @@ function calcularLiquidacion({
   aumentosPorIndice = {}, frecuencia, periodoNuevo,
 }) {
   // Alquiler: el del contrato, más el aumento si este mes le toca actualizar.
-  const baseCents = contrato.alquilerFijoCents;
+  // Un dueño que ocupa su propio local no paga alquiler, así que tampoco se le
+  // actualiza nada.
+  const esDueno = !!contrato.locatarioEsDueno;
+  const baseCents = esDueno ? 0 : contrato.alquilerFijoCents;
   let alquilerFijoCents = baseCents;
   let aumento = null;
-  if (seActualiza(contrato, periodoNuevo)) {
+  if (!esDueno && seActualiza(contrato, periodoNuevo)) {
     const pct = aumentosPorIndice[contrato.indice];
     const falta = pct === undefined || pct === null || pct === '';
     alquilerFijoCents = falta ? baseCents : baseCents + aplicarPct(baseCents, pct);
@@ -153,7 +165,8 @@ function calcularLiquidacion({
 
   // Expensas: la parte del local en los gastos del mes que se cierra.
   const tienePct = expensasPct !== null && expensasPct !== undefined;
-  const reparto = repartirGastos(gastos, tienePct ? expensasPct : 0);
+  const gastosDelLocal = gastosQueLeTocan(gastos, esDueno);
+  const reparto = repartirGastos(gastosDelLocal, tienePct ? expensasPct : 0);
 
   // Deuda de meses anteriores, mes por mes, con su punitorio.
   const deudas = calcularDeudas(anterior, periodoNuevo, tasaPunitorioPct);
@@ -174,10 +187,13 @@ function calcularLiquidacion({
     aumento,
     detalle: {
       periodoGastos: anterior ? anterior.periodo : null,
+      locatarioEsDueno: esDueno,
       alquiler: { baseCents, aumento },
       expensas: {
         pct: tienePct ? Number(expensasPct) : null,
-        gastosTotalCents: gastos.reduce((acc, g) => acc + g.montoCents, 0),
+        // Solo extraordinarios cuando el locatario es el dueño.
+        soloExtraordinarios: esDueno,
+        gastosTotalCents: gastosDelLocal.reduce((acc, g) => acc + g.montoCents, 0),
         totalCents: reparto.totalCents,
         gastos: reparto.items,
       },
@@ -190,4 +206,5 @@ function calcularLiquidacion({
 module.exports = {
   deltaAjuste, montoDelMesCents, totalConAjusteCents, resumenCuenta, repartirGastos,
   seActualiza, indiceCorto, calcularDeudas, calcularLiquidacion, aplicarPct,
+  gastosQueLeTocan,
 };

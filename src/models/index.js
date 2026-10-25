@@ -42,7 +42,19 @@ const Usuario = sequelize.define('Usuario', {
   rol: { type: DataTypes.ENUM('superadmin', 'admin', 'locatario'), allowNull: false },
 });
 
-/* ---------------- Locales, locatarios y contratos ---------------- */
+/* ---------------- Dueños, locales, locatarios y contratos ---------------- */
+
+/*
+ * El propietario de uno o más locales de la galería. La administración le rinde
+ * cuentas de lo cobrado y lo gastado en sus locales.
+ */
+const Dueno = sequelize.define('Dueno', {
+  nombre: { type: DataTypes.STRING, allowNull: false },
+  email: DataTypes.STRING,
+  telefono: DataTypes.STRING,
+  // Dirección, CBU, notas: lo que la administración necesite para contactarlo.
+  contacto: DataTypes.STRING,
+});
 
 const Local = sequelize.define('Local', {
   numero: { type: DataTypes.STRING, allowNull: false }, // '01', '02', ...
@@ -76,6 +88,12 @@ const Contrato = sequelize.define('Contrato', {
   archivoPath: DataTypes.STRING,
   // Marcas que el plano usa para el cartelito ALTA / BAJA.
   esAlta: { type: DataTypes.BOOLEAN, defaultValue: false },
+  /*
+   * El locatario es el dueño del local: ocupa su propio local, así que no paga
+   * alquiler. Solo le corresponden las expensas y los gastos extraordinarios
+   * (ver `calcularLiquidacion` en services/calculo.js).
+   */
+  locatarioEsDueno: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 });
 
 /* ---------------- Liquidación mensual y cobranza ---------------- */
@@ -212,6 +230,14 @@ const Mensaje = sequelize.define('Mensaje', {
 Galeria.hasMany(Local, { foreignKey: { name: 'galeriaId', allowNull: false } });
 Local.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 
+Galeria.hasMany(Dueno, { foreignKey: { name: 'galeriaId', allowNull: false } });
+Dueno.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+
+// Un local tiene a lo sumo un dueño; un dueño puede tener varios locales.
+// Al borrar un dueño sus locales quedan sin asignar (no se borran).
+Dueno.hasMany(Local, { foreignKey: 'duenoId', onDelete: 'SET NULL' });
+Local.belongsTo(Dueno, { foreignKey: 'duenoId' });
+
 Galeria.hasMany(Administrador, { foreignKey: 'galeriaId' });
 Administrador.belongsTo(Galeria, { foreignKey: 'galeriaId' });
 
@@ -264,7 +290,7 @@ Mensaje.belongsTo(Usuario, { foreignKey: 'autorId' });
 
 module.exports = {
   sequelize,
-  Galeria, Administrador, Usuario, Local, Locatario, Contrato,
+  Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa,
   Proveedor, Gasto, Configuracion, CierreMes, Chat, Mensaje,
 };

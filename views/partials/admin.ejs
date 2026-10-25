@@ -4,6 +4,7 @@
     <button role="tab" aria-selected="true"  aria-controls="sec-panel"  id="sec-tab-panel"  onclick="setSection('panel')">Panel general</button>
     <button role="tab" aria-selected="false" aria-controls="sec-gastos" id="sec-tab-gastos" onclick="setSection('gastos')">Gastos</button>
     <button role="tab" aria-selected="false" aria-controls="sec-cuenta" id="sec-tab-cuenta" onclick="setSection('cuenta')">Estado de cuenta</button>
+    <button role="tab" aria-selected="false" aria-controls="sec-duenos" id="sec-tab-duenos" onclick="setSection('duenos')">Dueños</button>
     <button role="tab" aria-selected="false" aria-controls="sec-config" id="sec-tab-config" onclick="setSection('config')">Configuración</button>
     <button role="tab" aria-selected="false" aria-controls="sec-mensajes" id="sec-tab-mensajes" onclick="setSection('mensajes')">Mensajes</button>
   </nav>
@@ -48,7 +49,6 @@
           <button role="tab" aria-selected="false" aria-controls="tp-cobranzas" id="t-cobranzas" onclick="setTab('cobranzas')">Cobranzas</button>
           <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')">Locatarios</button>
           <button role="tab" aria-selected="false" aria-controls="tp-config"    id="t-config"    onclick="setTab('config')">Configuración</button>
-          <button role="tab" aria-selected="false" aria-controls="tp-rendicion" id="t-rendicion" onclick="setTab('rendicion')">Rendición</button>
         </div>
 
         <!-- Nuevo contrato -->
@@ -59,10 +59,17 @@
             <div class="field full"><label for="f-locatario">Locatario</label><input id="f-locatario" placeholder="Razón social o nombre"></div>
             <div class="field"><label for="f-email">Email</label><input id="f-email" type="email" placeholder="correo@ejemplo.com"></div>
             <div class="field"><label for="f-tel">Teléfono</label><input id="f-tel" placeholder="+54 11 ..."></div>
+            <div class="field full">
+              <label class="check-line" for="f-dueno">
+                <input type="checkbox" id="f-dueno" onchange="syncEsDueno()">
+                <span>El locatario es el dueño del local</span>
+              </label>
+              <span class="hint">No se le cobra alquiler: solo las expensas de los gastos extraordinarios.</span>
+            </div>
             <div class="field"><label for="f-desde">Inicio</label><input id="f-desde" type="date" value="2026-09-01"></div>
             <div class="field"><label for="f-meses">Plazo (meses)</label><input id="f-meses" type="number" value="24" min="1"></div>
-            <div class="field"><label for="f-fijo">Alquiler fijo mensual</label><input id="f-fijo" value="$ 620.000,00"></div>
-            <div class="field"><label for="f-modo">Modalidad</label>
+            <div class="field" id="f-fijo-wrap"><label for="f-fijo">Alquiler fijo mensual</label><input id="f-fijo" value="$ 620.000,00"></div>
+            <div class="field" id="f-modo-wrap"><label for="f-modo">Modalidad</label>
               <select id="f-modo" onchange="syncModalidad()">
                 <option value="fijo">Fijo</option>
                 <option value="fijo_pct">Fijo + % de facturación</option>
@@ -133,16 +140,6 @@
           <div class="form-actions"><button class="btn btn-primary" onclick="guardarParametros()">Guardar configuración</button></div>
         </div>
 
-        <!-- Rendición -->
-        <div class="tabpane" id="tp-rendicion" role="tabpanel" aria-labelledby="t-rendicion" hidden>
-          <p class="sub" style="color:var(--muted);margin:0 0 14px">Resumen para el dueño — <%= periodoLabel %></p>
-          <div class="rend" id="rend-lines"></div>
-          <div class="form-actions">
-            <%# TODO: el PDF y el envío al dueño necesitan un generador de PDF y un mailer. %>
-            <button class="btn btn-ghost" onclick="toast('La descarga en PDF todavía no está implementada')">Descargar PDF</button>
-            <button class="btn btn-primary" onclick="toast('El envío al dueño todavía no está implementado')">Enviar rendición</button>
-          </div>
-        </div>
       </div>
     </section>
   </div>
@@ -322,6 +319,99 @@
     <section class="panel"><div class="panel-body">
       <div class="abm" id="aj-list"></div>
     </div></section>
+  </div>
+
+  <div id="sec-duenos" role="tabpanel" aria-labelledby="sec-tab-duenos" hidden>
+    <div class="page-head">
+      <span class="eyebrow">Dueños</span>
+      <h1>Propietarios de los locales</h1>
+      <p>Cada local de la galería pertenece a un dueño. Elegí uno para ver su rendición del mes y sus datos.</p>
+    </div>
+
+    <section class="panel">
+      <div class="panel-body">
+        <div class="du-barra">
+          <div class="field"><label for="du-sel">Dueño</label>
+            <select id="du-sel" onchange="seleccionarDueno(this.value)"></select></div>
+          <button class="btn btn-primary" id="du-nuevo-btn" onclick="abrirAltaDueno()">Agregar dueño</button>
+        </div>
+        <div class="note" id="du-sin-dueno" hidden></div>
+      </div>
+    </section>
+
+    <%# Alta de un dueño: arranca colapsada, se abre con "Agregar dueño". %>
+    <section class="panel" id="du-alta" hidden>
+      <div class="panel-head"><h3>Nuevo dueño</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field full"><label for="na-nombre">Nombre / razón social</label>
+            <input id="na-nombre" placeholder="Nombre del propietario"></div>
+          <div class="field"><label for="na-email">Email</label>
+            <input id="na-email" type="email" placeholder="correo@ejemplo.com"></div>
+          <div class="field"><label for="na-tel">Teléfono</label>
+            <input id="na-tel" placeholder="+54 11 ..."></div>
+          <div class="field full"><label for="na-contacto">Otros datos de contacto</label>
+            <input id="na-contacto" maxlength="200" placeholder="Dirección, CBU, notas..."></div>
+          <div class="field full"><label>Locales de la galería</label>
+            <div class="check-grid" id="na-locales"></div>
+            <span class="hint">Solo se pueden asignar locales sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
+        </div>
+        <div class="note late" id="na-err" hidden></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" onclick="cerrarAltaDueno()">Cancelar</button>
+          <button class="btn btn-primary" onclick="crearDueno()">Guardar dueño</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Rendición de cuentas</h2><span class="st-sub"><%= periodoLabel %></span></div>
+    <section class="panel">
+      <div class="panel-head"><h3 id="rend-titulo">Resumen del mes</h3><span class="sub" id="rend-sub"></span></div>
+      <div class="panel-body">
+        <div class="rend" id="rend-lines"></div>
+        <div class="note late" id="rend-err" hidden></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" onclick="descargarRendicion()">Descargar PDF</button>
+          <button class="btn btn-primary" id="rend-enviar" onclick="enviarRendicion()">Enviar al dueño</button>
+        </div>
+      </div>
+    </section>
+
+    <%# Datos del dueño elegido: se leen, y "Editar" los vuelve editables. %>
+    <div class="section-title" id="du-datos-titulo" hidden><h2>Datos del dueño</h2></div>
+    <section class="panel" id="du-datos" hidden>
+      <div class="panel-head"><h3 id="du-datos-nombre">—</h3><span class="sub" id="du-datos-sub"></span></div>
+      <div class="panel-body">
+        <div id="du-ver">
+          <dl class="dl" id="du-ver-dl"></dl>
+          <div class="form-actions">
+            <button class="btn btn-danger btn-sm" onclick="confirmBorrarDueno()">Borrar dueño</button>
+            <button class="btn btn-primary" onclick="habilitarEdicionDueno()">Editar</button>
+          </div>
+        </div>
+
+        <div id="du-editar" hidden>
+          <div class="form-grid">
+            <div class="field full"><label for="du-nombre">Nombre / razón social</label>
+              <input id="du-nombre" placeholder="Nombre del propietario"></div>
+            <div class="field"><label for="du-email">Email</label>
+              <input id="du-email" type="email" placeholder="correo@ejemplo.com"></div>
+            <div class="field"><label for="du-tel">Teléfono</label>
+              <input id="du-tel" placeholder="+54 11 ..."></div>
+            <div class="field full"><label for="du-contacto">Otros datos de contacto</label>
+              <input id="du-contacto" maxlength="200" placeholder="Dirección, CBU, notas..."></div>
+            <div class="field full"><label>Locales de la galería</label>
+              <div class="check-grid" id="du-locales"></div>
+              <span class="hint">Solo se pueden asignar locales sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
+          </div>
+          <div class="note late" id="du-err" hidden></div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="cancelarEdicionDueno()">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarDueno()">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="sec-mensajes" role="tabpanel" aria-labelledby="sec-tab-mensajes" hidden>

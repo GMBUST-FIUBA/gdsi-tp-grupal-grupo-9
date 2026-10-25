@@ -171,3 +171,50 @@ test('el monto del mes incluye el ajuste y excluye la deuda previa', () => {
   assert.equal(montoDelMesCents(liq, { tipo: 'cargo', montoCents: pesos(50) }), pesos(1250));
   assert.equal(totalConAjusteCents(liq, null), pesos(1725));
 });
+
+/* ---------- Locatario que es dueño del local ---------- */
+
+const contratoDueno = (alquiler, proxima = '2026-09') => ({
+  ...contrato(alquiler, proxima), locatarioEsDueno: true,
+});
+
+test('el dueño no paga alquiler, solo su parte de los gastos extraordinarios', () => {
+  // base trae $1.000 de ordinarios y $2.000 de extraordinarios; al 25% le tocan $500.
+  const l = calcularLiquidacion({
+    ...base, contrato: contratoDueno(100000), anterior: null, expensasPct: 25,
+  });
+  assert.equal(l.alquilerFijoCents, 0);
+  assert.equal(l.expensasCents, pesos(500));
+  assert.equal(l.totalCents, pesos(500));
+  assert.equal(l.detalle.expensas.soloExtraordinarios, true);
+  assert.deepEqual(l.detalle.expensas.gastos.map((g) => g.parteCents), [pesos(500)]);
+});
+
+test('al dueño no se le aplica la actualización por índice', () => {
+  const l = calcularLiquidacion({
+    ...base, contrato: contratoDueno(100000, '2026-09'), anterior: null, expensasPct: 25,
+    aumentosPorIndice: { 'ICL (BCRA)': 12 },
+  });
+  assert.equal(l.alquilerFijoCents, 0);
+  assert.equal(l.aumento, null);
+  assert.equal(l.detalle.alquiler.baseCents, 0);
+});
+
+test('sin gastos extraordinarios en el mes, el dueño no paga nada', () => {
+  const l = calcularLiquidacion({
+    ...base, gastos: [gasto('ordinario', 1000)],
+    contrato: contratoDueno(100000), anterior: null, expensasPct: 25,
+  });
+  assert.equal(l.totalCents, 0);
+  assert.equal(l.detalle.expensas.gastos.length, 0);
+});
+
+test('el dueño también arrastra la deuda impaga con sus punitorios', () => {
+  const l = calcularLiquidacion({
+    ...base, contrato: contratoDueno(100000), expensasPct: 25,
+    anterior: { periodo: '2026-08', montoDelMesCents: pesos(500), pagada: false, deudas: [] },
+  });
+  assert.equal(l.saldoAnteriorCents, pesos(500));
+  assert.equal(l.interesMoraCents, pesos(25));
+  assert.equal(l.totalCents, pesos(500) + pesos(500) + pesos(25));
+});

@@ -26,14 +26,14 @@ function setView(v){
   window.scrollTo({top:0});
 }
 function setTab(name){
-  ['contrato','cobranzas','locatarios','config','rendicion'].forEach(t=>{
+  ['contrato','cobranzas','locatarios','config'].forEach(t=>{
     const sel = t===name;
     document.getElementById('tp-'+t).hidden = !sel;
     document.getElementById('t-'+t).setAttribute('aria-selected', sel);
   });
 }
 function setSection(name){
-  ['panel','gastos','cuenta','config','mensajes'].forEach(s=>{
+  ['panel','gastos','cuenta','duenos','config','mensajes'].forEach(s=>{
     const sel = s===name;
     document.getElementById('sec-'+s).hidden = !sel;
     document.getElementById('sec-tab-'+s).setAttribute('aria-selected', sel);
