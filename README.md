@@ -36,6 +36,21 @@ Un locatario accede a su local solo si el email de su usuario coincide con el
 del locatario del contrato vigente. Así, si un local cambia de inquilino, el
 usuario del anterior deja de ver la cuenta (y los mensajes) del nuevo.
 
+## Secciones del administrador
+
+| Sección | Qué tiene |
+| --- | --- |
+| Panel general | Plano, KPIs, detalle del local (solo informativo), cobranzas y locatarios |
+| Contratos | Alta de contratos, listado de contratos vigentes con su baja, y los parámetros de alquiler de la galería |
+| Gastos | ABM de gastos ordinarios y extraordinarios |
+| Estado de cuenta | Saldo del mes y cierre ("Liquidar expensas") |
+| Dueños | ABM de propietarios y rendición de cuentas |
+| Configuración | Porcentaje de expensas por local y ajustes del mes |
+| Mensajes | Chats con los locatarios |
+
+El detalle de un local en **Panel general** muestra su contrato pero no lo
+modifica: dar de baja un contrato se hace desde **Contratos**.
+
 ## Dueños de los locales
 
 Cada local pertenece a un dueño. La sección **Dueños** del administrador gira

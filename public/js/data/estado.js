@@ -60,6 +60,7 @@ function renderTodo() {
     fillAjusteUnidades();
     renderAjustes();
     fillLocalesLibres();
+    renderContratos();
     cargarDuenos();
     renderHistorial();
     renderCuenta();

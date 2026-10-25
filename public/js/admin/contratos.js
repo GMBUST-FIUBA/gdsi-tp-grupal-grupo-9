@@ -105,3 +105,72 @@ function limpiarFormContrato() {
   document.getElementById('f-pdf-box').classList.remove('has');
   document.getElementById('f-pdf-t').textContent = 'Subir contrato firmado';
 }
+
+/* ---------- Contratos vigentes ---------- */
+
+/** Fecha del contrato ('2025-03-01') -> '01/03/2025'. */
+function fechaContrato(f) {
+  if (!f) return '—';
+  const [a, m, d] = String(f).slice(0, 10).split('-');
+  return `${d}/${m}/${a}`;
+}
+
+/**
+ * Un renglón por local con contrato vigente: los datos del contrato y las
+ * acciones. Dar de baja se hace solo desde acá; el Panel general muestra el
+ * mismo contrato pero sin acciones que lo modifiquen.
+ */
+function renderContratos() {
+  const box = document.getElementById('contratos-list');
+  if (!box) return;
+
+  const vigentes = units.filter((u) => u.st !== 'free');
+  document.getElementById('contratos-count').textContent = vigentes.length
+    ? `${vigentes.length} vigentes` : '';
+
+  if (!vigentes.length) {
+    box.innerHTML = '<div class="empty">Todavía no hay contratos vigentes.</div>';
+    return;
+  }
+
+  box.innerHTML = vigentes.map((u) => {
+    const i = units.indexOf(u);
+    const alquiler = u.esDueno ? 'sin alquiler (dueño)' : u.fijo;
+    const actualiza = u.esDueno ? '' : ` · ${escaparHTML(u.act)}`;
+    return `
+      <div class="abm-row">
+        <div class="an">${escaparHTML(u.n)}</div>
+        <div>
+          <div class="aname">${escaparHTML(u.loc)} · ${escaparHTML(u.mod)}</div>
+          <div class="acontact">${escaparHTML(u.rubro)} · ${alquiler} · vence el día ${escaparHTML(u.venc)}${actualiza}</div>
+          <div class="acontact">Desde ${fechaContrato(u.inicio)} · ${u.plazoMeses || '—'} meses${u.archivoContratoUrl ? '' : ' · sin PDF adjunto'}</div>
+        </div>
+        <div class="aacts">
+          <button class="btn btn-ghost btn-sm" onclick="verContrato(${i})">Ver contrato</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmBaja(${i})">Dar de baja</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ---------- Baja de contrato ---------- */
+
+function confirmBaja(i) {
+  const u = units[i];
+  openModal(`Dar de baja — Local ${u.n}`,
+    `<p style="margin:0 0 12px">Vas a rescindir el contrato de <strong>${escaparHTML(u.loc)}</strong>. El local pasará a estado <strong>libre</strong> y se generará el estado de cuenta final.</p>
+     <div class="field"><label for="baja-mot">Motivo</label>
+       <select id="baja-mot"><option>Fin de contrato</option><option>Rescisión anticipada</option><option>Falta de pago</option><option>Acuerdo de partes</option></select></div>`,
+    [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
+     { label: 'Confirmar baja', cls: 'btn-danger', fn: () => doBaja(i) }]);
+}
+
+async function doBaja(i) {
+  const u = units[i];
+  const motivo = document.getElementById('baja-mot').value;
+  const r = await apiEnviar('POST', `/api/contratos/${u.contratoId}/baja`, { motivo });
+  closeModal();
+  if (!r.ok) return toast(r.msg);
+  await recargarEstado();
+  toast(`Contrato del Local ${u.n} dado de baja`);
+}

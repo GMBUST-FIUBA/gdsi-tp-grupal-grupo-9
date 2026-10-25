@@ -55,7 +55,6 @@ function selectUnit(i) {
     <div class="form-actions">
       <button class="btn btn-ghost btn-sm" onclick="verContrato(${i})">Ver contrato</button>
       <button class="btn btn-ghost btn-sm" onclick="verCuentaCorriente(${i})">Cuenta corriente</button>
-      <button class="btn btn-danger btn-sm" onclick="confirmBaja(${i})">Dar de baja contrato</button>
     </div>`;
 }
 
@@ -68,26 +67,7 @@ function verContrato(i) {
   }
 }
 
-/* ---------- Baja de contrato ---------- */
-function confirmBaja(i) {
-  const u = units[i];
-  openModal(`Dar de baja — Local ${u.n}`,
-    `<p style="margin:0 0 12px">Vas a rescindir el contrato de <strong>${u.loc}</strong>. El local pasará a estado <strong>libre</strong> y se generará el estado de cuenta final.</p>
-     <div class="field"><label for="baja-mot">Motivo</label>
-       <select id="baja-mot"><option>Fin de contrato</option><option>Rescisión anticipada</option><option>Falta de pago</option><option>Acuerdo de partes</option></select></div>`,
-    [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
-     { label: 'Confirmar baja', cls: 'btn-danger', fn: () => doBaja(i) }]);
-}
-
-async function doBaja(i) {
-  const u = units[i];
-  const motivo = document.getElementById('baja-mot').value;
-  const r = await apiEnviar('POST', `/api/contratos/${u.contratoId}/baja`, { motivo });
-  closeModal();
-  if (!r.ok) return toast(r.msg);
-  await recargarEstado();
-  toast(`Contrato del Local ${u.n} dado de baja`);
-}
+/* La baja de contrato vive en la sección Contratos (admin/contratos.js). */
 
 /* ---------- Comprobante: ver, aceptar o rechazar ---------- */
 function viewReceipt(i) {

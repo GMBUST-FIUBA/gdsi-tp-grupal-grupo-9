@@ -186,6 +186,10 @@ function serializarLocal(local) {
     cobCents: liq ? liq.cobradoCents : 0,
     nuevo: !!contrato.esAlta,
     esDueno: !!contrato.locatarioEsDueno,
+    // Datos del contrato para la sección Contratos.
+    inicio: contrato.inicio,
+    plazoMeses: contrato.plazoMeses,
+    indice: contrato.indice,
     duenoId: local.duenoId || null,
     liquidacionId: liq ? liq.id : null,
     contratoId: contrato.id,
