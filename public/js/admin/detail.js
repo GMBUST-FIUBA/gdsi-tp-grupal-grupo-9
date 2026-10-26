@@ -137,10 +137,24 @@ async function rejectPay(i) {
   const motivo = motivoRechazoElegido();
   if (!motivo) return mostrarError('rech-err', 'Escribí el motivo del rechazo.');
 
+  // Mientras viaja el pedido el botón lo muestra, así nunca parece que no pasó nada.
+  const btn = botonDelModal('Rechazar el pago');
+  const etiqueta = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Rechazando…'; }
+  mostrarError('rech-err', null);
+
   const r = await apiEnviar('POST', `/api/liquidaciones/${u.liquidacionId}/rechazar`, { motivo });
+
+  if (btn) { btn.disabled = false; btn.textContent = etiqueta; }
   if (!r.ok) return mostrarError('rech-err', r.msg);
 
   closeModal();
   await recargarEstado();
   toast(r.msg || 'Comprobante rechazado');
+}
+
+/** Botón del pie del modal por su texto, para poder cambiarle el estado. */
+function botonDelModal(etiqueta) {
+  return [...document.querySelectorAll('#modal-foot button')]
+    .find((b) => b.textContent === etiqueta) || null;
 }

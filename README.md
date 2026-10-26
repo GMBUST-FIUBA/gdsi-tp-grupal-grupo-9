@@ -145,6 +145,32 @@ Sirve cualquiera: Gmail con una *contraseña de aplicación* (no la del usuario)
 Brevo o Mailtrap para probar sin que salgan mails de verdad. El puerto 465 usa
 SSL directo; 587 y 2525 arrancan en claro y hacen STARTTLS.
 
+> **En Render no sale SMTP.** Los logs muestran `Connection timeout` en todos
+> los intentos: la conexión TCP al servidor de correo nunca llega a abrirse.
+> Por SMTP los mails andan en local pero no en producción, así que para Render
+> hay que usar el camino por API HTTP de acá abajo.
+
+### Mandar mails por API HTTP (recomendado en Render)
+
+En vez de SMTP se puede usar la API de **Brevo**, que viaja por HTTPS (puerto
+443) y por eso no la frena el bloqueo que sí frena al SMTP:
+
+```
+BREVO_API_KEY=xkeysib-...
+MAIL_FROM=Galex <tu-remitente-verificado@dominio.com>
+```
+
+El plan gratuito de Brevo da 300 mails por día y permite verificar una casilla
+suelta como remitente, sin necesidad de tener un dominio propio.
+
+Si están cargadas las dos, la app usa Brevo; si no, cae a SMTP. El resto del
+código no se entera: `enviarMail()` es el mismo.
+
+El envío nunca cuelga la pantalla: el transporte tiene timeouts de conexión y de
+socket, y los avisos que son un efecto secundario —el motivo de un rechazo, por
+ejemplo— se mandan **en segundo plano**, así la acción responde al instante
+aunque el correo falle.
+
 Sin esas variables la app anda igual: el botón *Enviar al dueño* queda
 deshabilitado y explica por qué (también si el dueño no tiene email cargado o si
 está elegida toda la galería, que no tiene destinatario). El PDF se puede

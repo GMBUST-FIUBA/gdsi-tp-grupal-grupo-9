@@ -21,7 +21,9 @@ const {
 const { totalConAjusteCents, indiceCorto } = require('../services/calculo');
 const cierre = require('../services/cierre');
 const { pdfCierre, pdfLiquidacion, pdfRendicion, pdfABuffer, cabecerasPdf } = require('../services/documentos');
-const { enviarMail, enviarAcceso, estaConfigurado, MSG_SIN_CONFIGURAR } = require('../services/mailer');
+const {
+  enviarMail, enviarAcceso, enviarEnSegundoPlano, estaConfigurado, MSG_SIN_CONFIGURAR,
+} = require('../services/mailer');
 
 /** Igual que el fmtPct del navegador: '12,50%'. */
 function fmtPct(n) {
@@ -380,13 +382,22 @@ router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
   liq.fechaPago = `Comprobante rechazado: ${motivo}`;
   await liq.save();
 
-  // Se le avisa por mail si tiene casilla y hay SMTP; si no, no pasa nada: el
-  // motivo igual le aparece en "Mis comprobantes".
-  const aviso = await avisarRechazo(req, liq, motivo);
-  res.json({ ok: true, msg: aviso });
+  /*
+   * El aviso por mail va en segundo plano: el rechazo ya quedó guardado y el
+   * motivo le aparece en "Mis comprobantes" igual. Si esperáramos al servidor
+   * de correo, un SMTP lento o bloqueado colgaría el botón de la pantalla.
+   */
+  const destinatario = await avisarRechazo(req, liq, motivo);
+  res.json({
+    ok: true,
+    msg: destinatario ? `Comprobante rechazado · le avisamos a ${destinatario}` : 'Comprobante rechazado',
+  });
 }));
 
-/** Mail al locatario contándole por qué se rechazó su comprobante. */
+/**
+ * Dispara el mail al locatario con el motivo del rechazo y devuelve a qué
+ * casilla salió (o null si no hay a quién o no hay SMTP). No espera el envío.
+ */
 async function avisarRechazo(req, liq, motivo) {
   if (!estaConfigurado()) return null;
 
@@ -395,7 +406,7 @@ async function avisarRechazo(req, liq, motivo) {
   if (!locatario || !locatario.email) return null;
 
   const galeria = await galeriaActual(req.galeriaId);
-  const envio = await enviarMail({
+  enviarEnSegundoPlano({
     para: locatario.email,
     asunto: `Tu comprobante de ${periodoLabel(liq.periodo)} fue rechazado`,
     texto: [
@@ -408,7 +419,7 @@ async function avisarRechazo(req, liq, motivo) {
       'Podés subir uno nuevo desde tu cuenta.',
     ].join('\n'),
   });
-  return envio.ok ? `Se le avisó a ${locatario.email}` : null;
+  return locatario.email;
 }
 
 /* ---------------- Contratos ---------------- */

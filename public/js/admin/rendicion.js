@@ -29,15 +29,18 @@ function descargarRendicion() {
 async function enviarRendicion() {
   const btn = document.getElementById('rend-enviar');
   const id = typeof duenoElegido === 'string' ? duenoElegido : '';
+
+  // Mandar el mail tarda unos segundos: el botón lo dice mientras tanto.
+  const etiqueta = btn.textContent;
   btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  mostrarError('rend-err', null);
 
   const r = await apiEnviar('POST', '/api/rendicion/enviar', { duenoId: id });
-  if (!r.ok) {
-    syncBotonEnviar();
-    return mostrarError('rend-err', r.msg);
-  }
-  mostrarError('rend-err', null);
+
+  btn.textContent = etiqueta;
   syncBotonEnviar();
+  if (!r.ok) return mostrarError('rend-err', r.msg);
   toast(r.msg || 'Rendición enviada');
 }
 

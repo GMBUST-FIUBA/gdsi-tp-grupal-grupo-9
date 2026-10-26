@@ -16,7 +16,13 @@ services:
       # URL publica: con esto los links de acceso que van por mail salen bien.
       - key: APP_URL
         sync: false
-      # SMTP para el envio de la rendicion y los accesos. sync:false = se cargan a mano en el
+      # Envio de mails por API HTTP (recomendado): no depende de puertos SMTP
+      # ni de los limites de Gmail.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Alternativa por SMTP. sync:false = se cargan a mano en el
       # dashboard de Render; sin ellas el envio queda deshabilitado.
       - key: SMTP_HOST
         sync: false
