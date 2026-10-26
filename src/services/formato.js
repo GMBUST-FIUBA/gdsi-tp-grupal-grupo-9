@@ -25,6 +25,26 @@ function tieneMasDeDosDecimales(n) {
 const PERIODO_INICIAL = '2026-08';
 
 /** '2026-11' + 3 -> '2027-02' */
+/**
+ * Último día de vigencia de un contrato: inicio + plazo, menos un día.
+ * '2025-03-01' + 24 meses -> '2027-02-28'. Null si falta el inicio o el plazo.
+ */
+function finDeContrato(inicio, plazoMeses) {
+  if (!inicio || !(plazoMeses > 0)) return null;
+  const [a, m, d] = String(inicio).slice(0, 10).split('-').map(Number);
+
+  /*
+   * El día se recorta al último del mes destino, si no un contrato que arranca
+   * el 31/01 se desbordaría a marzo. Date en UTC para no correr un día por la
+   * zona horaria.
+   */
+  const destino = new Date(Date.UTC(a, (m - 1) + Number(plazoMeses), 1));
+  const ultimoDia = new Date(Date.UTC(destino.getUTCFullYear(), destino.getUTCMonth() + 1, 0)).getUTCDate();
+  const fin = new Date(Date.UTC(destino.getUTCFullYear(), destino.getUTCMonth(), Math.min(d, ultimoDia)));
+  fin.setUTCDate(fin.getUTCDate() - 1);
+  return fin.toISOString().slice(0, 10);
+}
+
 function sumarMeses(periodo, n) {
   const [anio, mes] = String(periodo).split('-').map(Number);
   const total = anio * 12 + (mes - 1) + n;
@@ -94,5 +114,5 @@ function fechaHora(fecha) {
 module.exports = {
   centsToMoney, parseMoneyCents, tieneMasDeDosDecimales,
   PERIODO_INICIAL, periodoLabel, periodoCorto, fechaCorta, fechaHora,
-  sumarMeses, mesesEntre, mesesDeFrecuencia, periodoDeTexto,
+  sumarMeses, mesesEntre, mesesDeFrecuencia, periodoDeTexto, finDeContrato,
 };

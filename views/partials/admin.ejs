@@ -285,12 +285,34 @@
   <div id="sec-config" role="tabpanel" aria-labelledby="sec-tab-config" hidden>
     <div class="page-head">
       <span class="eyebrow">Configuración</span>
-      <h1>Expensas por comercio</h1>
-      <p>Definí qué porcentaje de las expensas le corresponde a cada comercio. La suma de todos los porcentajes no puede superar el 100%.</p>
+      <h1>Locales y expensas</h1>
+      <p>Cargá los locales de la galería con sus metros cuadrados y definí qué porcentaje de las expensas le corresponde a cada uno. La suma de todos los porcentajes no puede superar el 100%.</p>
     </div>
 
     <section class="panel">
-      <div class="panel-head"><h3>Porcentaje de expensas</h3></div>
+      <div class="panel-head"><h3>Agregar local</h3></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field"><label for="lo-num">Número</label>
+            <input id="lo-num" maxlength="10" placeholder="23">
+            <span class="hint">Como aparece en el plano. No se puede repetir.</span></div>
+          <div class="field"><label for="lo-m2">Superficie</label>
+            <div class="suffix-wrap"><input id="lo-m2" type="number" min="0" step="0.01" placeholder="38"><span class="sfx">m²</span></div>
+            <span class="hint">Opcional, hasta dos decimales.</span></div>
+        </div>
+        <div class="note late" id="lo-err" hidden></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="agregarLocal()">Agregar local</button></div>
+      </div>
+    </section>
+
+    <div class="section-title"><h2>Locales de la galería</h2><span class="st-sub" id="lo-count"></span></div>
+    <section class="panel"><div class="panel-body">
+      <div class="abm" id="lo-list"></div>
+    </div></section>
+
+    <div class="section-title"><h2>Porcentaje de expensas</h2></div>
+    <section class="panel">
+      <div class="panel-head"><h3>Asignar porcentaje</h3></div>
       <div class="panel-body">
         <div class="form-grid">
           <div class="field"><label for="cf-unidad">Comercio</label>

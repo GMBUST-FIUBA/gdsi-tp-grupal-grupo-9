@@ -118,6 +118,21 @@ function normalizarAumentos(raw) {
  * Lo que va a pagar cada local con contrato vigente en el mes siguiente, más
  * los avisos y lo que falta para poder confirmar.
  */
+/**
+ * Ids del contrato y de los que lo precedieron por renovación, siguiendo
+ * `contratoAnteriorId` hacia atrás.
+ */
+function idsDeLaCadena(local, contrato) {
+  const porId = new Map((local.Contratos || []).map((c) => [c.id, c]));
+  const ids = new Set();
+  let actual = contrato;
+  while (actual && !ids.has(actual.id)) {
+    ids.add(actual.id);
+    actual = actual.contratoAnteriorId ? porId.get(actual.contratoAnteriorId) : null;
+  }
+  return ids;
+}
+
 async function previewCierre(galeriaId, aumentosRaw) {
   const { aumentos, error } = normalizarAumentos(aumentosRaw);
   if (error) return { ok: false, msg: error };
@@ -141,8 +156,14 @@ async function previewCierre(galeriaId, aumentosRaw) {
     const contrato = contratoVigente(local);
     if (!contrato) continue;
 
-    // La liquidación del mes que se cierra, si es de este mismo contrato.
-    const liq = d.liqs.find((l) => l.localId === local.id && l.contratoId === contrato.id) || null;
+    /*
+     * La liquidación del mes que se cierra, si es de este contrato o de alguno
+     * al que sucede (renovación). Mirar la cadena evita que al renovar se
+     * pierda la deuda; comparar contra todos los contratos del local no sirve,
+     * porque la deuda del inquilino anterior no es del nuevo.
+     */
+    const cadena = idsDeLaCadena(local, contrato);
+    const liq = d.liqs.find((l) => l.localId === local.id && cadena.has(l.contratoId)) || null;
     const ajuste = (local.AjusteExpensas || [])[0] || null;
     const anterior = liq && {
       periodo: liq.periodo,

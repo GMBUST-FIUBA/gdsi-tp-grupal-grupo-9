@@ -21,9 +21,29 @@ ejemplo (todos con contraseña `1234`):
 | `farma@correo.com` | Locatario | Local 10 · Farma Centro |
 | `kiozone@correo.com` | Locatario | Local 11 · KioZone |
 
-Cuando el superadmin da de alta un administrador, o el administrador registra un
-contrato con email, se crea el usuario correspondiente con la contraseña inicial
-`1234`. "Blanquear clave" la vuelve a dejar en `1234` (no hay mailer).
+### Acceso de los usuarios nuevos
+
+A los usuarios que se crean desde la app **no se les inventa una contraseña**:
+se les manda un mail con un link y la definen ellos la primera vez que entran.
+Pasa cuando el administrador registra un contrato con email, cuando el
+superadmin da de alta un administrador, y cuando se usa *Blanquear clave*.
+
+- El mail dice "El administrador de la galería X te da acceso para que puedas
+  ver la información de tu local", con el link y el recordatorio de que el
+  usuario es su email.
+- El link (`/acceso/<token>`) es de **un solo uso** y vence a los 30 días. Al
+  definir la contraseña (mínimo 6 caracteres, repetida) el token se quema y
+  queda logueado.
+- Si intentan entrar por `/login` antes de definirla, el mensaje les dice que
+  usen el link del mail.
+- *Blanquear clave* desactiva la contraseña actual y manda un link nuevo.
+- **Sin SMTP configurado** el alta no falla: la app devuelve el link al
+  administrador para que se lo pase a mano (aparece en un modal para copiar).
+- Los links se arman con `APP_URL` si está cargada; si no, con el host del
+  pedido. En Render conviene fijar `APP_URL=https://galex.onrender.com` para que
+  los mails no salgan con una URL interna.
+
+Los usuarios de ejemplo del seed son la excepción: vienen con `1234` puesta.
 
 La sesión vive en memoria del server: se pierde al reiniciar o redeployar, y hay
 que volver a loguearse. Para un TP alcanza.
@@ -45,11 +65,39 @@ usuario del anterior deja de ver la cuenta (y los mensajes) del nuevo.
 | Gastos | ABM de gastos ordinarios y extraordinarios |
 | Estado de cuenta | Saldo del mes y cierre ("Liquidar expensas") |
 | Dueños | ABM de propietarios y rendición de cuentas |
-| Configuración | Porcentaje de expensas por local y ajustes del mes |
+| Configuración | ABM de locales (alta, m² y baja), porcentaje de expensas por local y ajustes del mes |
 | Mensajes | Chats con los locatarios |
 
 El detalle de un local en **Panel general** muestra su contrato pero no lo
-modifica: dar de baja un contrato se hace desde **Contratos**.
+modifica: dar de baja o renovar un contrato se hace desde **Contratos**.
+
+### Renovar un contrato
+
+La lista de contratos marca los **vencidos** y los **por vencer** (60 días
+antes), calculando el fin como inicio + plazo. *Renovar* cierra el contrato
+actual (queda en baja con motivo "Renovación") y crea el que lo sucede, con el
+mismo local y el mismo locatario:
+
+- El local **nunca pasa por libre**, así que no hay que volver a cargar nada.
+- Los contratos quedan encadenados (`contratoAnteriorId`), y tanto el cierre del
+  mes como la cuenta corriente siguen esa cadena: **la deuda impaga y sus
+  punitorios pasan al contrato nuevo**.
+- Se puede renovar un contrato vencido: la renovación no mira la fecha de fin.
+- Si el locatario es el dueño del local, sigue sin pagar alquiler.
+- Si no se sube un PDF nuevo, queda el del contrato anterior.
+
+## Locales
+
+El administrador da de alta locales (número y m²), les cambia los metros
+cuadrados y borra los que ya no están, desde la sección **Configuración**.
+
+- El número no se puede repetir dentro de la galería.
+- Los m² son opcionales y admiten hasta dos decimales.
+- **Un local ocupado no se puede borrar**: primero hay que darle de baja el
+  contrato desde **Contratos**. El botón aparece deshabilitado y lo explica.
+- Si el local tuvo inquilinos antes, al borrarlo se van también sus contratos
+  anteriores, liquidaciones y comprobantes (en una transacción). Los cierres de
+  mes ya confirmados no se tocan: guardan su propia foto de cada período.
 
 ## Dueños de los locales
 
@@ -155,8 +203,13 @@ revisarlo.
 - Se baja solo por `GET /api/comprobantes/:id/archivo`, que deja pasar al
   locatario que lo subió y a la administración de esa galería. A cualquier otro
   le responde 404.
+- **Rechazar un pago exige un motivo** (hasta 300 caracteres): el modal ofrece
+  los habituales —monto que no coincide, comprobante ilegible, transferencia que
+  no figura, período equivocado— o uno escrito a mano. El locatario lo ve en
+  *Mis comprobantes* y arriba del formulario donde sube el nuevo, y le llega por
+  mail si tiene casilla cargada y hay SMTP configurado.
 - Si rechazan un comprobante y el locatario sube otro, el anterior queda en el
-  historial como *Rechazado*.
+  historial como *Rechazado* con su motivo.
 - Los comprobantes de los datos de ejemplo no tienen archivo: figuran como
   *Sin archivo*.
 

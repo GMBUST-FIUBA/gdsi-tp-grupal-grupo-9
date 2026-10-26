@@ -52,5 +52,23 @@ function resetPass(n) {
 async function doResetPass(locatarioId) {
   const r = await apiEnviar('POST', `/api/locatarios/${locatarioId}/blanquear-clave`);
   closeModal();
-  toast(r.ok ? r.msg : r.msg);
+  if (!r.ok) return toast(r.msg);
+  avisoAcceso(r.msg);
+}
+
+/*
+ * Resultado de mandar un acceso. Si el mail salió alcanza un toast; si no, el
+ * mensaje trae el link y hay que mostrarlo para que lo puedan copiar.
+ */
+function avisoAcceso(msg) {
+  const i = msg.indexOf('http');
+  if (i === -1) return toast(msg);
+
+  const link = msg.slice(i);
+  openModal('Acceso generado',
+    `<p style="margin:0 0 12px">${escaparHTML(msg.slice(0, i))}</p>
+     <div class="field"><label>Link de acceso</label>
+       <input value="${escaparHTML(link)}" readonly onclick="this.select()"></div>
+     <p class="hint" style="margin-top:8px">Con ese link define su contraseña. Vence en 30 días.</p>`,
+    [{ label: 'Listo', cls: 'btn-primary', fn: closeModal }]);
 }

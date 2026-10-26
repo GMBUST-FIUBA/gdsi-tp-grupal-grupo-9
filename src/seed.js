@@ -144,7 +144,7 @@ async function seed() {
     const local = await Local.create({
       galeriaId: galeria.id,
       numero: d.n,
-      superficie: '~ 38 m2',
+      superficieM2: 38,
       expensasPct: pctExpensas(d),
       duenoId: duenoPorLocal[d.n] ? duenoPorLocal[d.n].id : null,
     });

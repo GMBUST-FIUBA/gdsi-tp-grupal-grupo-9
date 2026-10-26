@@ -24,6 +24,8 @@ async function cargarDuenos() {
   renderSinDueno();
   renderDatosDueno();
   renderRendicion();
+  // La lista de locales muestra el nombre del dueño: se redibuja cuando llegan.
+  renderLocales();
 }
 
 function duenoActual() {

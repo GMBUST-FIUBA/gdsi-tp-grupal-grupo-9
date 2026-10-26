@@ -4,11 +4,12 @@ const path = require('path');
 const multer = require('multer');
 const { Op } = require('sequelize');
 
+const { sequelize } = require('../models');
 const {
   Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion, CierreMes,
 } = require('../models');
-const { hashear, PASSWORD_INICIAL } = require('../auth');
+const { generarLinkDeAcceso } = require('../auth');
 const {
   estadoCompleto, galeriaActual, serializarGasto, locatarioDelUsuario,
   comprobantePendiente, periodoAbierto, cuentaCorriente,
@@ -20,7 +21,7 @@ const {
 const { totalConAjusteCents, indiceCorto } = require('../services/calculo');
 const cierre = require('../services/cierre');
 const { pdfCierre, pdfLiquidacion, pdfRendicion, pdfABuffer, cabecerasPdf } = require('../services/documentos');
-const { enviarMail, estaConfigurado, MSG_SIN_CONFIGURAR } = require('../services/mailer');
+const { enviarMail, enviarAcceso, estaConfigurado, MSG_SIN_CONFIGURAR } = require('../services/mailer');
 
 /** Igual que el fmtPct del navegador: '12,50%'. */
 function fmtPct(n) {
@@ -126,7 +127,22 @@ async function crearUsuarioSiNoExiste(datos) {
   if (!email) return null;
   const existe = await Usuario.findOne({ where: { email } });
   if (existe) return null;
-  return Usuario.create({ ...datos, email, passwordHash: hashear(PASSWORD_INICIAL) });
+  // Sin contraseña: la define él mismo con el link de acceso que le llega por mail.
+  return Usuario.create({ ...datos, email, passwordHash: null });
+}
+
+/**
+ * Le genera el link de acceso y se lo manda por mail. Devuelve el mensaje que
+ * se le muestra al administrador: si no hay SMTP (o el envío falla), le pasa el
+ * link para que lo haga llegar a mano.
+ */
+async function darAcceso(req, usuario, galeria) {
+  if (!usuario) return null;
+  const link = await generarLinkDeAcceso(usuario, req);
+  const envio = await enviarAcceso({ usuario, galeria, link });
+  return envio.ok
+    ? `Le enviamos el acceso a ${usuario.email}`
+    : `No se pudo enviar el mail (${envio.msg}). Pasale este link: ${link}`;
 }
 
 /* ---------------- Estado general ---------------- */
@@ -350,17 +366,50 @@ router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
   if (await liquidacionCerrada(liq)) return error(res, MSG_LIQ_CERRADA);
 
+  const motivo = String(req.body.motivo || '').trim();
+  if (!motivo) return error(res, 'Escribí el motivo del rechazo: el locatario lo va a ver.');
+  if (motivo.length > 300) return error(res, 'El motivo no puede superar los 300 caracteres.');
+
   const comp = comprobantePendiente(liq);
   if (comp) {
     comp.estado = 'rechazado';
+    comp.motivoRechazo = motivo;
     await comp.save();
   }
   liq.estado = 'pendiente';
-  liq.fechaPago = 'Comprobante rechazado';
+  liq.fechaPago = `Comprobante rechazado: ${motivo}`;
   await liq.save();
-  // TODO: notificar al locatario por mail del rechazo.
-  res.json({ ok: true });
+
+  // Se le avisa por mail si tiene casilla y hay SMTP; si no, no pasa nada: el
+  // motivo igual le aparece en "Mis comprobantes".
+  const aviso = await avisarRechazo(req, liq, motivo);
+  res.json({ ok: true, msg: aviso });
 }));
+
+/** Mail al locatario contándole por qué se rechazó su comprobante. */
+async function avisarRechazo(req, liq, motivo) {
+  if (!estaConfigurado()) return null;
+
+  const contrato = await Contrato.findByPk(liq.contratoId, { include: [Locatario, Local] });
+  const locatario = contrato && contrato.Locatario;
+  if (!locatario || !locatario.email) return null;
+
+  const galeria = await galeriaActual(req.galeriaId);
+  const envio = await enviarMail({
+    para: locatario.email,
+    asunto: `Tu comprobante de ${periodoLabel(liq.periodo)} fue rechazado`,
+    texto: [
+      `Hola ${locatario.nombre},`,
+      '',
+      `La administración de ${galeria.nombre} rechazó el comprobante que subiste para ${periodoLabel(liq.periodo)}.`,
+      '',
+      `Motivo: ${motivo}`,
+      '',
+      'Podés subir uno nuevo desde tu cuenta.',
+    ].join('\n'),
+  });
+  return envio.ok ? `Se le avisó a ${locatario.email}` : null;
+}
 
 /* ---------------- Contratos ---------------- */
 
@@ -390,8 +439,9 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     telefono: String(req.body.telefono || '').trim(),
   });
 
-  // Con el mail queda creado el acceso del locatario (contraseña inicial 1234).
-  await crearUsuarioSiNoExiste({
+  // Con el mail queda creado el acceso del locatario, que define su contraseña
+  // la primera vez que entra con el link que le mandamos.
+  const usuarioLocatario = await crearUsuarioSiNoExiste({
     email: locatario.email,
     nombre,
     rol: 'locatario',
@@ -459,7 +509,80 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     fechaPago: 'Pendiente',
   });
 
-  res.json({ ok: true, contratoId: contrato.id });
+  const galeria = await Galeria.findByPk(local.galeriaId);
+  const avisoAcceso = await darAcceso(req, usuarioLocatario, galeria);
+  res.json({ ok: true, contratoId: contrato.id, msg: avisoAcceso });
+}));
+
+/**
+ * Renovar: cierra el contrato actual y crea el que lo sucede, con el mismo
+ * local y el mismo locatario. El local nunca pasa por "libre" y la cuenta
+ * corriente sigue, porque los contratos quedan encadenados
+ * (`contratoAnteriorId`).
+ *
+ * Sirve igual para un contrato vencido: la renovación no mira la fecha de fin.
+ */
+router.post('/contratos/:id/renovar', upload.single('pdf'), wrap(async (req, res) => {
+  const anterior = await Contrato.findByPk(req.params.id, { include: [Local] });
+  if (!anterior) return error(res, 'No se encontró el contrato.', 404);
+  if (anterior.estado !== 'vigente') {
+    return error(res, 'Ese contrato ya no está vigente. Registrá uno nuevo desde el formulario de alta.');
+  }
+
+  const local = anterior.Local;
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria || local.galeriaId !== galeria.id) {
+    return error(res, 'No se encontró el contrato.', 404);
+  }
+
+  // Un dueño que ocupa su local sigue sin pagar alquiler al renovar.
+  const esDueno = !!anterior.locatarioEsDueno;
+  let fijoCents = 0;
+  if (!esDueno) {
+    fijoCents = parseMoneyCents(req.body.alquilerFijo);
+    if (Number.isNaN(fijoCents) || fijoCents <= 0) {
+      return error(res, 'Ingresá el alquiler del contrato renovado.');
+    }
+  }
+
+  const plazoMeses = Number(req.body.plazoMeses || 0);
+  if (!(plazoMeses > 0)) return error(res, 'Ingresá el plazo del contrato renovado.');
+
+  const inicio = req.body.inicio || new Date().toISOString().slice(0, 10);
+  const esPct = !esDueno && req.body.modalidad === 'fijo_pct';
+  const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
+  const indice = (config && config.indice) || anterior.indice;
+  const proxima = sumarMeses(inicio.slice(0, 7), mesesDeFrecuencia(config && config.frecuencia));
+
+  const nuevo = await Contrato.create({
+    localId: local.id,
+    locatarioId: anterior.locatarioId,
+    rubro: anterior.rubro,
+    modalidad: esPct ? 'fijo_pct' : 'fijo',
+    porcentajeFacturacion: esPct ? Number(req.body.porcentaje || 0) : 0,
+    alquilerFijoCents: fijoCents,
+    inicio,
+    plazoMeses,
+    indice,
+    proximaActualizacionPeriodo: esDueno ? null : proxima,
+    proximaActualizacion: esDueno ? null : `${indiceCorto(indice)} · ${periodoCorto(proxima)}`,
+    diaVencimiento: anterior.diaVencimiento,
+    estado: 'vigente',
+    esAlta: false,
+    locatarioEsDueno: esDueno,
+    contratoAnteriorId: anterior.id,
+    // Si no suben uno nuevo, se conserva el PDF del anterior como respaldo.
+    archivoNombre: req.file ? req.file.originalname : anterior.archivoNombre,
+    archivoPath: req.file ? req.file.filename : anterior.archivoPath,
+  });
+
+  anterior.estado = 'baja';
+  anterior.motivoBaja = 'Renovación';
+  anterior.fechaBaja = inicio;
+  anterior.esAlta = false;
+  await anterior.save();
+
+  res.json({ ok: true, contratoId: nuevo.id });
 }));
 
 router.post('/contratos/:id/baja', wrap(async (req, res) => {
@@ -498,10 +621,13 @@ router.post('/locatarios/:id/blanquear-clave', wrap(async (req, res) => {
   if (!usuario) {
     return error(res, 'El locatario no tiene usuario de acceso (necesita un email).');
   }
-  // TODO: sin mailer, el blanqueo deja la contraseña inicial en vez de mandar un enlace.
-  usuario.passwordHash = hashear(PASSWORD_INICIAL);
+
+  // La contraseña vieja deja de servir: define una nueva con el link.
+  usuario.passwordHash = null;
   await usuario.save();
-  res.json({ ok: true, msg: `Clave blanqueada: vuelve a ser ${PASSWORD_INICIAL}` });
+
+  const galeria = await galeriaActual(req.galeriaId);
+  res.json({ ok: true, msg: await darAcceso(req, usuario, galeria) });
 }));
 
 /* ---------------- Configuración de la galería ---------------- */
@@ -654,8 +780,7 @@ router.post('/administradores', wrap(async (req, res) => {
   const usuario = await crearUsuarioSiNoExiste({ email, nombre, rol: 'admin', galeriaId: galeria.id });
   if (!usuario) return error(res, 'Ya existe un usuario con ese email.');
   await Administrador.create({ nombre, email, galeriaId: galeria.id });
-  // TODO: sin mailer, el acceso se comunica a mano: contraseña inicial 1234.
-  res.json({ ok: true, msg: `Administrador creado · accede con ${email} / ${PASSWORD_INICIAL}` });
+  res.json({ ok: true, msg: await darAcceso(req, usuario, galeria) });
 }));
 
 /* ---------------- Rendición al dueño ---------------- */
@@ -667,6 +792,77 @@ async function totalesConAjuste(liqs) {
     : [];
   return (liq) => totalConAjusteCents(liq, ajustes.find((a) => a.localId === liq.localId && a.periodo === liq.periodo));
 }
+
+/* ---------------- ABM de locales ---------------- */
+
+/** Los m2 del local: número positivo con hasta dos decimales, u opcional. */
+function parseM2(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return { m2: null };
+  const n = Number(String(raw).replace(',', '.'));
+  if (Number.isNaN(n)) return { msg: 'Ingresá los m² como un número.' };
+  if (n <= 0) return { msg: 'Los m² tienen que ser mayores a 0.' };
+  if (tieneMasDeDosDecimales(n)) return { msg: 'Los m² solo pueden tener hasta dos decimales.' };
+  return { m2: n };
+}
+
+router.post('/locales', wrap(async (req, res) => {
+  const galeria = await galeriaActual(req.galeriaId);
+  if (!galeria) return error(res, 'No hay una galería seleccionada.');
+
+  const numero = String(req.body.numero || '').trim();
+  if (!numero) return error(res, 'Ingresá el número del local.');
+  if (numero.length > 10) return error(res, 'El número del local es demasiado largo.');
+
+  const repetido = await Local.count({ where: { galeriaId: galeria.id, numero } });
+  if (repetido) return error(res, `Ya existe el Local ${numero} en esta galería.`);
+
+  const { m2, msg } = parseM2(req.body.m2);
+  if (msg) return error(res, msg);
+
+  const local = await Local.create({ galeriaId: galeria.id, numero, superficieM2: m2 });
+  res.json({ ok: true, localId: local.id });
+}));
+
+router.put('/locales/:numero', wrap(async (req, res) => {
+  const local = await localPorNumero(req, req.params.numero);
+  if (!local) return error(res, 'No se encontró el local.', 404);
+
+  const { m2, msg } = parseM2(req.body.m2);
+  if (msg) return error(res, msg);
+
+  local.superficieM2 = m2;
+  await local.save();
+  res.json({ ok: true });
+}));
+
+/**
+ * Borra un local vacío. "Vacío" = sin contrato vigente; si además tuvo
+ * contratos anteriores, se borra su historial junto con él (los cierres ya
+ * guardan su propia foto de cada mes, así que no se tocan).
+ */
+router.delete('/locales/:numero', wrap(async (req, res) => {
+  const local = await localPorNumero(req, req.params.numero);
+  if (!local) return error(res, 'No se encontró el local.', 404);
+
+  if (await tieneContratoVigente(local.id)) {
+    return error(res, `El Local ${local.numero} está ocupado. Dale de baja el contrato antes de borrarlo.`);
+  }
+
+  await sequelize.transaction(async (t) => {
+    const liqs = await Liquidacion.findAll({ where: { localId: local.id }, transaction: t });
+    if (liqs.length) {
+      await Comprobante.destroy({ where: { liquidacionId: liqs.map((l) => l.id) }, transaction: t });
+      await Liquidacion.destroy({ where: { localId: local.id }, transaction: t });
+    }
+    await AjusteExpensa.destroy({ where: { localId: local.id }, transaction: t });
+    await Contrato.destroy({ where: { localId: local.id }, transaction: t });
+    // Los usuarios de inquilinos anteriores dejan de apuntar a un local que ya no existe.
+    await Usuario.update({ localId: null }, { where: { localId: local.id }, transaction: t });
+    await local.destroy({ transaction: t });
+  });
+
+  res.json({ ok: true });
+}));
 
 /* ---------------- Dueños de los locales ---------------- */
 
@@ -1034,7 +1230,18 @@ router.get('/locales/:numero/cuenta-corriente', wrap(async (req, res) => {
   if (!local) return error(res, 'No se encontró el local.', 404);
   const contrato = await Contrato.findOne({ where: { localId: local.id, estado: 'vigente' } });
   if (!contrato) return res.json({ ok: true, filas: [] });
-  const filas = await cuentaCorriente({ contratoId: contrato.id }, await periodoAbierto(local.galeriaId));
+
+  // Con los renovados hay que sumar los contratos anteriores de la cadena.
+  const delLocal = await Contrato.findAll({ where: { localId: local.id } });
+  const porId = new Map(delLocal.map((c) => [c.id, c]));
+  const ids = [];
+  let actual = contrato;
+  while (actual && !ids.includes(actual.id)) {
+    ids.push(actual.id);
+    actual = actual.contratoAnteriorId ? porId.get(actual.contratoAnteriorId) : null;
+  }
+
+  const filas = await cuentaCorriente({ contratoId: ids }, await periodoAbierto(local.galeriaId));
   res.json({ ok: true, filas });
 }));
 

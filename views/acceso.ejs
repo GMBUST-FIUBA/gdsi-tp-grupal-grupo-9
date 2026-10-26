@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galex - Definí tu contraseña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/layout.css">
+<style>
+  .login-wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .login-card{width:100%;max-width:420px}
+  .login-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .login-brand .plaque{width:44px;height:44px;border-radius:9px;background:linear-gradient(160deg,#dcae5f,#a06d2b);
+    display:grid;place-items:center;font-family:'Bricolage Grotesque';font-weight:800;color:#2a1e08;font-size:1.05rem}
+  .login-brand h1{margin:0;font-size:1.4rem}
+  .login-brand .sub{font-size:.78rem;color:var(--muted)}
+  .login-card .field{margin-bottom:14px}
+  .login-card .btn{width:100%;justify-content:center;margin-top:6px}
+  .usuario-fijo{font-family:'Spline Sans Mono',monospace;font-size:.9rem;padding:9px 11px;
+    border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="panel login-card">
+    <div class="panel-body">
+      <div class="login-brand">
+        <div class="plaque">GX</div>
+        <div><h1>Galex</h1><div class="sub">Gestión de locales comerciales</div></div>
+      </div>
+
+      <% if (!usuario) { %>
+        <div class="note late" style="margin:0">
+          <strong>Este link ya no sirve.</strong> Puede que lo hayas usado para definir tu
+          contraseña, o que haya vencido. Si ya la definiste, entrá desde
+          <a href="/login">la pantalla de ingreso</a>. Si no, pedile a la administración
+          que te lo reenvíe.
+        </div>
+      <% } else { %>
+        <div class="note" style="margin:0 0 18px">
+          <% if (usuario.rol === 'locatario') { %>
+            El administrador de <strong><%= galeria ? galeria.nombre : 'la galería' %></strong>
+            te da acceso para que puedas ver la información de tu local.
+          <% } else { %>
+            Te dieron acceso para administrar
+            <strong><%= galeria ? galeria.nombre : 'la galería' %></strong> en Galex.
+          <% } %>
+        </div>
+
+        <p style="margin:0 0 14px;font-size:.9rem;color:var(--muted)">
+          Para entrar, definí una contraseña. Tu usuario es tu email.
+        </p>
+
+        <form method="post" action="/acceso/<%= token %>">
+          <div class="field">
+            <label>Usuario</label>
+            <div class="usuario-fijo"><%= usuario.email %></div>
+          </div>
+          <div class="field">
+            <label for="password">Contraseña nueva</label>
+            <input id="password" name="password" type="password" required autofocus
+                   minlength="<%= MIN_PASSWORD %>" placeholder="Al menos <%= MIN_PASSWORD %> caracteres">
+          </div>
+          <div class="field">
+            <label for="password2">Repetila</label>
+            <input id="password2" name="password2" type="password" required minlength="<%= MIN_PASSWORD %>">
+          </div>
+          <% if (error) { %>
+            <div class="note late" style="margin-bottom:12px"><%= error %></div>
+          <% } %>
+          <button class="btn btn-primary" type="submit">Guardar y entrar</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+</body>
+</html>

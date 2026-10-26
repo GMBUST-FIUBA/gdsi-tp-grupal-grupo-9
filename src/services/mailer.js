@@ -74,4 +74,49 @@ async function enviarMail({ para, asunto, texto, html, adjuntos = [] }) {
   }
 }
 
-module.exports = { enviarMail, estaConfigurado, MSG_SIN_CONFIGURAR };
+/**
+ * Mail de bienvenida: le avisa al usuario que tiene acceso y le pasa el link
+ * donde define su contraseña la primera vez.
+ */
+async function enviarAcceso({ usuario, galeria, link }) {
+  const nombreGaleria = galeria ? galeria.nombre : 'la galería';
+  const esLocatario = usuario.rol === 'locatario';
+
+  const presentacion = esLocatario
+    ? `El administrador de ${nombreGaleria} te da acceso para que puedas ver la información de tu local.`
+    : `Te dieron acceso para administrar ${nombreGaleria} en Galex.`;
+
+  const texto = [
+    `Hola${usuario.nombre ? ' ' + usuario.nombre : ''},`,
+    '',
+    presentacion,
+    '',
+    `Entrá acá y definí tu contraseña: ${link}`,
+    `Tu usuario es tu email: ${usuario.email}`,
+    '',
+    'Si no esperabas este mail, ignoralo.',
+  ].join('\n');
+
+  const html = `
+    <p>Hola${usuario.nombre ? ' ' + escaparHTML(usuario.nombre) : ''},</p>
+    <p>${escaparHTML(presentacion)}</p>
+    <p><a href="${link}">Definí tu contraseña y entrá</a></p>
+    <p>Tu usuario es tu email: <strong>${escaparHTML(usuario.email)}</strong></p>
+    <p style="color:#666;font-size:12px">Si no esperabas este mail, ignoralo.</p>`;
+
+  return enviarMail({
+    para: usuario.email,
+    asunto: `Tu acceso a Galex · ${nombreGaleria}`,
+    texto,
+    html,
+  });
+}
+
+/** El nombre lo escribe el administrador: no puede inyectar HTML en el mail. */
+function escaparHTML(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+module.exports = { enviarMail, enviarAcceso, estaConfigurado, MSG_SIN_CONFIGURAR };

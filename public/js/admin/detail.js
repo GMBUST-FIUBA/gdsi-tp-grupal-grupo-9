@@ -13,7 +13,7 @@ function selectUnit(i) {
     detailBody.innerHTML = `
       <div class="contract-title"><span class="num">${u.n}</span><div><h3>Local disponible</h3></div>
         <span class="pill free" style="margin-left:auto"><i></i>Libre</span></div>
-      <dl class="dl"><dt>Situación</dt><dd>${u.desde || 'Sin contrato'}</dd><dt>Superficie</dt><dd>~ 38 m²</dd></dl>
+      <dl class="dl"><dt>Situación</dt><dd>${u.desde || 'Sin contrato'}</dd><dt>Superficie</dt><dd>${u.m2 ? u.m2 + ' m²' : 'sin cargar'}</dd></dl>
       <div class="note">Local sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
     return;
   }
@@ -85,7 +85,7 @@ function viewReceipt(i) {
     ? `<div class="form-actions" style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="/api/comprobantes/${u.compId}/archivo">Descargar comprobante</a></div>`
     : ''}
      <p style="font-size:.82rem;color:var(--muted);margin:12px 0 0">Verificá que el monto coincida con la liquidación del mes antes de aceptar.</p>`,
-    [{ label: 'Rechazar', cls: 'btn-ghost', fn: () => rejectPay(i) },
+    [{ label: 'Rechazar', cls: 'btn-ghost', fn: () => pedirMotivoRechazo(i) },
      { label: 'Aceptar pago', cls: 'btn-primary', fn: () => acceptPay(i) }]);
 }
 
@@ -98,11 +98,49 @@ async function acceptPay(i) {
   toast(`Pago del Local ${u.n} aceptado`);
 }
 
+/* El motivo es obligatorio: el locatario lo ve en su cuenta y le llega por mail. */
+function pedirMotivoRechazo(i) {
+  const u = units[i];
+  openModal(`Rechazar el pago — Local ${u.n}`,
+    `<p style="margin:0 0 12px">Vas a rechazar el comprobante de <strong>${escaparHTML(u.loc)}</strong>. Contale por qué, así puede subir uno corregido.</p>
+     <div class="field"><label for="rech-mot">Motivo del rechazo</label>
+       <select id="rech-mot" onchange="syncMotivoRechazo()">
+         <option>El monto no coincide con la liquidación</option>
+         <option>El comprobante está ilegible</option>
+         <option>La transferencia no figura en la cuenta</option>
+         <option>El comprobante es de otro período</option>
+         <option value="otro">Otro motivo…</option>
+       </select></div>
+     <div class="field" id="rech-otro-wrap" hidden style="margin-top:12px">
+       <label for="rech-otro">Detalle</label>
+       <input id="rech-otro" maxlength="300" placeholder="Escribí el motivo">
+     </div>
+     <div class="note late" id="rech-err" style="margin-top:12px" hidden></div>`,
+    [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
+     { label: 'Rechazar el pago', cls: 'btn-danger', fn: () => rejectPay(i) }]);
+}
+
+function syncMotivoRechazo() {
+  const sel = document.getElementById('rech-mot');
+  document.getElementById('rech-otro-wrap').hidden = sel.value !== 'otro';
+}
+
+/** Motivo elegido, o el texto libre si eligieron "Otro motivo". */
+function motivoRechazoElegido() {
+  const sel = document.getElementById('rech-mot');
+  if (sel.value !== 'otro') return sel.value;
+  return document.getElementById('rech-otro').value.trim();
+}
+
 async function rejectPay(i) {
   const u = units[i];
-  const r = await apiEnviar('POST', `/api/liquidaciones/${u.liquidacionId}/rechazar`);
+  const motivo = motivoRechazoElegido();
+  if (!motivo) return mostrarError('rech-err', 'Escribí el motivo del rechazo.');
+
+  const r = await apiEnviar('POST', `/api/liquidaciones/${u.liquidacionId}/rechazar`, { motivo });
+  if (!r.ok) return mostrarError('rech-err', r.msg);
+
   closeModal();
-  if (!r.ok) return toast(r.msg);
   await recargarEstado();
-  toast('Comprobante rechazado · se notificó al locatario');
+  toast(r.msg || 'Comprobante rechazado');
 }

@@ -39,7 +39,7 @@ async function crearAdministrador() {
   document.getElementById('sa-nom').value = '';
   document.getElementById('sa-mail').value = '';
   await refrescarGalerias();
-  toast(r.msg || 'Administrador dado de alta');
+  avisoAcceso(r.msg || 'Administrador dado de alta');
 }
 
 /** Redibuja la lista de galerías y el select de asignación. */

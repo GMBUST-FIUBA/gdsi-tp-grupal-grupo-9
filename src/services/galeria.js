@@ -4,7 +4,7 @@ const {
   AjusteExpensa, Configuracion, Gasto, Proveedor,
 } = require('../models');
 const {
-  centsToMoney, PERIODO_INICIAL, fechaCorta, fechaHora,
+  centsToMoney, PERIODO_INICIAL, fechaCorta, fechaHora, finDeContrato,
 } = require('./formato');
 const { deltaAjuste, totalConAjusteCents } = require('./calculo');
 
@@ -90,6 +90,20 @@ function datosParaReplicar(contrato) {
   return out;
 }
 
+/**
+ * Hasta cuándo corre el contrato y cuánto le falta. `fin` es null si no tiene
+ * plazo cargado (ahí nunca figura como vencido).
+ */
+function vigenciaDeContrato(contrato) {
+  const fin = finDeContrato(contrato.inicio, contrato.plazoMeses);
+  if (!fin) return { fin: null, vencido: false, diasParaVencer: null };
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const dia = 24 * 60 * 60 * 1000;
+  const diasParaVencer = Math.round((Date.parse(fin + 'T00:00:00Z') - Date.parse(hoy + 'T00:00:00Z')) / dia);
+  return { fin, vencido: diasParaVencer < 0, diasParaVencer };
+}
+
 function modalidadLabel(contrato) {
   if (!contrato) return '—';
   if (contrato.locatarioEsDueno) return 'Dueño · sin alquiler';
@@ -145,6 +159,7 @@ function serializarLocal(local) {
       rubro: '—',
       baja: !!(previo && previo.estado === 'baja'),
       duenoId: local.duenoId || null,
+      m2: local.superficieM2 === null || local.superficieM2 === undefined ? null : Number(local.superficieM2),
       desde: previo && previo.fechaBaja
         ? `Baja: ${fechaCorta(previo.fechaBaja)}`
         : 'Disponible',
@@ -187,8 +202,10 @@ function serializarLocal(local) {
     nuevo: !!contrato.esAlta,
     esDueno: !!contrato.locatarioEsDueno,
     // Datos del contrato para la sección Contratos.
+    m2: local.superficieM2 === null || local.superficieM2 === undefined ? null : Number(local.superficieM2),
     inicio: contrato.inicio,
     plazoMeses: contrato.plazoMeses,
+    ...vigenciaDeContrato(contrato),
     indice: contrato.indice,
     duenoId: local.duenoId || null,
     liquidacionId: liq ? liq.id : null,
@@ -372,6 +389,7 @@ async function detalleLocatario(galeriaId, numero) {
       fecha: fechaHora(c.createdAt),
       archivoNombre: c.archivoNombre,
       estado: c.estado,
+      motivoRechazo: c.motivoRechazo,
       tieneArchivo: !!c.mimeType,
     })),
     cuenta,
@@ -401,7 +419,7 @@ async function locatarioDelUsuario(usuario) {
 
 module.exports = {
   locatarioDelUsuario, periodoAbierto, cuentaCorriente,
-  galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, contratoVigente, estadoLocal,
+  galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, vigenciaDeContrato, contratoVigente, estadoLocal,
   totalLiquidacionCents, comprobantePendiente, serializarLocal, serializarAjustes,
   serializarPorcentajes, serializarGasto, estadoCompleto,
 };

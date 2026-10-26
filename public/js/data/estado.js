@@ -55,6 +55,7 @@ function renderTodo() {
     refreshNotif();
     fillProveedorSelect();
     renderGastos();
+    renderLocales();
     fillConfigUnidades();
     renderConfig();
     fillAjusteUnidades();

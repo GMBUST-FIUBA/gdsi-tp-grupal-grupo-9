@@ -92,6 +92,8 @@ async function registrarContrato() {
   limpiarFormContrato();
   await recargarEstado();
   toast('Contrato registrado' + (pdf.files.length ? ' con PDF adjunto' : ''));
+  // El aviso del acceso del locatario puede traer el link si no salió el mail.
+  if (r.msg) avisoAcceso(r.msg);
 }
 
 function limpiarFormContrato() {
@@ -133,7 +135,12 @@ function renderContratos() {
     return;
   }
 
-  box.innerHTML = vigentes.map((u) => {
+  const porVencer = vigentes.filter((u) => u.vencido || (u.diasParaVencer !== null && u.diasParaVencer <= DIAS_AVISO_VENCIMIENTO));
+  const aviso = porVencer.length
+    ? `<div class="note" style="margin-bottom:12px">${porVencer.length === 1 ? 'Hay 1 contrato' : `Hay ${porVencer.length} contratos`} vencido(s) o por vencer: ${porVencer.map((u) => 'Local ' + escaparHTML(u.n)).join(', ')}.</div>`
+    : '';
+
+  box.innerHTML = aviso + vigentes.map((u) => {
     const i = units.indexOf(u);
     const alquiler = u.esDueno ? 'sin alquiler (dueño)' : u.fijo;
     const actualiza = u.esDueno ? '' : ` · ${escaparHTML(u.act)}`;
@@ -141,16 +148,113 @@ function renderContratos() {
       <div class="abm-row">
         <div class="an">${escaparHTML(u.n)}</div>
         <div>
-          <div class="aname">${escaparHTML(u.loc)} · ${escaparHTML(u.mod)}</div>
+          <div class="aname">${escaparHTML(u.loc)} · ${escaparHTML(u.mod)} ${tagVigencia(u)}</div>
           <div class="acontact">${escaparHTML(u.rubro)} · ${alquiler} · vence el día ${escaparHTML(u.venc)}${actualiza}</div>
-          <div class="acontact">Desde ${fechaContrato(u.inicio)} · ${u.plazoMeses || '—'} meses${u.archivoContratoUrl ? '' : ' · sin PDF adjunto'}</div>
+          <div class="acontact">Desde ${fechaContrato(u.inicio)} · ${u.plazoMeses || '—'} meses · ${textoVigencia(u)}${u.archivoContratoUrl ? '' : ' · sin PDF adjunto'}</div>
         </div>
         <div class="aacts">
           <button class="btn btn-ghost btn-sm" onclick="verContrato(${i})">Ver contrato</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirRenovar(${i})">Renovar</button>
           <button class="btn btn-danger btn-sm" onclick="confirmBaja(${i})">Dar de baja</button>
         </div>
       </div>`;
   }).join('');
+}
+
+/* A partir de acá se avisa que el contrato está por vencer. */
+const DIAS_AVISO_VENCIMIENTO = 60;
+
+function tagVigencia(u) {
+  if (u.vencido) return '<span class="st-tag mora">Vencido</span>';
+  if (u.diasParaVencer !== null && u.diasParaVencer <= DIAS_AVISO_VENCIMIENTO) {
+    return '<span class="st-tag pend">Por vencer</span>';
+  }
+  return '';
+}
+
+function textoVigencia(u) {
+  if (!u.fin) return 'sin plazo cargado';
+  if (u.vencido) return `venció el ${fechaContrato(u.fin)}`;
+  return `hasta el ${fechaContrato(u.fin)}`;
+}
+
+/* ---------- Renovación ---------- */
+
+/*
+ * Renovar cierra el contrato actual y abre el que lo sucede, con el mismo local
+ * y locatario. Sirve también para uno ya vencido.
+ */
+function abrirRenovar(i) {
+  const u = units[i];
+  const desde = u.fin ? diaSiguiente(u.fin) : new Date().toISOString().slice(0, 10);
+  const alquilerActual = u.esDueno ? '' : u.fijo;
+
+  openModal(`Renovar contrato — Local ${u.n}`,
+    `<p style="margin:0 0 12px">Se cierra el contrato actual de <strong>${escaparHTML(u.loc)}</strong> y se registra el que lo sucede. El local no queda libre y la cuenta corriente sigue.</p>
+     <div class="form-grid">
+       <div class="field"><label for="rn-desde">Inicio</label>
+         <input id="rn-desde" type="date" value="${desde}"></div>
+       <div class="field"><label for="rn-meses">Plazo (meses)</label>
+         <input id="rn-meses" type="number" min="1" value="${u.plazoMeses || 24}"></div>
+       ${u.esDueno ? '' : `
+       <div class="field"><label for="rn-fijo">Alquiler fijo mensual</label>
+         <input id="rn-fijo" value="${escaparHTML(alquilerActual)}">
+         <span class="hint">Hoy paga ${escaparHTML(alquilerActual)}.</span></div>
+       <div class="field"><label for="rn-modo">Modalidad</label>
+         <select id="rn-modo" onchange="syncModalidadRenovar()">
+           <option value="fijo">Fijo</option>
+           <option value="fijo_pct">Fijo + % de facturación</option>
+         </select></div>
+       <div class="field" id="rn-pct-wrap" hidden><label for="rn-pct">% de facturación</label>
+         <div class="suffix-wrap"><input id="rn-pct" type="number" min="0" step="0.01" value="4"><span class="sfx">%</span></div></div>`}
+       <div class="field full"><label>Contrato firmado (PDF)</label>
+         <label class="filebox" for="rn-pdf" id="rn-pdf-box">
+           <div class="fi-ico">📄</div><div class="fi-t" id="rn-pdf-t">Subir el contrato renovado</div><div class="fi-s">Opcional · si no, queda el anterior</div>
+         </label>
+         <input type="file" id="rn-pdf" accept="application/pdf" onchange="fileChosen(this,'rn-pdf-box','rn-pdf-t','Contrato cargado')">
+       </div>
+     </div>
+     ${u.esDueno ? '<div class="note" style="margin-top:12px">Es el dueño del local: sigue sin pagar alquiler.</div>' : ''}
+     <div class="note late" id="rn-err" style="margin-top:12px" hidden></div>`,
+    [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
+     { label: 'Renovar', cls: 'btn-primary', fn: () => renovarContrato(i) }]);
+
+  if (!u.esDueno) document.getElementById('rn-modo').value = u.mod.startsWith('Fijo +') ? 'fijo_pct' : 'fijo';
+  syncModalidadRenovar();
+}
+
+/** '2027-02-28' -> '2027-03-01': el contrato nuevo arranca al día siguiente. */
+function diaSiguiente(fecha) {
+  const d = new Date(fecha + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function syncModalidadRenovar() {
+  const sel = document.getElementById('rn-modo');
+  if (!sel) return;
+  document.getElementById('rn-pct-wrap').hidden = sel.value !== 'fijo_pct';
+}
+
+async function renovarContrato(i) {
+  const u = units[i];
+  const fd = new FormData();
+  fd.append('inicio', document.getElementById('rn-desde').value);
+  fd.append('plazoMeses', document.getElementById('rn-meses').value);
+  if (!u.esDueno) {
+    fd.append('alquilerFijo', document.getElementById('rn-fijo').value);
+    fd.append('modalidad', document.getElementById('rn-modo').value);
+    fd.append('porcentaje', document.getElementById('rn-pct').value);
+  }
+  const pdf = document.getElementById('rn-pdf');
+  if (pdf.files.length) fd.append('pdf', pdf.files[0]);
+
+  const r = await apiEnviar('POST', `/api/contratos/${u.contratoId}/renovar`, fd);
+  if (!r.ok) return mostrarError('rn-err', r.msg);
+
+  closeModal();
+  await recargarEstado();
+  toast(`Contrato del Local ${u.n} renovado`);
 }
 
 /* ---------- Baja de contrato ---------- */

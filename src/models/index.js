@@ -38,7 +38,13 @@ const Administrador = sequelize.define('Administrador', {
 const Usuario = sequelize.define('Usuario', {
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   nombre: DataTypes.STRING,
-  passwordHash: { type: DataTypes.STRING, allowNull: false },
+  /*
+   * Null = todavía no definió su contraseña. Entra con el link de acceso que le
+   * llegó por mail (`tokenAcceso`) y la crea ahí la primera vez.
+   */
+  passwordHash: { type: DataTypes.STRING, allowNull: true },
+  tokenAcceso: { type: DataTypes.STRING, allowNull: true, unique: true },
+  tokenExpira: { type: DataTypes.DATE, allowNull: true },
   rol: { type: DataTypes.ENUM('superadmin', 'admin', 'locatario'), allowNull: false },
 });
 
@@ -58,7 +64,7 @@ const Dueno = sequelize.define('Dueno', {
 
 const Local = sequelize.define('Local', {
   numero: { type: DataTypes.STRING, allowNull: false }, // '01', '02', ...
-  superficie: DataTypes.STRING,
+  superficieM2: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
   // Porcentaje de las expensas totales que le toca a este local (0 a 100).
   expensasPct: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
 });
@@ -94,6 +100,12 @@ const Contrato = sequelize.define('Contrato', {
    * (ver `calcularLiquidacion` en services/calculo.js).
    */
   locatarioEsDueno: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  /*
+   * Renovación: al renovar, el contrato viejo se cierra (estado 'baja', motivo
+   * "Renovación") y el nuevo lo apunta con `contratoAnteriorId`. La cadena sirve
+   * para arrastrar la deuda de un contrato al que lo sucede.
+   */
+  contratoAnteriorId: { type: DataTypes.INTEGER, allowNull: true },
 });
 
 /* ---------------- Liquidación mensual y cobranza ---------------- */
@@ -133,6 +145,8 @@ const Comprobante = sequelize.define('Comprobante', {
     type: DataTypes.ENUM('pendiente', 'aceptado', 'rechazado'),
     defaultValue: 'pendiente',
   },
+  // Por qué lo rechazó la administración. Lo ve el locatario en su historial.
+  motivoRechazo: DataTypes.STRING,
 }, {
   defaultScope: { attributes: { exclude: ['datos'] } },
 });

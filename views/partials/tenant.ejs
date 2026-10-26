@@ -85,6 +85,17 @@
           <% } else if (liq.estado === 'en_revision') { %>
             <div class="note rev"><strong>Comprobante enviado.</strong> Queda en revisión del administrador. Te avisamos cuando se acredite el pago.</div>
           <% } else { %>
+            <%# Si le rechazaron el último, el motivo va acá arriba: es donde sube el nuevo. %>
+            <% var ultimoRechazo = tenant.comprobantes.find(function (cp) {
+                 return cp.periodo === periodo && cp.estado === 'rechazado';
+               }); %>
+            <% if (ultimoRechazo) { %>
+              <div class="note late" style="margin-bottom:14px">
+                <strong>Te rechazaron el comprobante anterior.</strong>
+                <%= ultimoRechazo.motivoRechazo ? ultimoRechazo.motivoRechazo : 'Consultá con la administración.' %>
+                Subí uno nuevo.
+              </div>
+            <% } %>
             <label class="filebox" for="t-comp" id="t-comp-box">
               <div class="fi-ico">🧾</div><div class="fi-t" id="t-comp-t">Subir comprobante de pago</div><div class="fi-s">Transferencia · imagen o PDF</div>
             </label>
@@ -158,7 +169,11 @@
                 <td class="desc"><%= cp.archivoNombre || '—' %></td>
                 <td>
                   <% if (cp.estado === 'aceptado') { %><span class="st-tag pagado">Aceptado</span>
-                  <% } else if (cp.estado === 'rechazado') { %><span class="st-tag mora">Rechazado</span>
+                  <% } else if (cp.estado === 'rechazado') { %>
+                    <span class="st-tag mora">Rechazado</span>
+                    <% if (cp.motivoRechazo) { %>
+                      <div class="desc" style="color:var(--muted);margin-top:4px"><%= cp.motivoRechazo %></div>
+                    <% } %>
                   <% } else { %><span class="st-tag pend">En revisión</span><% } %>
                 </td>
                 <td>

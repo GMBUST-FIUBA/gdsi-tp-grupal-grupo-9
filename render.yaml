@@ -13,7 +13,10 @@ services:
     startCommand: npm start
     healthCheckPath: /salud
     envVars:
-      # SMTP para el envio de la rendicion. sync:false = se cargan a mano en el
+      # URL publica: con esto los links de acceso que van por mail salen bien.
+      - key: APP_URL
+        sync: false
+      # SMTP para el envio de la rendicion y los accesos. sync:false = se cargan a mano en el
       # dashboard de Render; sin ellas el envio queda deshabilitado.
       - key: SMTP_HOST
         sync: false

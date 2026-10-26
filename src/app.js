@@ -16,6 +16,9 @@ const { PERIODO_INICIAL, periodoLabel, centsToMoney } = require('./services/form
 
 const app = express();
 
+// Lo usan las plantillas de login/acceso para el minimo de caracteres.
+app.locals.MIN_PASSWORD = auth.MIN_PASSWORD;
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 
