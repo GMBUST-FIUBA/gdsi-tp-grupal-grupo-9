@@ -77,12 +77,32 @@ const VOCABULARIOS = {
 
 const POR_DEFECTO = 'galeria';
 
+/*
+ * Las versiones en minúscula se calculan solas: en los textos las palabras
+ * aparecen tanto al principio de una frase ("Local 04") como en el medio
+ * ("los locales libres"), y escribir `.toLowerCase()` en cada plantilla
+ * ensucia más de lo que aclara.
+ */
+const EN_MINUSCULA = ['complejo', 'complejos', 'unidad', 'unidades', 'ocupante', 'ocupantes'];
+
+function conMinusculas(base) {
+  const salida = { ...base };
+  EN_MINUSCULA.forEach((k) => {
+    salida[`${k}Min`] = base[k].toLocaleLowerCase('es');
+  });
+  return salida;
+}
+
+const CACHE = {};
+
 /** Vocabulario de un complejo. Acepta el registro o el tipo suelto. */
 function vocabulario(complejoOTipo) {
   const tipo = complejoOTipo && typeof complejoOTipo === 'object'
     ? complejoOTipo.tipo
     : complejoOTipo;
-  return VOCABULARIOS[tipo] || VOCABULARIOS[POR_DEFECTO];
+  const clave = VOCABULARIOS[tipo] ? tipo : POR_DEFECTO;
+  if (!CACHE[clave]) CACHE[clave] = conMinusculas(VOCABULARIOS[clave]);
+  return CACHE[clave];
 }
 
 /** Los tipos disponibles, para los selectores de alta. */

@@ -13,7 +13,7 @@ function syncBotonEnviar() {
   const r = rendicionActual;
   let motivo = '';
   if (!r) motivo = 'Todavía no se pudo calcular la rendición.';
-  else if (!r.dueno) motivo = 'Elegí un dueño: la rendición de toda la galería no tiene a quién enviarse.';
+  else if (!r.dueno) motivo = `Elegí un dueño: la rendición de todo el ${voc.complejoMin} no tiene a quién enviarse.`;
   else if (!r.dueno.email) motivo = `${r.dueno.nombre} no tiene email cargado.`;
   else if (!r.mailConfigurado) motivo = 'No hay servidor de correo configurado (ver README).';
 
@@ -71,20 +71,20 @@ async function renderRendicion() {
   if (sub) {
     sub.textContent = r.dueno
       ? `${r.unidades} local(es) · le corresponde el ${fmtPct(r.pctGastos)} de los gastos`
-      : 'Todos los locales de la galería';
+      : `Todas las ${voc.unidadesMin} del ${voc.complejoMin}`;
   }
 
   if (r.dueno && !r.unidades) {
-    box.innerHTML = '<div class="empty">Este dueño todavía no tiene locales asignados.</div>';
+    box.innerHTML = `<div class="empty">Este dueño todavía no tiene ${voc.unidadesMin} asignados.</div>`;
     return;
   }
 
   const gastosSub = r.dueno
-    ? `${fmtPct(r.pctGastos)} de los gastos de la galería`
+    ? `${fmtPct(r.pctGastos)} de los gastos comunes`
     : 'ordinarios y extraordinarios';
 
   box.innerHTML = `
-    <div class="line"><div class="lbl">Alquileres cobrados <small>${r.unidadesCobradas} de ${r.unidades} locales</small></div><div class="val">${centsToMoney(r.alquileresCobrados)}</div></div>
+    <div class="line"><div class="lbl">Alquileres cobrados <small>${r.unidadesCobradas} de ${r.unidades} ${voc.unidadesMin}</small></div><div class="val">${centsToMoney(r.alquileresCobrados)}</div></div>
     <div class="line"><div class="lbl">Gastos comunes cobrados</div><div class="val">${centsToMoney(r.expensasCobradas)}</div></div>
     <div class="line neg"><div class="lbl">Gastos comunes pagados <small>${gastosSub}</small></div><div class="val">− ${centsToMoney(r.gastosPagados)}</div></div>
     <div class="line neg"><div class="lbl">Comisión del administrador <small>${r.comisionPct}% sobre lo cobrado</small></div><div class="val">− ${centsToMoney(r.comision)}</div></div>

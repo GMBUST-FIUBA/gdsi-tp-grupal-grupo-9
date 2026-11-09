@@ -20,7 +20,7 @@ function renderAbm() {
 
 function editTenant(n) {
   const u = units.find((x) => x.n === n);
-  openModal(`Editar locatario — Local ${u.n}`,
+  openModal(`Editar ${voc.ocupanteMin} — ${voc.unidad} ${u.n}`,
     `<div class="field" style="margin-bottom:12px"><label>Nombre</label><input id="et-nom" value="${u.loc}"></div>
      <div class="field" style="margin-bottom:12px"><label>Email</label><input id="et-mail" type="email" value="${u.email || ''}"></div>
      <div class="field"><label>Teléfono</label><input id="et-tel" value="${u.tel || ''}"></div>
@@ -38,7 +38,7 @@ async function saveTenant(locatarioId) {
   if (!r.ok) return mostrarError('et-err', r.msg);
   closeModal();
   await recargarEstado();
-  toast('Datos del locatario actualizados');
+  toast(`Datos del ${voc.ocupanteMin} actualizados`);
 }
 
 function resetPass(n) {

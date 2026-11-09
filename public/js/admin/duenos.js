@@ -84,7 +84,7 @@ function renderDatosDueno() {
   document.getElementById('du-datos-nombre').textContent = d.nombre;
   document.getElementById('du-datos-sub').textContent = d.unidades.length
     ? `${d.unidades.length} local${d.unidades.length === 1 ? '' : 'es'}`
-    : 'Sin locales asignados';
+    : `Sin ${voc.unidadesMin} asignados`;
 
   const fila = (rotulo, valor) => `<dt>${rotulo}</dt><dd>${valor ? escaparHTML(valor) : '—'}</dd>`;
   document.getElementById('du-ver-dl').innerHTML =
@@ -92,7 +92,7 @@ function renderDatosDueno() {
     + fila('Email', d.email)
     + fila('Teléfono', d.telefono)
     + fila('Contacto', d.contacto)
-    + fila('Unidades', d.unidades.map((l) => 'Local ' + l.numero).join(', '));
+    + fila('Unidades', d.unidades.map((l) => voc.unidad + ' ' + l.numero).join(', '));
 }
 
 function habilitarEdicionDueno() {
@@ -218,7 +218,7 @@ function renderCheckUnidades(boxId, duenoId) {
   const box = document.getElementById(boxId);
   if (!box) return;
   if (!unidadesDelComplejo.length) {
-    box.innerHTML = '<div class="empty">La galería todavía no tiene locales.</div>';
+    box.innerHTML = `<div class="empty">El ${voc.complejoMin} todavía no tiene ${voc.unidadesMin}.</div>`;
     return;
   }
 
@@ -228,14 +228,14 @@ function renderCheckUnidades(boxId, duenoId) {
     return `
       <label class="${otro ? 'ajeno' : ''}"${otro ? ` title="Ya es de ${escaparHTML(otro)}"` : ''}>
         <input type="checkbox" value="${l.id}"${propio ? ' checked' : ''}${otro ? ' disabled' : ''}>
-        <span>Local ${escaparHTML(l.numero)}</span>
+        <span>${voc.unidad} ${escaparHTML(l.numero)}</span>
       </label>`;
   }).join('');
 
   const libres = unidadesDelComplejo.filter((l) => !l.duenoId).length;
   const aviso = libres
     ? ''
-    : '<div class="empty">Todos los locales ya tienen dueño.</div>';
+    : '<div class="empty">Todas las unidades ya tienen dueño.</div>';
   box.innerHTML = html + aviso;
 }
 

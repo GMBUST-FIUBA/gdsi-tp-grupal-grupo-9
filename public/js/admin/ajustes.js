@@ -6,7 +6,7 @@ function fillAjusteUnidades() {
   const sel = document.getElementById('aj-unidad');
   const previo = sel.value;
   sel.innerHTML = unidadesConExpensas()
-    .map((u) => `<option value="${u.n}">Local ${u.n} — ${u.loc}</option>`).join('');
+    .map((u) => `<option value="${u.n}">${voc.unidad} ${u.n} — ${u.loc}</option>`).join('');
   if (previo) sel.value = previo;
   syncAjuste();
 }

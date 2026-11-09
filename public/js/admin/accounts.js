@@ -3,7 +3,7 @@ function renderAccounts() {
   const box = document.getElementById('acct-rows');
   box.innerHTML = units.map((u) => {
     if (u.st === 'free') {
-      return `<tr><td>Local ${u.n}</td><td>—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r"><span class="st-tag abierto">Libre</span></td></tr>`;
+      return `<tr><td>${voc.unidad} ${u.n}</td><td>—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r mono">—</td><td class="r"><span class="st-tag abierto">Libre</span></td></tr>`;
     }
     const facturado = totalEfectivoCents(u);
     const saldo = Math.max(facturado - u.cobCents, 0);
@@ -13,7 +13,7 @@ function renderAccounts() {
         ? '<span class="st-tag mora">En mora</span>'
         : '<span class="st-tag pend">Pendiente</span>');
     return `<tr>
-      <td>Local ${u.n}</td><td>${u.loc}</td>
+      <td>${voc.unidad} ${u.n}</td><td>${u.loc}</td>
       <td class="r mono">${centsToMoney(facturado)}</td>
       <td class="r mono">${centsToMoney(u.cobCents)}</td>
       <td class="r mono">${centsToMoney(saldo)}</td>

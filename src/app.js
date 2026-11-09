@@ -13,6 +13,7 @@ const {
   estadoCompleto, complejoActual, detalleLocatario, locatarioDelUsuario, periodoAbierto,
 } = require('./services/complejo');
 const { PERIODO_INICIAL, periodoLabel, centsToMoney } = require('./services/formato');
+const { vocabulario } = require('./services/vocabulario');
 
 const app = express();
 
@@ -68,6 +69,8 @@ app.get('/', auth.requiereLogin, async (req, res, next) => {
       periodoLabel: periodoLabel(periodo),
       centsToMoney,
       periodoLabelDe: periodoLabel,
+      // Cómo se llaman las cosas en este rubro: lo usan todas las plantillas.
+      voc: vocabulario(complejo),
     };
 
     if (usuario.rol === 'locatario') {

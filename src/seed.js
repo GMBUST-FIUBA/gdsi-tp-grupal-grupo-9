@@ -316,9 +316,29 @@ async function seedSiHaceFalta() {
 
 module.exports = { seed, seedSiHaceFalta };
 
+/*
+ * Vacía la base entera, incluidas las tablas que ya no están en el modelo.
+ * Hace falta cuando se renombra una entidad: `sync({ force: true })` solo tira
+ * las tablas que conoce, así que las viejas quedarían dando vueltas, y
+ * `alter` ni siquiera llega a correr porque falla al agregar una columna NOT
+ * NULL sobre filas que ya existen.
+ */
+async function vaciarBase() {
+  if (sequelize.getDialect() === 'postgres') {
+    await sequelize.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+    console.log('Esquema public borrado y vuelto a crear.');
+    return;
+  }
+  await sequelize.getQueryInterface().dropAllTables();
+  console.log('Tablas borradas.');
+}
+
 if (require.main === module) {
   (async () => {
-    const force = process.argv.includes('--force');
+    const reset = process.argv.includes('--reset');
+    const force = reset || process.argv.includes('--force');
+
+    if (reset) await vaciarBase();
     await sequelize.sync({ alter: !force, force });
     if (force) await seed();
     else if (!(await seedSiHaceFalta())) console.log('La base ya tiene datos. Usá --force para recrearla.');

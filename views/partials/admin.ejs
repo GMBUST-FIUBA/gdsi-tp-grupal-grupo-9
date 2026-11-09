@@ -14,7 +14,7 @@
   <div class="page-head">
     <span class="eyebrow">Panel del administrador · <%= periodoLabel %></span>
     <h1>Ocupación y cobranzas</h1>
-    <p>Tocá un local para ver su contrato, la liquidación, el comprobante subido y el estado de pago.</p>
+    <p>Tocá <%= voc.unidadMin === "oficina" || voc.unidadMin === "propiedad" ? "una" : "un" %> <%= voc.unidadMin %> para ver su contrato, la liquidación, el comprobante subido y el estado de pago.</p>
   </div>
 
   <section class="kpis" aria-label="Resumen del mes">
@@ -24,9 +24,9 @@
     <div class="kpi accent-late"><div class="k-label">En mora</div><div class="k-value mono" id="kpi-mora">—</div><div class="k-foot" id="kpi-mora-foot"></div></div>
   </section>
 
-  <section class="board-card" aria-label="Plano de la galería">
+  <section class="board-card" aria-label="<%= voc.plano %>">
     <div class="board-head">
-      <h2>Plano de la galería</h2>
+      <h2><%= voc.plano %></h2>
       <div class="legend">
         <span><i class="i-ok"></i> Al día</span><span><i class="i-warn"></i> Por vencer</span>
         <span><i class="i-late"></i> En mora</span><span><i class="i-free"></i> Libre</span>
@@ -37,9 +37,9 @@
 
   <div class="cols">
     <section class="panel" aria-live="polite">
-      <div class="panel-head"><h3>Detalle del local</h3><span class="sub" id="detail-sub">Seleccioná un local</span></div>
+      <div class="panel-head"><h3>Detalle <%= voc.unidadMin === "oficina" || voc.unidadMin === "propiedad" ? "de la" : "del" %> <%= voc.unidadMin %></h3><span class="sub" id="detail-sub">Seleccioná <%= voc.unidadMin === "oficina" || voc.unidadMin === "propiedad" ? "una" : "un" %> <%= voc.unidadMin %></span></div>
       <div class="panel-body" id="detail-body">
-        <div class="empty"><span class="big">↑</span>Tocá un local del plano para ver su contrato y liquidación.</div>
+        <div class="empty"><span class="big">↑</span>Tocá <%= voc.unidadMin === "oficina" || voc.unidadMin === "propiedad" ? "una" : "un" %> <%= voc.unidadMin %> del plano para ver su contrato y liquidación.</div>
       </div>
     </section>
 
@@ -47,7 +47,7 @@
       <div class="panel-body">
         <div class="tabs" role="tablist" aria-label="Gestión">
           <button role="tab" aria-selected="true"  aria-controls="tp-cobranzas" id="t-cobranzas" onclick="setTab('cobranzas')">Cobranzas</button>
-          <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')">Locatarios</button>
+          <button role="tab" aria-selected="false" aria-controls="tp-locatarios" id="t-locatarios" onclick="setTab('locatarios')"><%= voc.ocupantes %></button>
         </div>
 
         <!-- Cobranzas -->
@@ -60,9 +60,9 @@
           </div>
         </div>
 
-        <!-- Locatarios (ABM) -->
+        <!-- Ocupantes (ABM) -->
         <div class="tabpane" id="tp-locatarios" role="tabpanel" aria-labelledby="t-locatarios" hidden>
-          <div class="note">El alta de un locatario se hace al registrar su contrato, para que quede asociado a un local y a una liquidación.</div>
+          <div class="note">El alta de un <%= voc.ocupanteMin %> se hace al registrar su contrato, para que quede asociado a <%= voc.unidadMin %> y a una liquidación.</div>
           <div class="form-actions" style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="setSection('contratos')">Ir a nuevo contrato</button></div>
           <div class="abm" id="abm-list" style="margin-top:8px"></div>
         </div>
@@ -89,7 +89,7 @@
 
       <div class="tabpane" id="hp-local" role="tabpanel" aria-labelledby="h-local" hidden>
         <table class="data">
-          <thead><tr><th>Local</th><th>Locatario</th><th class="r">Facturado</th><th class="r">Cobrado</th><th class="r">Saldo</th><th class="r">Estado</th></tr></thead>
+          <thead><tr><th><%= voc.unidad %></th><th><%= voc.ocupante %></th><th class="r">Facturado</th><th class="r">Cobrado</th><th class="r">Saldo</th><th class="r">Estado</th></tr></thead>
           <tbody id="acct-rows"></tbody>
         </table>
       </div>
@@ -101,22 +101,22 @@
     <div class="page-head">
       <span class="eyebrow">Contratos</span>
       <h1>Alta de contratos y parámetros de alquiler</h1>
-      <p>Registrá el contrato de un local libre y definí con qué índice, vencimiento y comisión se liquidan los alquileres de la galería.</p>
+      <p>Registrá el contrato de <%= voc.unidadMin === "oficina" || voc.unidadMin === "propiedad" ? "una" : "un" %> <%= voc.unidadMin %> libre y definí con qué índice, vencimiento y comisión se liquidan los alquileres.</p>
     </div>
 
     <section class="panel">
       <div class="panel-head"><h3>Nuevo contrato</h3></div>
       <div class="panel-body">
         <div class="form-grid">
-          <div class="field"><label for="f-local">Local</label><select id="f-local"></select></div>
+          <div class="field"><label for="f-local"><%= voc.unidad %></label><select id="f-local"></select></div>
           <div class="field"><label for="f-rubro">Rubro</label><input id="f-rubro" placeholder="Indumentaria, gastronomía…"></div>
-          <div class="field full"><label for="f-locatario">Locatario</label><input id="f-locatario" placeholder="Razón social o nombre"></div>
+          <div class="field full"><label for="f-locatario"><%= voc.ocupante %></label><input id="f-locatario" placeholder="Razón social o nombre"></div>
           <div class="field"><label for="f-email">Email</label><input id="f-email" type="email" placeholder="correo@ejemplo.com"></div>
           <div class="field"><label for="f-tel">Teléfono</label><input id="f-tel" placeholder="+54 11 ..."></div>
           <div class="field full">
             <label class="check-line" for="f-dueno">
               <input type="checkbox" id="f-dueno" onchange="syncEsDueno()">
-              <span>El locatario es el dueño del local</span>
+              <span>El <%= voc.ocupanteMin %> es el dueño</span>
             </label>
             <span class="hint">No se le cobra alquiler: solo las expensas de los gastos extraordinarios.</span>
           </div>
@@ -153,7 +153,7 @@
       <div class="abm" id="contratos-list"></div>
     </div></section>
 
-    <div class="section-title"><h2>Parámetros de alquiler</h2><span class="st-sub">Se aplican a toda la galería</span></div>
+    <div class="section-title"><h2>Parámetros de alquiler</h2><span class="st-sub">Se aplican a todo el <%= voc.complejoMin %></span></div>
     <section class="panel">
       <div class="panel-body">
         <% var cfg = estado.config || {}; %>
@@ -179,7 +179,7 @@
           <div class="field"><label for="c-venc">Día de vencimiento mensual</label><input id="c-venc" type="number" value="<%= cfg.diaVencimiento || 10 %>" min="1" max="28"></div>
           <div class="field"><label for="c-gracia">Días de gracia</label><input id="c-gracia" type="number" value="<%= cfg.diasGracia || 0 %>" min="0"></div>
         </div>
-        <div class="note">Estos parámetros se aplican a todas las liquidaciones de la galería a partir del próximo cierre. Las expensas de cada local salen de repartir los gastos del mes según su porcentaje (sección <strong>Configuración</strong>).</div>
+        <div class="note">Estos parámetros se aplican a todas las liquidaciones a partir del próximo cierre. Las expensas de cada <%= voc.unidadMin %> salen de repartir los gastos del mes según su porcentaje (sección <strong>Configuración</strong>).</div>
         <div class="note late" id="c-err" hidden></div>
         <div class="form-actions"><button class="btn btn-primary" onclick="guardarParametros()">Guardar configuración</button></div>
       </div>
@@ -190,7 +190,7 @@
     <div class="page-head">
       <span class="eyebrow">Gestión de gastos</span>
       <h1>Gastos ordinarios y extraordinarios</h1>
-      <p>Cargá, editá o borrá los gastos de la galería. Los locatarios los ven reflejados en su cuenta, incluida la factura adjunta.</p>
+      <p>Cargá, editá o borrá los gastos comunes. Los <%= voc.ocupantesMin %> los ven reflejados en su cuenta, incluida la factura adjunta.</p>
     </div>
 
     <section class="panel">
@@ -243,7 +243,7 @@
         <div class="panel-body" id="cta-gastos-body"></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>Ingresos</h3><span class="sub">Pagos aceptados de los locatarios</span></div>
+        <div class="panel-head"><h3>Ingresos</h3><span class="sub">Pagos aceptados de los <%= voc.ocupantesMin %></span></div>
         <div class="panel-body" id="cta-ing-body"></div>
       </section>
     </div>
@@ -266,7 +266,7 @@
         <h3 style="margin:20px 0 10px;font-size:1rem" id="liq-tabla-titulo"></h3>
         <div style="overflow-x:auto">
           <table class="data">
-            <thead><tr><th>Local</th><th>Locatario</th><th class="r">Alquiler</th><th class="r">Expensas</th><th class="r">Deuda anterior</th><th class="r">Punitorios</th><th class="r">Total</th></tr></thead>
+            <thead><tr><th><%= voc.unidad %></th><th><%= voc.ocupante %></th><th class="r">Alquiler</th><th class="r">Expensas</th><th class="r">Deuda anterior</th><th class="r">Punitorios</th><th class="r">Total</th></tr></thead>
             <tbody id="liq-rows"></tbody>
           </table>
         </div>
@@ -285,8 +285,8 @@
   <div id="sec-config" role="tabpanel" aria-labelledby="sec-tab-config" hidden>
     <div class="page-head">
       <span class="eyebrow">Configuración</span>
-      <h1>Locales y expensas</h1>
-      <p>Cargá los locales de la galería con sus metros cuadrados y definí qué porcentaje de las expensas le corresponde a cada uno. La suma de todos los porcentajes no puede superar el 100%.</p>
+      <h1><%= voc.unidades %> y expensas</h1>
+      <p>Cargá <%= voc.unidadesMin %> con sus metros cuadrados y definí qué porcentaje de las expensas le corresponde a cada uno. La suma de todos los porcentajes no puede superar el 100%.</p>
     </div>
 
     <section class="panel">
@@ -305,7 +305,7 @@
       </div>
     </section>
 
-    <div class="section-title"><h2>Locales de la galería</h2><span class="st-sub" id="lo-count"></span></div>
+    <div class="section-title"><h2><%= voc.unidades %></h2><span class="st-sub" id="lo-count"></span></div>
     <section class="panel"><div class="panel-body">
       <div class="abm" id="lo-list"></div>
     </div></section>
@@ -315,11 +315,11 @@
       <div class="panel-head"><h3>Asignar porcentaje</h3></div>
       <div class="panel-body">
         <div class="form-grid">
-          <div class="field"><label for="cf-unidad">Comercio</label>
+          <div class="field"><label for="cf-unidad"><%= voc.unidad %></label>
             <select id="cf-unidad" onchange="syncConfigPct()"></select></div>
           <div class="field"><label for="cf-pct">Porcentaje de expensas</label>
             <div class="suffix-wrap"><input id="cf-pct" inputmode="decimal" placeholder="0,00"><span class="sfx">%</span></div>
-            <span class="hint">Hasta dos decimales. Si el comercio ya tiene un porcentaje, se reemplaza.</span></div>
+            <span class="hint">Hasta dos decimales. Si ya tiene un porcentaje asignado, se reemplaza.</span></div>
         </div>
         <div class="note late" id="cf-err" hidden></div>
         <div class="form-actions"><button class="btn btn-primary" onclick="setPorcentajeExpensa()">Asignar porcentaje</button></div>
@@ -336,18 +336,18 @@
       <div class="panel-head"><h3>Descuento o cargo adicional</h3></div>
       <div class="panel-body">
         <div class="form-grid">
-          <div class="field"><label for="aj-unidad">Comercio</label>
+          <div class="field"><label for="aj-unidad"><%= voc.unidad %></label>
             <select id="aj-unidad" onchange="syncAjuste()"></select>
             <span class="hint" id="aj-base"></span></div>
           <div class="field"><label for="aj-tipo">Tipo de ajuste</label>
             <select id="aj-tipo"><option value="descuento">Descuento</option><option value="cargo">Cargo adicional</option></select></div>
           <div class="field"><label for="aj-monto">Monto</label>
             <input id="aj-monto" type="number" min="0" step="0.01" placeholder="0,00">
-            <span class="hint">Hasta dos decimales. El descuento no puede superar las expensas del comercio.</span></div>
+            <span class="hint">Hasta dos decimales. El descuento no puede superar sus expensas.</span></div>
           <div class="field"><label for="aj-motivo">Motivo (opcional)</label>
             <input id="aj-motivo" maxlength="120" placeholder="Ej.: bonificación por obra en el pasillo"></div>
         </div>
-        <div class="field"><span class="hint">Aplica solo a la liquidación del mes actual. Si el comercio ya tiene un ajuste, se reemplaza.</span></div>
+        <div class="field"><span class="hint">Aplica solo a la liquidación del mes actual. Si ya tiene un ajuste, se reemplaza.</span></div>
         <div class="note late" id="aj-err" hidden></div>
         <div class="form-actions"><button class="btn btn-primary" onclick="setAjusteExpensas()">Aplicar ajuste</button></div>
       </div>
@@ -362,8 +362,8 @@
   <div id="sec-duenos" role="tabpanel" aria-labelledby="sec-tab-duenos" hidden>
     <div class="page-head">
       <span class="eyebrow">Dueños</span>
-      <h1>Propietarios de los locales</h1>
-      <p>Cada local de la galería pertenece a un dueño. Elegí uno para ver su rendición del mes y sus datos.</p>
+      <h1>Propietarios</h1>
+      <p>Cada <%= voc.unidadMin %> pertenece a un dueño. Elegí uno para ver su rendición del mes y sus datos.</p>
     </div>
 
     <section class="panel">
@@ -390,9 +390,9 @@
             <input id="na-tel" placeholder="+54 11 ..."></div>
           <div class="field full"><label for="na-contacto">Otros datos de contacto</label>
             <input id="na-contacto" maxlength="200" placeholder="Dirección, CBU, notas..."></div>
-          <div class="field full"><label>Locales de la galería</label>
+          <div class="field full"><label><%= voc.unidades %></label>
             <div class="check-grid" id="na-locales"></div>
-            <span class="hint">Solo se pueden asignar locales sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
+            <span class="hint">Solo se pueden asignar <%= voc.unidadesMin %> sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
         </div>
         <div class="note late" id="na-err" hidden></div>
         <div class="form-actions">
@@ -438,9 +438,9 @@
               <input id="du-tel" placeholder="+54 11 ..."></div>
             <div class="field full"><label for="du-contacto">Otros datos de contacto</label>
               <input id="du-contacto" maxlength="200" placeholder="Dirección, CBU, notas..."></div>
-            <div class="field full"><label>Locales de la galería</label>
+            <div class="field full"><label><%= voc.unidades %></label>
               <div class="check-grid" id="du-locales"></div>
-              <span class="hint">Solo se pueden asignar locales sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
+              <span class="hint">Solo se pueden asignar <%= voc.unidadesMin %> sin dueño. Para pasarle uno que ya tiene dueño, quitáselo primero desde la ficha de ese dueño.</span></div>
           </div>
           <div class="note late" id="du-err" hidden></div>
           <div class="form-actions">
@@ -455,8 +455,8 @@
   <div id="sec-mensajes" role="tabpanel" aria-labelledby="sec-tab-mensajes" hidden>
     <div class="page-head">
       <span class="eyebrow">Mensajes</span>
-      <h1>Chats con los locatarios</h1>
-      <p>Escribile a un locatario en particular o respondé las consultas que te mandan desde su cuenta.</p>
+      <h1>Chats con los <%= voc.ocupantesMin %></h1>
+      <p>Escribile a un <%= voc.ocupanteMin %> en particular o respondé las consultas que te mandan desde su cuenta.</p>
     </div>
 
     <div class="chat-cols">

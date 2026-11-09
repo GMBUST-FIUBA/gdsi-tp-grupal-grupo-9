@@ -6,7 +6,7 @@ function renderPlan(){
     const b = document.createElement('button');
     b.className = 'unit' + (i===selectedIdx?' selected':'');
     b.dataset.st = u.st; b.dataset.i = i;
-    b.setAttribute('aria-label', `Local ${u.n}, ${stLabel[u.st]}`);
+    b.setAttribute('aria-label', `${voc.unidad} ${u.n}, ${stLabel[u.st]}`);
     let flag = '';
     if(u.nuevo) flag = '<span class="flag new">ALTA</span>';
     else if(u.baja) flag = '<span class="flag rec">BAJA</span>';

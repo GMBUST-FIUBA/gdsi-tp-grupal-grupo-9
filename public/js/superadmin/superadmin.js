@@ -2,10 +2,10 @@
 
 async function crearComplejo() {
   const nombre = document.getElementById('sg-nom').value.trim();
-  if (!nombre) return mostrarError('sg-err', 'Ingresá el nombre de la galería.');
+  if (!nombre) return mostrarError('sg-err', 'Ingresá el nombre del complejo.');
 
   const cantidad = Number(document.getElementById('sg-locs').value);
-  if (!(cantidad > 0)) return mostrarError('sg-err', 'La galería tiene que tener al menos un local.');
+  if (!(cantidad > 0)) return mostrarError('sg-err', 'El complejo tiene que tener al menos una unidad.');
 
   const r = await apiEnviar('POST', '/api/complejos', {
     nombre,
@@ -18,7 +18,7 @@ async function crearComplejo() {
   mostrarError('sg-err', null);
   ['sg-nom', 'sg-dir', 'sg-dueno'].forEach((id) => { document.getElementById(id).value = ''; });
   await refrescarComplejos();
-  toast('Galería y locales creados');
+  toast('Complejo y unidades creados');
 }
 
 async function crearAdministrador() {
@@ -52,7 +52,7 @@ async function refrescarComplejos() {
       <div class="si">🏬</div>
       <div>
         <div class="sname">${g.nombre}</div>
-        <div class="ssub">${g.unidades} locales · Admin: ${g.admins.length ? g.admins.join(', ') : 'sin asignar'} · Dueño: ${g.dueno || '—'}</div>
+        <div class="ssub">${g.unidades} ${voc.unidadesMin} · Admin: ${g.admins.length ? g.admins.join(', ') : 'sin asignar'} · Dueño: ${g.dueno || '—'}</div>
       </div>
       <span class="st-tag cerrado">${g.activa ? 'Activa' : 'Inactiva'}</span>
     </div>`).join('');

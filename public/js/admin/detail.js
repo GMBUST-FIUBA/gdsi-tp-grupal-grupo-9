@@ -7,14 +7,14 @@ function selectUnit(i) {
   renderPlan();
   const u = units[i];
   if (!u) return;
-  detailSub.textContent = `Local ${u.n} · ${stLabel[u.st]}`;
+  detailSub.textContent = `${voc.unidad} ${u.n} · ${stLabel[u.st]}`;
 
   if (u.st === 'free') {
     detailBody.innerHTML = `
-      <div class="contract-title"><span class="num">${u.n}</span><div><h3>Local disponible</h3></div>
+      <div class="contract-title"><span class="num">${u.n}</span><div><h3>${voc.unidad} disponible</h3></div>
         <span class="pill free" style="margin-left:auto"><i></i>Libre</span></div>
       <dl class="dl"><dt>Situación</dt><dd>${u.desde || 'Sin contrato'}</dd><dt>Superficie</dt><dd>${u.m2 ? u.m2 + ' m²' : 'sin cargar'}</dd></dl>
-      <div class="note">Local sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
+      <div class="note">${voc.unidad} sin contrato vigente. Registrá un alta desde <strong>Nuevo contrato</strong>.</div>`;
     return;
   }
 
@@ -72,7 +72,7 @@ function verContrato(i) {
 /* ---------- Comprobante: ver, aceptar o rechazar ---------- */
 function viewReceipt(i) {
   const u = units[i];
-  openModal(`Comprobante — Local ${u.n}`,
+  openModal(`Comprobante — ${voc.unidad} ${u.n}`,
     `<div class="receipt">
        <div class="r-bank">Transferencia recibida</div>
        <div class="r-line"><span>Origen</span><span>${u.loc}</span></div>
@@ -95,13 +95,13 @@ async function acceptPay(i) {
   closeModal();
   if (!r.ok) return toast(r.msg);
   await recargarEstado();
-  toast(`Pago del Local ${u.n} aceptado`);
+  toast(`Pago de ${voc.unidadMin} ${u.n} aceptado`);
 }
 
 /* El motivo es obligatorio: el locatario lo ve en su cuenta y le llega por mail. */
 function pedirMotivoRechazo(i) {
   const u = units[i];
-  openModal(`Rechazar el pago — Local ${u.n}`,
+  openModal(`Rechazar el pago — ${voc.unidad} ${u.n}`,
     `<p style="margin:0 0 12px">Vas a rechazar el comprobante de <strong>${escaparHTML(u.loc)}</strong>. Contale por qué, así puede subir uno corregido.</p>
      <div class="field"><label for="rech-mot">Motivo del rechazo</label>
        <select id="rech-mot" onchange="syncMotivoRechazo()">

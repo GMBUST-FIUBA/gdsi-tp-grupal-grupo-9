@@ -21,6 +21,18 @@ const stPill = { ok: 'ok', warn: 'warn', late: 'late', free: 'free' };
 
 const tiposFactura = ['Factura A', 'Factura B', 'Factura C', 'Recibo', 'Ticket'];
 
+/*
+ * Cómo se llaman las cosas en este rubro ("Local" en una galería, "Depósito"
+ * en un parque). Arranca con el vocabulario de galería y se reemplaza con el
+ * que manda el servidor en cuanto llega el estado.
+ */
+let voc = {
+  complejo: 'Complejo', complejos: 'Complejos', complejoMin: 'complejo', complejosMin: 'complejos',
+  unidad: 'Unidad', unidades: 'Unidades', unidadMin: 'unidad', unidadesMin: 'unidades',
+  ocupante: 'Locatario', ocupantes: 'Locatarios', ocupanteMin: 'locatario', ocupantesMin: 'locatarios',
+  plano: 'Plano',
+};
+
 function aplicarEstado(e) {
   units = e.units || [];
   gastos = e.gastos || [];
@@ -29,6 +41,7 @@ function aplicarEstado(e) {
   expensasPct = e.porcentajes || {};
   configComplejo = e.config || null;
   complejoActual = e.complejo || null;
+  if (complejoActual && complejoActual.vocabulario) voc = complejoActual.vocabulario;
   if (e.periodo) periodoActual = e.periodo;
 }
 

@@ -42,11 +42,11 @@
       <% } else { %>
         <div class="note" style="margin:0 0 18px">
           <% if (usuario.rol === 'locatario') { %>
-            El administrador de <strong><%= complejo ? complejo.nombre : 'la galería' %></strong>
-            te da acceso para que puedas ver la información de tu local.
+            El administrador de <strong><%= complejo ? complejo.nombre : 'la administración' %></strong>
+            te da acceso para que puedas ver la información de tu unidad.
           <% } else { %>
             Te dieron acceso para administrar
-            <strong><%= complejo ? complejo.nombre : 'la galería' %></strong> en Galex.
+            <strong><%= complejo ? complejo.nombre : 'tu complejo' %></strong> en Galex.
           <% } %>
         </div>
 

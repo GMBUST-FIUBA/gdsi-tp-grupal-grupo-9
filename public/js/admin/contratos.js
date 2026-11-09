@@ -5,10 +5,10 @@ function fillUnidadesLibres() {
   const sel = document.getElementById('f-local');
   const libres = units.filter((u) => u.st === 'free');
   if (!libres.length) {
-    sel.innerHTML = '<option value="">No hay locales libres</option>';
+    sel.innerHTML = `<option value="">No hay ${voc.unidadesMin} libres</option>`;
     return;
   }
-  sel.innerHTML = libres.map((u) => `<option value="${u.n}">Local ${u.n} — libre</option>`).join('');
+  sel.innerHTML = libres.map((u) => `<option value="${u.n}">${voc.unidad} ${u.n} — libre</option>`).join('');
 }
 
 function syncModalidad() {
@@ -47,14 +47,14 @@ const camposReplicables = {
  */
 function replicarUltimoContrato() {
   const numero = document.getElementById('f-local').value;
-  if (!numero) return toast('No hay locales libres para registrar un contrato.');
+  if (!numero) return toast(`No hay ${voc.unidadesMin} libres para registrar un contrato.`);
 
   const u = units.find((x) => x.n === numero);
   const previo = u && u.ultimoContrato;
-  if (!previo) return toast(`El Local ${numero} no tiene un contrato anterior para replicar`);
+  if (!previo) return toast(`${voc.unidad} ${numero} no tiene un contrato anterior para replicar`);
 
   const claves = Object.keys(camposReplicables).filter((k) => previo[k] !== undefined);
-  if (!claves.length) return toast(`El último contrato del Local ${numero} no tiene datos para copiar`);
+  if (!claves.length) return toast(`El último contrato de ${voc.unidadMin} ${numero} no tiene datos para copiar`);
 
   claves.forEach((k) => {
     document.getElementById(camposReplicables[k]).value = previo[k];
@@ -62,12 +62,12 @@ function replicarUltimoContrato() {
   document.getElementById('f-dueno').checked = !!previo.locatarioEsDueno;
   syncEsDueno();
   mostrarError('f-err', null);
-  toast(`Se copiaron los datos del último contrato del Local ${numero}`);
+  toast(`Se copiaron los datos del último contrato de ${voc.unidadMin} ${numero}`);
 }
 
 async function registrarContrato() {
   const numero = document.getElementById('f-local').value;
-  if (!numero) return mostrarError('f-err', 'No hay locales libres para registrar un contrato.');
+  if (!numero) return mostrarError('f-err', `No hay ${voc.unidadesMin} libres para registrar un contrato.`);
 
   const fd = new FormData();
   fd.append('unidadNumero', numero);
@@ -189,7 +189,7 @@ function abrirRenovar(i) {
   const desde = u.fin ? diaSiguiente(u.fin) : new Date().toISOString().slice(0, 10);
   const alquilerActual = u.esDueno ? '' : u.fijo;
 
-  openModal(`Renovar contrato — Local ${u.n}`,
+  openModal(`Renovar contrato — ${voc.unidad} ${u.n}`,
     `<p style="margin:0 0 12px">Se cierra el contrato actual de <strong>${escaparHTML(u.loc)}</strong> y se registra el que lo sucede. El local no queda libre y la cuenta corriente sigue.</p>
      <div class="form-grid">
        <div class="field"><label for="rn-desde">Inicio</label>
@@ -254,14 +254,14 @@ async function renovarContrato(i) {
 
   closeModal();
   await recargarEstado();
-  toast(`Contrato del Local ${u.n} renovado`);
+  toast(`Contrato de ${voc.unidadMin} ${u.n} renovado`);
 }
 
 /* ---------- Baja de contrato ---------- */
 
 function confirmBaja(i) {
   const u = units[i];
-  openModal(`Dar de baja — Local ${u.n}`,
+  openModal(`Dar de baja — ${voc.unidad} ${u.n}`,
     `<p style="margin:0 0 12px">Vas a rescindir el contrato de <strong>${escaparHTML(u.loc)}</strong>. El local pasará a estado <strong>libre</strong> y se generará el estado de cuenta final.</p>
      <div class="field"><label for="baja-mot">Motivo</label>
        <select id="baja-mot"><option>Fin de contrato</option><option>Rescisión anticipada</option><option>Falta de pago</option><option>Acuerdo de partes</option></select></div>`,
@@ -276,5 +276,5 @@ async function doBaja(i) {
   closeModal();
   if (!r.ok) return toast(r.msg);
   await recargarEstado();
-  toast(`Contrato del Local ${u.n} dado de baja`);
+  toast(`Contrato de ${voc.unidadMin} ${u.n} dado de baja`);
 }

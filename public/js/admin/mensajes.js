@@ -44,7 +44,7 @@ async function abrirChat(id) {
 
   const c = chatsAdmin.find((x) => x.id === id);
   document.getElementById('chat-titulo').textContent = c ? c.locatario : 'Conversación';
-  document.getElementById('chat-sub').textContent = c && c.unidad ? 'Local ' + c.unidad : '';
+  document.getElementById('chat-sub').textContent = c && c.unidad ? voc.unidad + ' ' + c.unidad : '';
   abrirHilo(id, 'admin', r.mensajes, r.leidoHasta);
   mostrarError('chat-err', null);
   document.getElementById('chat-form').hidden = false;
@@ -56,13 +56,13 @@ async function abrirChat(id) {
 
 function nuevoChat() {
   const conContrato = units.filter((u) => u.st !== 'free' && u.locatarioId);
-  if (!conContrato.length) return toast('No hay locatarios con contrato vigente');
+  if (!conContrato.length) return toast(`No hay ${voc.ocupantesMin} con contrato vigente`);
   openModal('Nuevo chat',
-    `<div class="field"><label for="nc-loc">Locatario</label>
+    `<div class="field"><label for="nc-loc">${voc.ocupante}</label>
        <select id="nc-loc">${conContrato.map((u) =>
          `<option value="${u.locatarioId}">Unidad ${escaparHTML(u.n)} · ${escaparHTML(u.loc)}</option>`).join('')}
        </select>
-       <span class="hint">Si ya tenés un chat con ese locatario, se abre el mismo.</span></div>
+       <span class="hint">Si ya tenés un chat con ese ${voc.ocupanteMin}, se abre el mismo.</span></div>
      <div class="note late" id="nc-err" hidden></div>`,
     [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
      { label: 'Abrir chat', cls: 'btn-primary', fn: () => crearChat(Number(document.getElementById('nc-loc').value), 'nc-err') }]);

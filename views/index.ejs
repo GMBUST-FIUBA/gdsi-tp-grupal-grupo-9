@@ -24,7 +24,7 @@
       <div>
         <div class="brand-name">Galex</div>
         <% if (usuario.rol === 'superadmin' && complejos.length) { %>
-          <select class="brand-select" id="galeria-sel" aria-label="Galería que se administra" onchange="cambiarComplejo(this.value)">
+          <select class="brand-select" id="galeria-sel" aria-label="<%= voc.complejo %> que se administra" onchange="cambiarComplejo(this.value)">
             <% complejos.forEach(function (g) { %>
               <option value="<%= g.id %>"<%= estado.complejo && estado.complejo.id === g.id ? ' selected' : '' %>><%= g.nombre %></option>
             <% }); %>
@@ -32,15 +32,15 @@
         <% } else if (estado.complejo) { %>
           <div class="brand-sub"><%= estado.complejo.nombre %></div>
         <% } else { %>
-          <div class="brand-sub">Sin galerías cargadas</div>
+          <div class="brand-sub">Sin <%= voc.complejosMin %> cargados</div>
         <% } %>
       </div>
     </div>
 
     <% if (usuario.rol === 'superadmin') { %>
-      <%# El superadmin da de alta galerías y además puede administrar cualquiera. %>
+      <%# El superadmin da de alta complejos y además puede administrar cualquiera. %>
       <div class="switch" role="tablist" aria-label="Sección">
-        <button role="tab" id="tab-super" aria-selected="true" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Galerías</button>
+        <button role="tab" id="tab-super" aria-selected="true" aria-controls="view-super" onclick="setView('super')"><span class="dot"></span> Complejos</button>
         <button role="tab" id="tab-admin" aria-selected="false" aria-controls="view-admin" onclick="setView('admin')"><span class="dot"></span> Administración</button>
       </div>
     <% } %>

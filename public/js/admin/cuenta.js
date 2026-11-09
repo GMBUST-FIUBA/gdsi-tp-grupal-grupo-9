@@ -99,7 +99,7 @@ async function renderCuenta() {
   // Desglose de ingresos
   document.getElementById('cta-ing-body').innerHTML = r.ingresos.items.length
     ? `<table class="data"><tbody>${r.ingresos.items.map((i) => `
-        <tr><td>Unidad ${escaparHTML(i.unidadNumero)}</td><td>${escaparHTML(i.locatario)}</td><td class="r mono">${centsToMoney(i.montoCents)}</td></tr>`).join('')}
+        <tr><td>${voc.unidad} ${escaparHTML(i.unidadNumero)}</td><td>${escaparHTML(i.locatario)}</td><td class="r mono">${centsToMoney(i.montoCents)}</td></tr>`).join('')}
        </tbody></table>
        <div class="rend" style="margin-top:10px"><div class="line net"><div class="lbl">Total de ingresos</div><div class="val">${centsToMoney(r.ingresos.totalCents)}</div></div></div>`
     : '<div class="empty">Todavía no se aceptó ningún pago este mes.</div>';
@@ -204,7 +204,7 @@ async function recalcularPreview() {
   document.getElementById('liq-tabla-titulo').textContent = `Lo que paga cada local en ${nuevo}`;
   const rows = document.getElementById('liq-rows');
   if (!r.filas.length) {
-    rows.innerHTML = '<tr><td colspan="7">No hay locales con contrato vigente.</td></tr>';
+    rows.innerHTML = `<tr><td colspan="7">No hay ${voc.unidadesMin} con contrato vigente.</td></tr>`;
   } else {
     const tot = (k) => r.filas.reduce((a, f) => a + f[k], 0);
     rows.innerHTML = r.filas.map(filaPreview).join('') + `
@@ -309,6 +309,6 @@ async function verCuentaCorriente(i) {
   const u = units[i];
   const r = await apiLeer(`/api/unidades/${u.n}/cuenta-corriente`);
   if (!r || r.ok === false) return toast('No se pudo leer la cuenta corriente');
-  openModal(`Cuenta corriente — Local ${u.n} · ${u.loc}`, tablaCuentaCorriente(r.filas),
+  openModal(`Cuenta corriente — ${voc.unidad} ${u.n} · ${u.loc}`, tablaCuentaCorriente(r.filas),
     [{ label: 'Cerrar', cls: 'btn-ghost', fn: closeModal }], { ancho: true });
 }

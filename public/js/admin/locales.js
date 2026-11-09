@@ -23,7 +23,7 @@ async function agregarUnidad() {
   document.getElementById('lo-num').value = '';
   document.getElementById('lo-m2').value = '';
   await recargarEstado();
-  toast(`Local ${numero} agregado`);
+  toast(`${voc.unidad} ${numero} agregado`);
 }
 
 function renderUnidades() {
@@ -34,7 +34,7 @@ function renderUnidades() {
     ? `${units.length} locales` : '';
 
   if (!units.length) {
-    box.innerHTML = '<div class="empty">La galería todavía no tiene locales.</div>';
+    box.innerHTML = `<div class="empty">El ${voc.complejoMin} todavía no tiene ${voc.unidadesMin}.</div>`;
     return;
   }
 
@@ -48,7 +48,7 @@ function renderUnidades() {
       <div class="abm-row">
         <div class="an">${escaparHTML(u.n)}</div>
         <div>
-          <div class="aname">Local ${escaparHTML(u.n)} · ${m2Texto(u)}</div>
+          <div class="aname">${voc.unidad} ${escaparHTML(u.n)} · ${m2Texto(u)}</div>
           <div class="acontact">${estado}${dueno ? ' · Dueño: ' + escaparHTML(dueno) : ' · sin dueño asignado'}</div>
         </div>
         <div class="aacts">
@@ -62,7 +62,7 @@ function renderUnidades() {
 function editarM2(n) {
   const u = units.find((x) => x.n === n);
   if (!u) return;
-  openModal(`Superficie — Local ${u.n}`,
+  openModal(`Superficie — ${voc.unidad} ${u.n}`,
     `<div class="field">
        <label for="em2">Metros cuadrados</label>
        <div class="suffix-wrap"><input id="em2" type="number" min="0" step="0.01" value="${u.m2 || ''}"><span class="sfx">m²</span></div>
@@ -108,5 +108,5 @@ async function borrarUnidad(n) {
   closeModal();
   if (!r.ok) return toast(r.msg);
   await recargarEstado();
-  toast(`Local ${n} borrado`);
+  toast(`${voc.unidad} ${n} borrado`);
 }
