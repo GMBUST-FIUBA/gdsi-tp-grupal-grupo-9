@@ -16,7 +16,7 @@ function fillProveedorSelect() {
  * Las validaciones también viven en el servidor (src/routes/api.js). Estas son
  * para que el usuario vea el error sin esperar el ida y vuelta.
  */
-function validarGastoLocal(monto) {
+function validarGastoEnPantalla(monto) {
   if (!(monto > 0)) return 'El monto del gasto debe ser mayor a $ 0,00.';
   if (tieneMasDeDosDecimales(monto)) return 'El monto solo puede tener hasta dos decimales.';
   return null;
@@ -51,8 +51,8 @@ async function addGasto() {
   const archivoInput = document.getElementById('g-archivo');
   const monto = Number(document.getElementById('g-monto').value);
 
-  const localMsg = validarGastoLocal(monto);
-  if (localMsg) return mostrarError('g-err', localMsg);
+  const msgEnPantalla = validarGastoEnPantalla(monto);
+  if (msgEnPantalla) return mostrarError('g-err', msgEnPantalla);
 
   const fd = new FormData();
   fd.append('tipo', document.getElementById('g-tipo').value);
@@ -103,8 +103,8 @@ async function saveGasto(id) {
   const archivoInput = document.getElementById('eg-archivo');
   const monto = Number(document.getElementById('eg-monto').value);
 
-  const localMsg = validarGastoLocal(monto);
-  if (localMsg) return mostrarError('eg-err', localMsg);
+  const msgEnPantalla = validarGastoEnPantalla(monto);
+  if (msgEnPantalla) return mostrarError('eg-err', msgEnPantalla);
 
   const fd = new FormData();
   fd.append('facturaTipo', document.getElementById('eg-facttipo').value);

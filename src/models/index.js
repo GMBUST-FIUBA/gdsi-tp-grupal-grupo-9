@@ -15,10 +15,24 @@ const cents = (defaultValue = 0) => ({ type: DataTypes.INTEGER, allowNull: false
 
 /* ---------------- Superadmin: galerías y administradores ---------------- */
 
-const Galeria = sequelize.define('Galeria', {
+/*
+ * Un complejo es el conjunto que se administra como una unidad económica: una
+ * galería, un edificio, un centro comercial. Tiene sus unidades, un pozo de
+ * gastos que se reparte entre ellas, una configuración y un administrador.
+ *
+ * `tipo` es el gancho de la generalización: hoy elige cómo se llaman las cosas
+ * en pantalla (ver `vocabulario()`) y es el lugar donde, cuando haga falta,
+ * va a colgarse la estrategia de liquidación de cada rubro.
+ */
+const Complejo = sequelize.define('Complejo', {
   nombre: { type: DataTypes.STRING, allowNull: false },
   direccion: DataTypes.STRING,
   dueno: DataTypes.STRING,
+  tipo: {
+    type: DataTypes.ENUM('galeria', 'edificio', 'oficinas', 'depositos', 'inmobiliaria', 'otro'),
+    allowNull: false,
+    defaultValue: 'galeria',
+  },
   activa: { type: DataTypes.BOOLEAN, defaultValue: true },
 });
 
@@ -32,8 +46,8 @@ const Administrador = sequelize.define('Administrador', {
 /*
  * Quién puede entrar y qué ve. El rol define la pantalla:
  *  - superadmin: panel de galerías + puede administrar cualquiera (selector).
- *  - admin: administra la galería `galeriaId`, sin selector.
- *  - locatario: ve solo su local `localId`.
+ *  - admin: administra el complejo `complejoId`, sin selector.
+ *  - locatario: ve solo su unidad `unidadId`.
  */
 const Usuario = sequelize.define('Usuario', {
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
@@ -62,11 +76,28 @@ const Dueno = sequelize.define('Dueno', {
   contacto: DataTypes.STRING,
 });
 
-const Local = sequelize.define('Local', {
+/*
+ * Una unidad del complejo: un local en una galería, un departamento en un
+ * edificio, una oficina. Lo que cambia entre rubros es cómo se la llama en
+ * pantalla, no su forma (ver `vocabulario()` más abajo).
+ *
+ * El plural va explícito porque Sequelize pluraliza en inglés y dejaría
+ * "Unidads" como nombre de tabla y de los accesores.
+ */
+const Unidad = sequelize.define('Unidad', {
   numero: { type: DataTypes.STRING, allowNull: false }, // '01', '02', ...
   superficieM2: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
-  // Porcentaje de las expensas totales que le toca a este local (0 a 100).
+  /*
+   * Solo la usan los rubros donde las unidades están dispersas (una cartera
+   * inmobiliaria). En una galería o un edificio la dirección es la del
+   * complejo y este campo queda vacío.
+   */
+  direccion: { type: DataTypes.STRING, allowNull: true },
+  // Porcentaje de las expensas totales que le toca a esta unidad (0 a 100).
   expensasPct: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+}, {
+  tableName: 'Unidades',
+  name: { singular: 'Unidad', plural: 'Unidades' },
 });
 
 const Locatario = sequelize.define('Locatario', {
@@ -212,7 +243,7 @@ const CierreMes = sequelize.define('CierreMes', {
   fechaCierre: DataTypes.DATE,
 }, {
   // Un solo cierre por mes: un doble click en Confirmar no cierra dos veces.
-  indexes: [{ unique: true, fields: ['galeriaId', 'periodo'] }],
+  indexes: [{ unique: true, fields: ['complejoId', 'periodo'] }],
 });
 
 /* ---------------- Chat entre la administración y los locatarios ---------------- */
@@ -230,7 +261,7 @@ const Chat = sequelize.define('Chat', {
   leidoAdminHasta: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   leidoLocatarioHasta: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 }, {
-  indexes: [{ unique: true, fields: ['galeriaId', 'locatarioId'] }],
+  indexes: [{ unique: true, fields: ['complejoId', 'locatarioId'] }],
 });
 
 const Mensaje = sequelize.define('Mensaje', {
@@ -241,35 +272,35 @@ const Mensaje = sequelize.define('Mensaje', {
 
 /* ---------------- Relaciones ---------------- */
 
-Galeria.hasMany(Local, { foreignKey: { name: 'galeriaId', allowNull: false } });
-Local.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(Unidad, { foreignKey: { name: 'complejoId', allowNull: false } });
+Unidad.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
-Galeria.hasMany(Dueno, { foreignKey: { name: 'galeriaId', allowNull: false } });
-Dueno.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(Dueno, { foreignKey: { name: 'complejoId', allowNull: false } });
+Dueno.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
 // Un local tiene a lo sumo un dueño; un dueño puede tener varios locales.
 // Al borrar un dueño sus locales quedan sin asignar (no se borran).
-Dueno.hasMany(Local, { foreignKey: 'duenoId', onDelete: 'SET NULL' });
-Local.belongsTo(Dueno, { foreignKey: 'duenoId' });
+Dueno.hasMany(Unidad, { foreignKey: 'duenoId', onDelete: 'SET NULL' });
+Unidad.belongsTo(Dueno, { foreignKey: 'duenoId' });
 
-Galeria.hasMany(Administrador, { foreignKey: 'galeriaId' });
-Administrador.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(Administrador, { foreignKey: 'complejoId' });
+Administrador.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
-// galeriaId: la que administra (admin) o a la que pertenece su local (locatario).
-Usuario.belongsTo(Galeria, { foreignKey: 'galeriaId' });
-Usuario.belongsTo(Local, { foreignKey: 'localId' });
+// complejoId: el que administra (admin) o al que pertenece su unidad (locatario).
+Usuario.belongsTo(Complejo, { foreignKey: 'complejoId' });
+Usuario.belongsTo(Unidad, { foreignKey: 'unidadId' });
 
-Galeria.hasOne(Configuracion, { foreignKey: 'galeriaId' });
-Configuracion.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasOne(Configuracion, { foreignKey: 'complejoId' });
+Configuracion.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
-Galeria.hasMany(Gasto, { foreignKey: 'galeriaId' });
-Gasto.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(Gasto, { foreignKey: 'complejoId' });
+Gasto.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
 Proveedor.hasMany(Gasto, { foreignKey: 'proveedorId' });
 Gasto.belongsTo(Proveedor, { foreignKey: 'proveedorId' });
 
-Local.hasMany(Contrato, { foreignKey: 'localId' });
-Contrato.belongsTo(Local, { foreignKey: 'localId' });
+Unidad.hasMany(Contrato, { foreignKey: 'unidadId' });
+Contrato.belongsTo(Unidad, { foreignKey: 'unidadId' });
 
 Locatario.hasMany(Contrato, { foreignKey: 'locatarioId' });
 Contrato.belongsTo(Locatario, { foreignKey: 'locatarioId' });
@@ -277,21 +308,21 @@ Contrato.belongsTo(Locatario, { foreignKey: 'locatarioId' });
 Contrato.hasMany(Liquidacion, { foreignKey: 'contratoId' });
 Liquidacion.belongsTo(Contrato, { foreignKey: 'contratoId' });
 
-Local.hasMany(Liquidacion, { foreignKey: 'localId' });
-Liquidacion.belongsTo(Local, { foreignKey: 'localId' });
+Unidad.hasMany(Liquidacion, { foreignKey: 'unidadId' });
+Liquidacion.belongsTo(Unidad, { foreignKey: 'unidadId' });
 
 // Varios por liquidación: si rechazan uno y sube otro, el anterior queda en el historial.
 Liquidacion.hasMany(Comprobante, { foreignKey: 'liquidacionId' });
 Comprobante.belongsTo(Liquidacion, { foreignKey: 'liquidacionId' });
 
-Local.hasMany(AjusteExpensa, { foreignKey: 'localId' });
-AjusteExpensa.belongsTo(Local, { foreignKey: 'localId' });
+Unidad.hasMany(AjusteExpensa, { foreignKey: 'unidadId' });
+AjusteExpensa.belongsTo(Unidad, { foreignKey: 'unidadId' });
 
-Galeria.hasMany(CierreMes, { foreignKey: { name: 'galeriaId', allowNull: false } });
-CierreMes.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(CierreMes, { foreignKey: { name: 'complejoId', allowNull: false } });
+CierreMes.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
-Galeria.hasMany(Chat, { foreignKey: { name: 'galeriaId', allowNull: false } });
-Chat.belongsTo(Galeria, { foreignKey: 'galeriaId' });
+Complejo.hasMany(Chat, { foreignKey: { name: 'complejoId', allowNull: false } });
+Chat.belongsTo(Complejo, { foreignKey: 'complejoId' });
 
 Locatario.hasMany(Chat, { foreignKey: { name: 'locatarioId', allowNull: false } });
 Chat.belongsTo(Locatario, { foreignKey: 'locatarioId' });
@@ -304,7 +335,7 @@ Mensaje.belongsTo(Usuario, { foreignKey: 'autorId' });
 
 module.exports = {
   sequelize,
-  Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
+  Complejo, Administrador, Usuario, Dueno, Unidad, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa,
   Proveedor, Gasto, Configuracion, CierreMes, Chat, Mensaje,
 };

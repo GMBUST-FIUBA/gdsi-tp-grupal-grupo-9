@@ -1,12 +1,43 @@
-# Galex — gestión de galerías de locales comerciales
+# Galex — gestión de alquileres
 
-TP grupal de GDSI (grupo 9). Aplicación para administrar galerías de locales
-comerciales: contratos, liquidaciones mensuales, cobranzas, gastos y rendición al
-dueño.
+TP grupal de GDSI (grupo 9). Aplicación para administrar **complejos de unidades
+en alquiler**: contratos, liquidaciones mensuales, cobranzas, gastos y rendición
+al dueño. La cabeza de playa son las galerías comerciales.
 
-Una misma instancia maneja varias galerías. El superadmin elige cuál administra
-con el selector del panel superior izquierdo (se guarda en la cookie `galeriaId`);
-los administradores y locatarios ven siempre la suya.
+Una misma instancia maneja varios complejos. El superadmin elige cuál administra
+con el selector del panel superior izquierdo (se guarda en la cookie
+`complejoId`); los administradores y locatarios ven siempre el suyo.
+
+## El modelo es genérico, el vocabulario no
+
+El dominio se llama **Complejo** y **Unidad**, no "Galería" y "Local": la forma
+—un conjunto que se administra en bloque, con unidades que se alquilan, un pozo
+de gastos que se reparte entre ellas y un dueño al que rendirle cuentas— es la
+misma en una galería, un edificio o un centro de oficinas.
+
+Lo que cambia entre rubros es **cómo se llaman las cosas en pantalla**, y eso
+vive aparte en [`src/services/vocabulario.js`](src/services/vocabulario.js).
+Cada complejo tiene un `tipo` que elige su vocabulario:
+
+| tipo | complejo | unidad | ocupante |
+| --- | --- | --- | --- |
+| `galeria` | Galería | Local | Locatario |
+| `edificio` | Edificio | Departamento | Inquilino |
+| `oficinas` | Centro de oficinas | Oficina | Locatario |
+| `otro` | Complejo | Unidad | Locatario |
+
+El `tipo` viaja con el estado (`complejo.vocabulario`), así que sumar un rubro es
+agregar una entrada a esa tabla. Cuando aparezca un rubro con **reglas de
+cálculo** propias, ese mismo `tipo` es el lugar del que va a colgarse la
+estrategia de liquidación: la idea es que el motor tenga una costura declarada
+en vez de `if` desparramados.
+
+> Lo que todavía **no** es genérico es el motor de expensas: hoy asume un pozo
+> de gastos compartido que se reparte por porcentaje entre las unidades del
+> complejo. Sirve para galerías, edificios, oficinas y parques industriales
+> —todos comparten esa forma—, pero no para una cartera de propiedades
+> dispersas, donde cada una tiene su propia expensa. Ese es el trabajo que
+> queda para entrar a alquileres inmobiliarios.
 
 ## Usuarios
 
@@ -15,11 +46,33 @@ ejemplo (todos con contraseña `1234`):
 
 | Email | Rol | Ve |
 | --- | --- | --- |
-| `super@galex.com` | Superadmin | Alta de galerías y administradores, y puede administrar cualquier galería |
-| `admin@galex.com` | Administrador | Galería Belgrano |
+| `super@galex.com` | Superadmin | Alta de complejos y administradores, y puede administrar cualquiera |
+| `admin@galex.com` | Administrador | Galería Belgrano (22 locales) |
+| `oeste@galex.com` | Administrador | Parque Logístico Km 40 (8 depósitos) |
+| `sur@galex.com` | Administrador | Inmobiliaria del Sur (5 propiedades) |
 | `cafe@correo.com` | Locatario | Local 04 · Café del Pasaje |
 | `farma@correo.com` | Locatario | Local 10 · Farma Centro |
 | `kiozone@correo.com` | Locatario | Local 11 · KioZone |
+| `friosur@correo.com` | Locatario | Depósito N-03 · Frío Sur SA |
+| `mendez@correo.com` | Inquilino | Propiedad P-03 · Familia Méndez |
+
+### Los tres rubros de ejemplo
+
+El seed carga tres complejos completos para comparar cómo responde el mismo
+motor ante rubros distintos ([`src/seed-rubros.js`](src/seed-rubros.js)):
+
+| Complejo | Rubro | Pozo de gastos | Qué muestra |
+| --- | --- | --- | --- |
+| Galería Belgrano | `galeria` | Sí, repartido por % | El caso base |
+| Parque Logístico Km 40 | `depositos` | Sí, $ 5.990.000 repartidos por coeficiente | **Encaja sin cambios**: misma forma que una galería |
+| Inmobiliaria del Sur | `inmobiliaria` | No hay | **Dónde está el límite**: propiedades dispersas, cada una con su consorcio |
+
+En el parque, al liquidar el mes cada depósito recibe su parte de los gastos
+comunes según su coeficiente (los ocho suman 100%). En la cartera inmobiliaria
+no hay nada que repartir, así que el inquilino paga solo el alquiler: contratos,
+cobranzas, cuenta corriente, punitorios y rendición al dueño funcionan igual,
+pero el sistema todavía no sabe pasarle a cada inquilino la expensa que le cobra
+el consorcio de *su* edificio. Ese es el trabajo pendiente para el rubro.
 
 ### Acceso de los usuarios nuevos
 
@@ -209,7 +262,14 @@ por locatario.
   `leidoLocatarioHasta`: hasta qué mensaje leyó cada lado), no como una marca
   por mensaje. Traer los mensajes de un chat abierto cuenta como leerlos.
 - En la lista de chats el admin ve cuántos mensajes sin leer tiene cada uno.
-- No hay notificaciones fuera de la sección de mensajes.
+- **La campanita del panel superior avisa desde cualquier sección.** Junta los
+  mensajes sin leer y los comprobantes esperando revisión, y cada ítem lleva al
+  chat o al detalle de la unidad. El locatario también la tiene, con los
+  mensajes que le mandó la administración.
+- El contador se refresca cada 20 segundos (`GET /api/chats/no-leidos`, que
+  devuelve solo un total y el desglose por chat) y se frena cuando la pestaña
+  pasa a segundo plano. Abrir la campanita fuerza una consulta.
+- Abrir un chat lo marca leído, así que el contador baja solo.
 - Si venís de una versión anterior con SQLite, recreá la base
   (`npm run seed -- --force`) para que la tabla de chats tenga los cursores.
 - Cada usuario puede mandar hasta 10 mensajes cada 10 segundos. El contador

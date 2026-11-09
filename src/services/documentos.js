@@ -27,9 +27,9 @@ function saltoSiHaceFalta(doc, alto = 40) {
   if (doc.y + alto > doc.page.height - MARGEN) doc.addPage();
 }
 
-function encabezado(doc, galeria, titulo, subtitulo) {
+function encabezado(doc, complejo, titulo, subtitulo) {
   doc.font('Helvetica-Bold').fontSize(9).fillColor(GRIS)
-    .text(`GALEX · ${galeria.nombre}${galeria.direccion ? ' · ' + galeria.direccion : ''}`.toUpperCase());
+    .text(`GALEX · ${complejo.nombre}${complejo.direccion ? ' · ' + complejo.direccion : ''}`.toUpperCase());
   doc.moveDown(0.4);
   doc.font('Helvetica-Bold').fontSize(18).fillColor('black').text(titulo);
   if (subtitulo) doc.font('Helvetica').fontSize(10).fillColor(GRIS).text(subtitulo);
@@ -105,7 +105,7 @@ const tipoGasto = (t) => (t === 'extraordinario' ? 'Extraordinario' : 'Ordinario
 /* ------------------------------------------------------------------ */
 
 /** Resumen del mes cerrado: saldo anterior, gastos, ingresos, saldo final. */
-function pdfCierre(cierre, galeria) {
+function pdfCierre(cierre, complejo) {
   const det = cierre.detalle || {};
   const gastos = det.gastos || [];
   const ingresos = det.ingresos || [];
@@ -114,7 +114,7 @@ function pdfCierre(cierre, galeria) {
   const gastosTotal = cierre.gastosOrdinariosCents + cierre.gastosExtraordinariosCents;
 
   const doc = nuevoDoc(`Liquidación de expensas ${periodoLabel(cierre.periodo)}`);
-  encabezado(doc, galeria, `Liquidación de expensas · ${periodoLabel(cierre.periodo)}`,
+  encabezado(doc, complejo, `Liquidación de expensas · ${periodoLabel(cierre.periodo)}`,
     `Cierre del mes confirmado el ${fechaHora(cierre.fechaCierre)}`);
 
   seccion(doc, 'Estado de cuenta');
@@ -147,10 +147,10 @@ function pdfCierre(cierre, galeria) {
   seccion(doc, 'Ingresos');
   if (ingresos.length) {
     tabla(doc, [
-      { titulo: 'Local', ancho: 60 },
+      { titulo: 'Unidad', ancho: 60 },
       { titulo: 'Locatario', ancho: 300 },
       { titulo: 'Cobrado', ancho: ANCHO - 360, align: 'right' },
-    ], ingresos.map((i) => [i.localNumero, i.locatario, centsToMoney(i.montoCents)]),
+    ], ingresos.map((i) => [i.unidadNumero, i.locatario, centsToMoney(i.montoCents)]),
     { totales: ['Total', '', centsToMoney(cierre.ingresosCents)] });
   } else renglon(doc, 'Sin ingresos en el mes.', null, { gris: true });
 
@@ -158,7 +158,7 @@ function pdfCierre(cierre, galeria) {
   if (aumentos.length) {
     seccion(doc, 'Actualizaciones de alquiler aplicadas');
     tabla(doc, [
-      { titulo: 'Local', ancho: 50 },
+      { titulo: 'Unidad', ancho: 50 },
       { titulo: 'Locatario', ancho: 160 },
       { titulo: 'Índice', ancho: 90 },
       { titulo: 'Antes', ancho: 75, align: 'right' },
@@ -171,7 +171,7 @@ function pdfCierre(cierre, galeria) {
   if (liqs.length) {
     seccion(doc, 'Liquidaciones emitidas para el mes siguiente');
     tabla(doc, [
-      { titulo: 'Local', ancho: 40 },
+      { titulo: 'Unidad', ancho: 40 },
       { titulo: 'Locatario', ancho: 120 },
       { titulo: 'Alquiler', ancho: 70, align: 'right' },
       { titulo: 'Expensas', ancho: 65, align: 'right' },
@@ -195,11 +195,11 @@ function pdfCierre(cierre, galeria) {
  * Detalle de lo que paga un local en un período, con las cuentas: alquiler y
  * su actualización, parte de cada gasto, ajuste, meses adeudados y punitorios.
  */
-function pdfLiquidacion({ liq, ajuste, local, locatario, contrato, galeria, config }) {
+function pdfLiquidacion({ liq, ajuste, unidad, locatario, contrato, complejo, config }) {
   const det = liq.detalle || null;
-  const doc = nuevoDoc(`Liquidación ${periodoLabel(liq.periodo)} · Local ${local.numero}`);
-  encabezado(doc, galeria, `Liquidación · ${periodoLabel(liq.periodo)}`,
-    `Local ${local.numero} · ${locatario ? locatario.nombre : 'Sin locatario'} · Contrato #C-${String(contrato ? contrato.id : liq.contratoId).padStart(4, '0')}`
+  const doc = nuevoDoc(`Liquidación ${periodoLabel(liq.periodo)} · Local ${unidad.numero}`);
+  encabezado(doc, complejo, `Liquidación · ${periodoLabel(liq.periodo)}`,
+    `Local ${unidad.numero} · ${locatario ? locatario.nombre : 'Sin locatario'} · Contrato #C-${String(contrato ? contrato.id : liq.contratoId).padStart(4, '0')}`
     + (config ? ` · Vence el día ${config.diaVencimiento}` : ''));
 
   // Alquiler
@@ -300,16 +300,16 @@ function pdfLiquidacion({ liq, ajuste, local, locatario, contrato, galeria, conf
  * tocan, la comisión y el neto a transferir. `r` es lo que devuelve
  * GET /api/rendicion.
  */
-function pdfRendicion(r, galeria) {
+function pdfRendicion(r, complejo) {
   const aQuien = r.dueno ? r.dueno.nombre : 'la galería';
   const doc = nuevoDoc(`Rendición ${periodoLabel(r.periodo)}`);
-  encabezado(doc, galeria, `Rendición de cuentas · ${periodoLabel(r.periodo)}`,
+  encabezado(doc, complejo, `Rendición de cuentas · ${periodoLabel(r.periodo)}`,
     r.dueno
-      ? `${r.dueno.nombre} · ${r.locales} local${r.locales === 1 ? '' : 'es'}`
-      : `Todos los locales de la galería (${r.locales})`);
+      ? `${r.dueno.nombre} · ${r.unidades} local${r.unidades === 1 ? '' : 'es'}`
+      : `Todos los locales de la galería (${r.unidades})`);
 
   seccion(doc, 'Resumen del mes');
-  renglon(doc, `Alquileres cobrados (${r.localesCobrados} de ${r.locales} locales)`, centsToMoney(r.alquileresCobrados));
+  renglon(doc, `Alquileres cobrados (${r.unidadesCobradas} de ${r.unidades} locales)`, centsToMoney(r.alquileresCobrados));
   renglon(doc, 'Gastos comunes cobrados', centsToMoney(r.expensasCobradas));
   renglon(doc, r.dueno
     ? `Gastos comunes pagados (${fmtPct(r.pctGastos)} de los gastos de la galería)`

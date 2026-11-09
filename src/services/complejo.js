@@ -1,12 +1,13 @@
 'use strict';
 const {
-  Galeria, Local, Contrato, Locatario, Liquidacion, Comprobante,
+  Complejo, Unidad, Contrato, Locatario, Liquidacion, Comprobante,
   AjusteExpensa, Configuracion, Gasto, Proveedor,
 } = require('../models');
 const {
   centsToMoney, PERIODO_INICIAL, fechaCorta, fechaHora, finDeContrato,
 } = require('./formato');
 const { deltaAjuste, totalConAjusteCents } = require('./calculo');
+const { vocabulario } = require('./vocabulario');
 
 /**
  * La galería sobre la que se está trabajando. Viene del selector del panel
@@ -16,24 +17,24 @@ const { deltaAjuste, totalConAjusteCents } = require('./calculo');
  * TODO: cuando haya login, el administrador solo debería poder elegir entre las
  * galerías que tiene asignadas, no entre todas.
  */
-async function galeriaActual(galeriaId) {
-  if (galeriaId) {
-    const elegida = await Galeria.findByPk(galeriaId);
+async function complejoActual(complejoId) {
+  if (complejoId) {
+    const elegida = await Complejo.findByPk(complejoId);
     if (elegida) return elegida;
   }
-  return Galeria.findOne({ order: [['id', 'ASC']] });
+  return Complejo.findOne({ order: [['id', 'ASC']] });
 }
 
 /** El mes abierto de la galería (el que se está liquidando). */
-async function periodoAbierto(galeriaId) {
-  const config = await Configuracion.findOne({ where: { galeriaId } });
+async function periodoAbierto(complejoId) {
+  const config = await Configuracion.findOne({ where: { complejoId } });
   return (config && config.periodoActual) || PERIODO_INICIAL;
 }
 
 /** Trae el local con su contrato vigente, locatario, liquidación del período y comprobante. */
-async function localesConDatos(galeriaId, periodo) {
-  return Local.findAll({
-    where: { galeriaId },
+async function unidadesConDatos(complejoId, periodo) {
+  return Unidad.findAll({
+    where: { complejoId },
     order: [['numero', 'ASC']],
     include: [
       {
@@ -52,13 +53,13 @@ async function localesConDatos(galeriaId, periodo) {
   });
 }
 
-function contratoVigente(local) {
-  return (local.Contratos || []).find((c) => c.estado === 'vigente') || null;
+function contratoVigente(unidad) {
+  return (unidad.Contratos || []).find((c) => c.estado === 'vigente') || null;
 }
 
 /** El contrato más reciente del local (el de id más alto). */
-function ultimoContrato(local) {
-  const cs = local.Contratos || [];
+function ultimoContrato(unidad) {
+  const cs = unidad.Contratos || [];
   if (!cs.length) return null;
   return cs.reduce((masNuevo, c) => (c.id > masNuevo.id ? c : masNuevo), cs[0]);
 }
@@ -118,7 +119,7 @@ function modalidadLabel(contrato) {
  * En mora = arrastra meses impagos (lo que deja el cierre en `saldoAnteriorCents`).
  * Los días de mora solo vienen escritos a mano en los datos de ejemplo.
  */
-function estadoLocal(local, contrato, liq) {
+function estadoUnidad(unidad, contrato, liq) {
   if (!contrato) return 'free';
   if (!liq) return 'warn';
   const total = totalLiquidacionCents(liq);
@@ -144,22 +145,23 @@ function comprobantePendiente(liq) {
  * Arma el array `units` con la misma forma que consumía el prototipo, para que
  * el JS del navegador siga funcionando sin reescribirse.
  */
-function serializarLocal(local) {
-  const contrato = contratoVigente(local);
-  const liq = (local.Liquidacions || [])[0] || null;
-  const st = estadoLocal(local, contrato, liq);
+function serializarUnidad(unidad, voc = vocabulario(unidad.Complejo)) {
+  const contrato = contratoVigente(unidad);
+  const liq = (unidad.Liquidacions || [])[0] || null;
+  const st = estadoUnidad(unidad, contrato, liq);
 
   if (st === 'free') {
-    const previo = ultimoContrato(local);
+    const previo = ultimoContrato(unidad);
     return {
-      id: local.id,
-      n: local.numero,
+      id: unidad.id,
+      n: unidad.numero,
       st: 'free',
-      loc: 'Local libre',
+      loc: `${voc.unidad} libre`,
       rubro: '—',
       baja: !!(previo && previo.estado === 'baja'),
-      duenoId: local.duenoId || null,
-      m2: local.superficieM2 === null || local.superficieM2 === undefined ? null : Number(local.superficieM2),
+      duenoId: unidad.duenoId || null,
+      direccion: unidad.direccion || null,
+      m2: unidad.superficieM2 === null || unidad.superficieM2 === undefined ? null : Number(unidad.superficieM2),
       desde: previo && previo.fechaBaja
         ? `Baja: ${fechaCorta(previo.fechaBaja)}`
         : 'Disponible',
@@ -172,10 +174,10 @@ function serializarLocal(local) {
   const totCents = totalLiquidacionCents(liq);
 
   return {
-    id: local.id,
-    n: local.numero,
+    id: unidad.id,
+    n: unidad.numero,
     st,
-    loc: locatario ? locatario.nombre : 'Sin locatario',
+    loc: locatario ? locatario.nombre : `Sin ${voc.ocupante.toLowerCase()}`,
     rubro: contrato.rubro || '—',
     mod: modalidadLabel(contrato),
     fijo: centsToMoney(contrato.alquilerFijoCents),
@@ -202,12 +204,13 @@ function serializarLocal(local) {
     nuevo: !!contrato.esAlta,
     esDueno: !!contrato.locatarioEsDueno,
     // Datos del contrato para la sección Contratos.
-    m2: local.superficieM2 === null || local.superficieM2 === undefined ? null : Number(local.superficieM2),
+    m2: unidad.superficieM2 === null || unidad.superficieM2 === undefined ? null : Number(unidad.superficieM2),
+    direccion: unidad.direccion || null,
     inicio: contrato.inicio,
     plazoMeses: contrato.plazoMeses,
     ...vigenciaDeContrato(contrato),
     indice: contrato.indice,
-    duenoId: local.duenoId || null,
+    duenoId: unidad.duenoId || null,
     liquidacionId: liq ? liq.id : null,
     contratoId: contrato.id,
     locatarioId: locatario ? locatario.id : null,
@@ -216,9 +219,9 @@ function serializarLocal(local) {
 }
 
 /** Mapa { '04': {tipo, montoCents, motivo} } que el front usa tal cual. */
-function serializarAjustes(locales) {
+function serializarAjustes(unidades) {
   const out = {};
-  locales.forEach((l) => {
+  unidades.forEach((l) => {
     const a = (l.AjusteExpensas || [])[0];
     if (a) out[l.numero] = { tipo: a.tipo, montoCents: a.montoCents, motivo: a.motivo || '' };
   });
@@ -226,9 +229,9 @@ function serializarAjustes(locales) {
 }
 
 /** Mapa { '04': 12.5 } con el porcentaje de expensas asignado a cada local. */
-function serializarPorcentajes(locales) {
+function serializarPorcentajes(unidades) {
   const out = {};
-  locales.forEach((l) => {
+  unidades.forEach((l) => {
     if (l.expensasPct !== null && l.expensasPct !== undefined) {
       out[l.numero] = Number(l.expensasPct);
     }
@@ -255,28 +258,37 @@ function serializarGasto(g) {
 }
 
 /** Todo lo que el front necesita para arrancar, en una sola llamada. */
-async function estadoCompleto(galeriaId) {
-  const galeria = await galeriaActual(galeriaId);
-  if (!galeria) {
-    return { galeria: null, periodo: PERIODO_INICIAL, units: [], ajustes: {}, porcentajes: {}, gastos: [], proveedores: [], config: null };
+async function estadoCompleto(complejoId) {
+  const complejo = await complejoActual(complejoId);
+  if (!complejo) {
+    return { complejo: null, periodo: PERIODO_INICIAL, units: [], ajustes: {}, porcentajes: {}, gastos: [], proveedores: [], config: null };
   }
-  const periodo = await periodoAbierto(galeria.id);
-  const locales = await localesConDatos(galeria.id, periodo);
+  const periodo = await periodoAbierto(complejo.id);
+  const unidades = await unidadesConDatos(complejo.id, periodo);
   // Solo los del mes abierto: los de meses cerrados ya se repartieron en las expensas.
   const gastos = await Gasto.findAll({
-    where: { galeriaId: galeria.id, periodo },
+    where: { complejoId: complejo.id, periodo },
     include: [Proveedor],
     order: [['id', 'ASC']],
   });
   const proveedores = await Proveedor.findAll({ order: [['nombre', 'ASC']] });
-  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });
+  const voc = vocabulario(complejo);
 
   return {
-    galeria: { id: galeria.id, nombre: galeria.nombre, direccion: galeria.direccion, dueno: galeria.dueno },
+    complejo: {
+      id: complejo.id,
+      nombre: complejo.nombre,
+      direccion: complejo.direccion,
+      dueno: complejo.dueno,
+      tipo: complejo.tipo,
+      // Cómo nombrar las cosas en pantalla para este rubro.
+      vocabulario: voc,
+    },
     periodo,
-    units: locales.map(serializarLocal),
-    ajustes: serializarAjustes(locales),
-    porcentajes: serializarPorcentajes(locales),
+    units: unidades.map((u) => serializarUnidad(u, voc)),
+    ajustes: serializarAjustes(unidades),
+    porcentajes: serializarPorcentajes(unidades),
     gastos: gastos.map(serializarGasto),
     proveedores: proveedores.map((p) => ({ id: p.id, nombre: p.nombre })),
     config: config ? config.toJSON() : null,
@@ -293,14 +305,14 @@ async function estadoCompleto(galeriaId) {
 async function cuentaCorriente(where, periodoActual) {
   const liqs = await Liquidacion.findAll({
     where,
-    include: [{ model: Contrato, attributes: ['id', 'localId'], include: [{ model: Local, attributes: ['numero'] }] }],
+    include: [{ model: Contrato, attributes: ['id', 'unidadId'], include: [{ model: Unidad, attributes: ['numero'] }] }],
     order: [['periodo', 'DESC'], ['id', 'DESC']],
   });
   const ajustes = liqs.length
-    ? await AjusteExpensa.findAll({ where: { localId: [...new Set(liqs.map((l) => l.localId))] } })
+    ? await AjusteExpensa.findAll({ where: { unidadId: [...new Set(liqs.map((l) => l.unidadId))] } })
     : [];
   return liqs.map((l) => {
-    const ajuste = ajustes.find((a) => a.localId === l.localId && a.periodo === l.periodo) || null;
+    const ajuste = ajustes.find((a) => a.unidadId === l.unidadId && a.periodo === l.periodo) || null;
     const totalCents = totalConAjusteCents(l, ajuste);
     const deudaAnteriorCents = (l.saldoAnteriorCents || 0) + l.interesMoraCents;
     const abierta = l.periodo === periodoActual;
@@ -308,7 +320,7 @@ async function cuentaCorriente(where, periodoActual) {
     return {
       id: l.id,
       periodo: l.periodo,
-      localNumero: l.Contrato && l.Contrato.Local ? l.Contrato.Local.numero : null,
+      unidadNumero: l.Contrato && l.Contrato.Unidad ? l.Contrato.Unidad.numero : null,
       delMesCents: totalCents - deudaAnteriorCents,
       deudaAnteriorCents,
       totalCents,
@@ -325,23 +337,24 @@ async function cuentaCorriente(where, periodoActual) {
  * Datos de la pantalla del locatario: contrato, desglose de la liquidación del
  * mes abierto y su cuenta corriente.
  */
-async function detalleLocatario(galeriaId, numero) {
-  const periodo = await periodoAbierto(galeriaId);
-  const locales = await localesConDatos(galeriaId, periodo);
-  const local = locales.find((l) => l.numero === numero)
-    || locales.find((l) => contratoVigente(l));
-  if (!local) return null;
+async function detalleLocatario(complejoId, numero) {
+  const periodo = await periodoAbierto(complejoId);
+  const voc = vocabulario(await Complejo.findByPk(complejoId));
+  const unidades = await unidadesConDatos(complejoId, periodo);
+  const unidad = unidades.find((l) => l.numero === numero)
+    || unidades.find((l) => contratoVigente(l));
+  if (!unidad) return null;
 
-  const contrato = contratoVigente(local);
+  const contrato = contratoVigente(unidad);
   if (!contrato) return null;
-  const liq = (local.Liquidacions || [])[0] || null;
-  const ajuste = (local.AjusteExpensas || [])[0] || null;
+  const liq = (unidad.Liquidacions || [])[0] || null;
+  const ajuste = (unidad.AjusteExpensas || [])[0] || null;
   const delta = deltaAjuste(ajuste);
 
   // Las liquidaciones de los contratos de este locatario en el local (no las del
   // inquilino anterior).
   const contratosPropios = await Contrato.findAll({
-    where: { localId: local.id, locatarioId: contrato.locatarioId },
+    where: { unidadId: unidad.id, locatarioId: contrato.locatarioId },
     attributes: ['id'],
   });
   const cuenta = await cuentaCorriente({ contratoId: contratosPropios.map((c) => c.id) }, periodo);
@@ -358,7 +371,7 @@ async function detalleLocatario(galeriaId, numero) {
   });
 
   return {
-    unidad: serializarLocal(local),
+    unidad: serializarUnidad(unidad, voc),
     contrato: {
       modalidad: modalidadLabel(contrato),
       inicio: contrato.inicio,
@@ -399,16 +412,16 @@ async function detalleLocatario(galeriaId, numero) {
 /**
  * El locatario que corresponde al usuario logueado, con su contrato vigente.
  *
- * El usuario queda atado al local (`localId`), no a la persona: después de una
+ * El usuario queda atado a la unidad (`unidadId`), no a la persona: después de una
  * baja y un contrato nuevo en el mismo local, el usuario viejo seguiría
  * apuntando a ese local. Por eso además pedimos que el email del usuario sea el
  * del locatario vigente; si no coincide, no le corresponde nada.
  */
 async function locatarioDelUsuario(usuario) {
-  if (!usuario || usuario.rol !== 'locatario' || !usuario.localId) return null;
+  if (!usuario || usuario.rol !== 'locatario' || !usuario.unidadId) return null;
   const contrato = await Contrato.findOne({
-    where: { localId: usuario.localId, estado: 'vigente' },
-    include: [Locatario, Local],
+    where: { unidadId: usuario.unidadId, estado: 'vigente' },
+    include: [Locatario, Unidad],
   });
   const locatario = contrato && contrato.Locatario;
   if (!locatario) return null;
@@ -419,7 +432,7 @@ async function locatarioDelUsuario(usuario) {
 
 module.exports = {
   locatarioDelUsuario, periodoAbierto, cuentaCorriente,
-  galeriaActual, localesConDatos, detalleLocatario, modalidadLabel, vigenciaDeContrato, contratoVigente, estadoLocal,
-  totalLiquidacionCents, comprobantePendiente, serializarLocal, serializarAjustes,
+  complejoActual, unidadesConDatos, detalleLocatario, modalidadLabel, vigenciaDeContrato, contratoVigente, estadoUnidad,
+  totalLiquidacionCents, comprobantePendiente, serializarUnidad, serializarAjustes,
   serializarPorcentajes, serializarGasto, estadoCompleto,
 };

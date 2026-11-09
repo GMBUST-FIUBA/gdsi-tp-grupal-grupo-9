@@ -9,11 +9,11 @@ function m2Texto(u) {
   return u.m2 ? `${u.m2} m²` : 'sin m² cargados';
 }
 
-async function agregarLocal() {
+async function agregarUnidad() {
   const numero = document.getElementById('lo-num').value.trim();
   if (!numero) return mostrarError('lo-err', 'Ingresá el número del local.');
 
-  const r = await apiEnviar('POST', '/api/locales', {
+  const r = await apiEnviar('POST', '/api/unidades', {
     numero,
     m2: document.getElementById('lo-m2').value,
   });
@@ -26,7 +26,7 @@ async function agregarLocal() {
   toast(`Local ${numero} agregado`);
 }
 
-function renderLocales() {
+function renderUnidades() {
   const box = document.getElementById('lo-list');
   if (!box) return;
 
@@ -74,7 +74,7 @@ function editarM2(n) {
 }
 
 async function guardarM2(n) {
-  const r = await apiEnviar('PUT', `/api/locales/${encodeURIComponent(n)}`, {
+  const r = await apiEnviar('PUT', `/api/unidades/${encodeURIComponent(n)}`, {
     m2: document.getElementById('em2').value,
   });
   if (!r.ok) return mostrarError('em2-err', r.msg);
@@ -84,7 +84,7 @@ async function guardarM2(n) {
   toast(`Superficie del Local ${n} actualizada`);
 }
 
-function confirmBorrarLocal(n) {
+function confirmBorrarUnidad(n) {
   const u = units.find((x) => x.n === n);
   if (!u) return;
   if (u.st !== 'free') {
@@ -100,11 +100,11 @@ function confirmBorrarLocal(n) {
   openModal('Borrar local',
     `<p style="margin:0">Vas a borrar el <strong>Local ${escaparHTML(n)}</strong> de la galería.${aviso} Esta acción no se puede deshacer.</p>`,
     [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
-     { label: 'Confirmar borrado', cls: 'btn-danger', fn: () => borrarLocal(n) }]);
+     { label: 'Confirmar borrado', cls: 'btn-danger', fn: () => borrarUnidad(n) }]);
 }
 
-async function borrarLocal(n) {
-  const r = await apiEnviar('DELETE', `/api/locales/${encodeURIComponent(n)}`);
+async function borrarUnidad(n) {
+  const r = await apiEnviar('DELETE', `/api/unidades/${encodeURIComponent(n)}`);
   closeModal();
   if (!r.ok) return toast(r.msg);
   await recargarEstado();

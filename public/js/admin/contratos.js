@@ -1,7 +1,7 @@
 /* ---------- Nuevo contrato ---------- */
 
-/** El select de "Local" solo ofrece los locales sin contrato vigente. */
-function fillLocalesLibres() {
+/** El select de "Unidad" solo ofrece los locales sin contrato vigente. */
+function fillUnidadesLibres() {
   const sel = document.getElementById('f-local');
   const libres = units.filter((u) => u.st === 'free');
   if (!libres.length) {
@@ -70,7 +70,7 @@ async function registrarContrato() {
   if (!numero) return mostrarError('f-err', 'No hay locales libres para registrar un contrato.');
 
   const fd = new FormData();
-  fd.append('localNumero', numero);
+  fd.append('unidadNumero', numero);
   fd.append('rubro', document.getElementById('f-rubro').value);
   fd.append('locatario', document.getElementById('f-locatario').value);
   fd.append('email', document.getElementById('f-email').value);
@@ -137,7 +137,7 @@ function renderContratos() {
 
   const porVencer = vigentes.filter((u) => u.vencido || (u.diasParaVencer !== null && u.diasParaVencer <= DIAS_AVISO_VENCIMIENTO));
   const aviso = porVencer.length
-    ? `<div class="note" style="margin-bottom:12px">${porVencer.length === 1 ? 'Hay 1 contrato' : `Hay ${porVencer.length} contratos`} vencido(s) o por vencer: ${porVencer.map((u) => 'Local ' + escaparHTML(u.n)).join(', ')}.</div>`
+    ? `<div class="note" style="margin-bottom:12px">${porVencer.length === 1 ? 'Hay 1 contrato' : `Hay ${porVencer.length} contratos`} vencido(s) o por vencer: ${porVencer.map((u) => 'Unidad ' + escaparHTML(u.n)).join(', ')}.</div>`
     : '';
 
   box.innerHTML = aviso + vigentes.map((u) => {
@@ -214,7 +214,7 @@ function abrirRenovar(i) {
          <input type="file" id="rn-pdf" accept="application/pdf" onchange="fileChosen(this,'rn-pdf-box','rn-pdf-t','Contrato cargado')">
        </div>
      </div>
-     ${u.esDueno ? '<div class="note" style="margin-top:12px">Es el dueño del local: sigue sin pagar alquiler.</div>' : ''}
+     ${u.esDueno ? '<div class="note" style="margin-top:12px">Es el dueño del unidad: sigue sin pagar alquiler.</div>' : ''}
      <div class="note late" id="rn-err" style="margin-top:12px" hidden></div>`,
     [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
      { label: 'Renovar', cls: 'btn-primary', fn: () => renovarContrato(i) }]);

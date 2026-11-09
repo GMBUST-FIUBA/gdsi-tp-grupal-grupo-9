@@ -6,14 +6,14 @@ const { Op } = require('sequelize');
 
 const { sequelize } = require('../models');
 const {
-  Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
+  Complejo, Administrador, Usuario, Dueno, Unidad, Locatario, Contrato,
   Liquidacion, Comprobante, AjusteExpensa, Proveedor, Gasto, Configuracion, CierreMes,
 } = require('../models');
 const { generarLinkDeAcceso } = require('../auth');
 const {
-  estadoCompleto, galeriaActual, serializarGasto, locatarioDelUsuario,
+  estadoCompleto, complejoActual, serializarGasto, locatarioDelUsuario,
   comprobantePendiente, periodoAbierto, cuentaCorriente,
-} = require('../services/galeria');
+} = require('../services/complejo');
 const {
   tieneMasDeDosDecimales, parseMoneyCents, centsToMoney, sumarMeses, mesesDeFrecuencia, periodoCorto,
   periodoLabel,
@@ -83,15 +83,15 @@ function wrap(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
-async function localPorNumero(req, numero) {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return null;
-  return Local.findOne({ where: { galeriaId: galeria.id, numero } });
+async function unidadPorNumero(req, numero) {
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return null;
+  return Unidad.findOne({ where: { complejoId: complejo.id, numero } });
 }
 
 /** Un local "tiene expensas" si tiene contrato vigente (los libres no cuentan). */
-async function tieneContratoVigente(localId) {
-  const n = await Contrato.count({ where: { localId, estado: 'vigente' } });
+async function tieneContratoVigente(unidadId) {
+  const n = await Contrato.count({ where: { unidadId, estado: 'vigente' } });
   return n > 0;
 }
 
@@ -116,7 +116,7 @@ router.use((req, res, next) => {
     return error(res, 'No tenés permiso para hacer esto.', 403);
   }
 
-  const rutaSuper = req.method === 'POST' && (req.path === '/galerias' || req.path === '/administradores');
+  const rutaSuper = req.method === 'POST' && (req.path === '/complejos' || req.path === '/administradores');
   if (rutaSuper && u.rol !== 'superadmin') {
     return error(res, 'Solo el superadmin puede hacer esto.', 403);
   }
@@ -138,10 +138,10 @@ async function crearUsuarioSiNoExiste(datos) {
  * se le muestra al administrador: si no hay SMTP (o el envío falla), le pasa el
  * link para que lo haga llegar a mano.
  */
-async function darAcceso(req, usuario, galeria) {
+async function darAcceso(req, usuario, complejo) {
   if (!usuario) return null;
   const link = await generarLinkDeAcceso(usuario, req);
-  const envio = await enviarAcceso({ usuario, galeria, link });
+  const envio = await enviarAcceso({ usuario, complejo, link });
   return envio.ok
     ? `Le enviamos el acceso a ${usuario.email}`
     : `No se pudo enviar el mail (${envio.msg}). Pasale este link: ${link}`;
@@ -150,10 +150,10 @@ async function darAcceso(req, usuario, galeria) {
 /* ---------------- Estado general ---------------- */
 
 router.get('/estado', wrap(async (req, res) => {
-  const completo = await estadoCompleto(req.galeriaId);
+  const completo = await estadoCompleto(req.complejoId);
   if (req.usuario.rol === 'locatario') {
     // Al locatario no le mandamos los datos del resto de los locales.
-    return res.json({ galeria: completo.galeria, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} });
+    return res.json({ complejo: completo.complejo, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} });
   }
   res.json(completo);
 }));
@@ -179,7 +179,7 @@ async function validarGasto({ proveedorId, facturaTipo, facturaNro, descripcion,
 }
 
 router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
+  const complejo = await complejoActual(req.complejoId);
   const datos = {
     tipo: req.body.tipo === 'extraordinario' ? 'extraordinario' : 'ordinario',
     proveedorId: Number(req.body.proveedorId),
@@ -192,7 +192,7 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
   if (msg) return error(res, msg);
 
   const gasto = await Gasto.create({
-    galeriaId: galeria.id,
+    complejoId: complejo.id,
     tipo: datos.tipo,
     proveedorId: datos.proveedorId,
     facturaTipo: datos.facturaTipo,
@@ -202,7 +202,7 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
     archivoNombre: req.file ? req.file.originalname : null,
     archivoPath: req.file ? req.file.filename : null,
     fecha: new Date().toISOString().slice(0, 10),
-    periodo: await periodoAbierto(galeria.id),
+    periodo: await periodoAbierto(complejo.id),
   });
   const conProveedor = await Gasto.findByPk(gasto.id, { include: [Proveedor] });
   res.json({ ok: true, gasto: serializarGasto(conProveedor) });
@@ -210,7 +210,7 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
 
 /** Los gastos de un mes cerrado ya se repartieron en las expensas: no se tocan. */
 async function gastoCerrado(gasto) {
-  return gasto.periodo !== await periodoAbierto(gasto.galeriaId);
+  return gasto.periodo !== await periodoAbierto(gasto.complejoId);
 }
 const MSG_GASTO_CERRADO = 'Ese gasto es de un mes ya liquidado: no se puede modificar.';
 
@@ -259,10 +259,10 @@ router.post('/proveedores', wrap(async (req, res) => {
 
 /* ---------------- Porcentaje de expensas por local ---------------- */
 
-router.post('/locales/:numero/porcentaje', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local) return error(res, 'Elegí el comercio al que querés asignarle el porcentaje.');
-  if (!(await tieneContratoVigente(local.id))) {
+router.post('/unidades/:numero/porcentaje', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad) return error(res, 'Elegí el comercio al que querés asignarle el porcentaje.');
+  if (!(await tieneContratoVigente(unidad.id))) {
     return error(res, 'Elegí el comercio al que querés asignarle el porcentaje.');
   }
 
@@ -272,8 +272,8 @@ router.post('/locales/:numero/porcentaje', wrap(async (req, res) => {
   if (tieneMasDeDosDecimales(pct)) return error(res, 'El porcentaje solo puede tener hasta dos decimales.');
 
   // La suma de todos los porcentajes no puede pasar del 100%.
-  const otros = await Local.findAll({
-    where: { galeriaId: local.galeriaId, id: { [Op.ne]: local.id } },
+  const otros = await Unidad.findAll({
+    where: { complejoId: unidad.complejoId, id: { [Op.ne]: unidad.id } },
   });
   const sumaOtros = otros.reduce((acc, l) => acc + Math.round(Number(l.expensasPct || 0) * 100), 0);
   if (sumaOtros + Math.round(pct * 100) > 10000) {
@@ -281,16 +281,16 @@ router.post('/locales/:numero/porcentaje', wrap(async (req, res) => {
     return error(res, `La suma de porcentajes superaría el 100% (asignado a otros comercios: ${fmtPct(sumaOtros / 100)}, disponible: ${fmtPct(disponible)}).`);
   }
 
-  local.expensasPct = pct;
-  await local.save();
+  unidad.expensasPct = pct;
+  await unidad.save();
   res.json({ ok: true });
 }));
 
 /* ---------------- Ajuste de expensas (descuento / cargo) ---------------- */
 
-router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local || !(await tieneContratoVigente(local.id))) {
+router.post('/unidades/:numero/ajuste', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad || !(await tieneContratoVigente(unidad.id))) {
     return error(res, 'Elegí el comercio al que querés aplicarle el ajuste.');
   }
 
@@ -304,8 +304,8 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
   if (!(monto > 0)) return error(res, 'El monto del ajuste debe ser mayor a $ 0,00.');
   if (tieneMasDeDosDecimales(monto)) return error(res, 'El monto solo puede tener hasta dos decimales.');
 
-  const periodo = await periodoAbierto(local.galeriaId);
-  const liq = await Liquidacion.findOne({ where: { localId: local.id, periodo } });
+  const periodo = await periodoAbierto(unidad.complejoId);
+  const liq = await Liquidacion.findOne({ where: { unidadId: unidad.id, periodo } });
   const expensas = liq ? liq.expensasCents : 0;
   const montoCents = Math.round(monto * 100);
   if (tipo === 'descuento' && montoCents > expensas) {
@@ -313,11 +313,11 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
   }
 
   // Un solo ajuste por local y período: si ya había, se reemplaza.
-  const previo = await AjusteExpensa.findOne({ where: { localId: local.id, periodo } });
+  const previo = await AjusteExpensa.findOne({ where: { unidadId: unidad.id, periodo } });
   const reemplazo = !!previo;
   if (previo) await previo.destroy();
   await AjusteExpensa.create({
-    localId: local.id,
+    unidadId: unidad.id,
     periodo,
     tipo,
     montoCents,
@@ -327,10 +327,10 @@ router.post('/locales/:numero/ajuste', wrap(async (req, res) => {
   res.json({ ok: true, reemplazo });
 }));
 
-router.delete('/locales/:numero/ajuste', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local) return error(res, 'No se encontró el local.', 404);
-  await AjusteExpensa.destroy({ where: { localId: local.id, periodo: await periodoAbierto(local.galeriaId) } });
+router.delete('/unidades/:numero/ajuste', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad) return error(res, 'No se encontró el local.', 404);
+  await AjusteExpensa.destroy({ where: { unidadId: unidad.id, periodo: await periodoAbierto(unidad.complejoId) } });
   res.json({ ok: true });
 }));
 
@@ -338,8 +338,8 @@ router.delete('/locales/:numero/ajuste', wrap(async (req, res) => {
 
 /** Las liquidaciones de un mes cerrado quedan congeladas: su deuda ya pasó al mes siguiente. */
 async function liquidacionCerrada(liq) {
-  const local = await Local.findByPk(liq.localId);
-  return !local || liq.periodo !== await periodoAbierto(local.galeriaId);
+  const unidad = await Unidad.findByPk(liq.unidadId);
+  return !unidad || liq.periodo !== await periodoAbierto(unidad.complejoId);
 }
 const MSG_LIQ_CERRADA = 'Ese mes ya está liquidado: lo impago pasó a la liquidación del mes siguiente.';
 
@@ -348,7 +348,7 @@ router.post('/liquidaciones/:id/aceptar', wrap(async (req, res) => {
   if (!liq) return error(res, 'No se encontró la liquidación.', 404);
   if (await liquidacionCerrada(liq)) return error(res, MSG_LIQ_CERRADA);
   const comp = comprobantePendiente(liq);
-  const ajuste = await AjusteExpensa.findOne({ where: { localId: liq.localId, periodo: liq.periodo } });
+  const ajuste = await AjusteExpensa.findOne({ where: { unidadId: liq.unidadId, periodo: liq.periodo } });
 
   liq.cobradoCents = totalConAjusteCents(liq, ajuste);
   liq.estado = 'cobrado';
@@ -401,18 +401,18 @@ router.post('/liquidaciones/:id/rechazar', wrap(async (req, res) => {
 async function avisarRechazo(req, liq, motivo) {
   if (!estaConfigurado()) return null;
 
-  const contrato = await Contrato.findByPk(liq.contratoId, { include: [Locatario, Local] });
+  const contrato = await Contrato.findByPk(liq.contratoId, { include: [Locatario, Unidad] });
   const locatario = contrato && contrato.Locatario;
   if (!locatario || !locatario.email) return null;
 
-  const galeria = await galeriaActual(req.galeriaId);
+  const complejo = await complejoActual(req.complejoId);
   enviarEnSegundoPlano({
     para: locatario.email,
     asunto: `Tu comprobante de ${periodoLabel(liq.periodo)} fue rechazado`,
     texto: [
       `Hola ${locatario.nombre},`,
       '',
-      `La administración de ${galeria.nombre} rechazó el comprobante que subiste para ${periodoLabel(liq.periodo)}.`,
+      `La administración de ${complejo.nombre} rechazó el comprobante que subiste para ${periodoLabel(liq.periodo)}.`,
       '',
       `Motivo: ${motivo}`,
       '',
@@ -425,9 +425,9 @@ async function avisarRechazo(req, liq, motivo) {
 /* ---------------- Contratos ---------------- */
 
 router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.body.localNumero);
-  if (!local) return error(res, 'Elegí el local del contrato.');
-  if (await tieneContratoVigente(local.id)) {
+  const unidad = await unidadPorNumero(req, req.body.unidadNumero);
+  if (!unidad) return error(res, 'Elegí el local del contrato.');
+  if (await tieneContratoVigente(unidad.id)) {
     return error(res, 'Ese local ya tiene un contrato vigente.');
   }
 
@@ -456,19 +456,19 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     email: locatario.email,
     nombre,
     rol: 'locatario',
-    galeriaId: local.galeriaId,
-    localId: local.id,
+    complejoId: unidad.complejoId,
+    unidadId: unidad.id,
   });
 
   const esPct = !locatarioEsDueno && req.body.modalidad === 'fijo_pct';
-  const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
-  const periodo = await periodoAbierto(local.galeriaId);
+  const config = await Configuracion.findOne({ where: { complejoId: unidad.complejoId } });
+  const periodo = await periodoAbierto(unidad.complejoId);
   const inicio = req.body.inicio || new Date().toISOString().slice(0, 10);
   // La primera actualización cae una frecuencia después del mes de inicio.
   const indice = (config && config.indice) || 'ICL (BCRA)';
   const proximaActualizacionPeriodo = sumarMeses(inicio.slice(0, 7), mesesDeFrecuencia(config && config.frecuencia));
   const contrato = await Contrato.create({
-    localId: local.id,
+    unidadId: unidad.id,
     locatarioId: locatario.id,
     rubro: String(req.body.rubro || '').trim(),
     modalidad: esPct ? 'fijo_pct' : 'fijo',
@@ -496,19 +496,19 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
    */
   if (locatarioEsDueno) {
     const [dueno] = await Dueno.findOrCreate({
-      where: { galeriaId: local.galeriaId, nombre },
+      where: { complejoId: unidad.complejoId, nombre },
       defaults: { email: locatario.email, telefono: locatario.telefono },
     });
     // Solo si el local estaba libre: si ya tenía dueño, se respeta el existente
     // y queda para que la administración lo corrija desde la sección Dueños.
-    if (!local.duenoId) await local.update({ duenoId: dueno.id });
+    if (!unidad.duenoId) await unidad.update({ duenoId: dueno.id });
   }
 
   // Liquidación del período en curso para que el local aparezca en cobranzas.
   // Lleva solo el alquiler: las expensas se cobran desde el primer cierre, cuando
   // hay gastos del mes para repartir.
   await Liquidacion.create({
-    localId: local.id,
+    unidadId: unidad.id,
     contratoId: contrato.id,
     periodo,
     alquilerFijoCents: fijoCents,
@@ -520,8 +520,8 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     fechaPago: 'Pendiente',
   });
 
-  const galeria = await Galeria.findByPk(local.galeriaId);
-  const avisoAcceso = await darAcceso(req, usuarioLocatario, galeria);
+  const complejo = await Complejo.findByPk(unidad.complejoId);
+  const avisoAcceso = await darAcceso(req, usuarioLocatario, complejo);
   res.json({ ok: true, contratoId: contrato.id, msg: avisoAcceso });
 }));
 
@@ -534,15 +534,15 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
  * Sirve igual para un contrato vencido: la renovación no mira la fecha de fin.
  */
 router.post('/contratos/:id/renovar', upload.single('pdf'), wrap(async (req, res) => {
-  const anterior = await Contrato.findByPk(req.params.id, { include: [Local] });
+  const anterior = await Contrato.findByPk(req.params.id, { include: [Unidad] });
   if (!anterior) return error(res, 'No se encontró el contrato.', 404);
   if (anterior.estado !== 'vigente') {
     return error(res, 'Ese contrato ya no está vigente. Registrá uno nuevo desde el formulario de alta.');
   }
 
-  const local = anterior.Local;
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria || local.galeriaId !== galeria.id) {
+  const unidad = anterior.Unidad;
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo || unidad.complejoId !== complejo.id) {
     return error(res, 'No se encontró el contrato.', 404);
   }
 
@@ -561,12 +561,12 @@ router.post('/contratos/:id/renovar', upload.single('pdf'), wrap(async (req, res
 
   const inicio = req.body.inicio || new Date().toISOString().slice(0, 10);
   const esPct = !esDueno && req.body.modalidad === 'fijo_pct';
-  const config = await Configuracion.findOne({ where: { galeriaId: local.galeriaId } });
+  const config = await Configuracion.findOne({ where: { complejoId: unidad.complejoId } });
   const indice = (config && config.indice) || anterior.indice;
   const proxima = sumarMeses(inicio.slice(0, 7), mesesDeFrecuencia(config && config.frecuencia));
 
   const nuevo = await Contrato.create({
-    localId: local.id,
+    unidadId: unidad.id,
     locatarioId: anterior.locatarioId,
     rubro: anterior.rubro,
     modalidad: esPct ? 'fijo_pct' : 'fijo',
@@ -637,15 +637,15 @@ router.post('/locatarios/:id/blanquear-clave', wrap(async (req, res) => {
   usuario.passwordHash = null;
   await usuario.save();
 
-  const galeria = await galeriaActual(req.galeriaId);
-  res.json({ ok: true, msg: await darAcceso(req, usuario, galeria) });
+  const complejo = await complejoActual(req.complejoId);
+  res.json({ ok: true, msg: await darAcceso(req, usuario, complejo) });
 }));
 
 /* ---------------- Configuración de la galería ---------------- */
 
 router.put('/config', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const complejo = await complejoActual(req.complejoId);
+  const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });
   if (!config) return error(res, 'No hay configuración cargada.', 404);
 
   const punitorio = Number(String(req.body.interesMora).replace(',', '.'));
@@ -714,7 +714,7 @@ router.get('/comprobantes/:id/archivo', wrap(async (req, res) => {
   if (!/^\d+$/.test(req.params.id)) return noEncontrado();
 
   const comp = await Comprobante.unscoped().findByPk(req.params.id, {
-    include: [{ model: Liquidacion, include: [Contrato, Local] }],
+    include: [{ model: Liquidacion, include: [Contrato, Unidad] }],
   });
   const liq = comp && comp.Liquidacion;
   if (!liq) return noEncontrado();
@@ -724,7 +724,7 @@ router.get('/comprobantes/:id/archivo', wrap(async (req, res) => {
     const propio = await locatarioDelUsuario(u);
     if (!propio || !liq.Contrato || liq.Contrato.locatarioId !== propio.locatario.id) return noEncontrado();
   } else if (u.rol === 'admin') {
-    if (!liq.Local || liq.Local.galeriaId !== req.galeriaId) return noEncontrado();
+    if (!liq.Unidad || liq.Unidad.complejoId !== req.complejoId) return noEncontrado();
   }
 
   if (!comp.datos) return error(res, 'Este comprobante no tiene archivo.', 404);
@@ -741,39 +741,39 @@ router.get('/comprobantes/:id/archivo', wrap(async (req, res) => {
 
 /* ---------------- Superadmin ---------------- */
 
-router.post('/galerias', wrap(async (req, res) => {
+router.post('/complejos', wrap(async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   if (!nombre) return error(res, 'Ingresá el nombre de la galería.');
-  const cantidad = Number(req.body.cantidadLocales || 0);
+  const cantidad = Number(req.body.cantidadUnidades || 0);
   if (!(cantidad > 0)) return error(res, 'La galería tiene que tener al menos un local.');
 
-  const galeria = await Galeria.create({
+  const complejo = await Complejo.create({
     nombre,
     direccion: String(req.body.direccion || '').trim(),
     dueno: String(req.body.dueno || '').trim(),
   });
-  await Configuracion.create({ galeriaId: galeria.id });
+  await Configuracion.create({ complejoId: complejo.id });
 
   // Se crean los locales numerados de una, como pedía el prototipo.
   for (let i = 1; i <= cantidad; i++) {
-    await Local.create({ galeriaId: galeria.id, numero: String(i).padStart(2, '0') });
+    await Unidad.create({ complejoId: complejo.id, numero: String(i).padStart(2, '0') });
   }
-  res.json({ ok: true, galeriaId: galeria.id });
+  res.json({ ok: true, complejoId: complejo.id });
 }));
 
-router.get('/galerias', wrap(async (req, res) => {
-  const galerias = await Galeria.findAll({
+router.get('/complejos', wrap(async (req, res) => {
+  const complejos = await Complejo.findAll({
     include: [Administrador],
     order: [['id', 'ASC']],
   });
   const out = [];
-  for (const g of galerias) {
+  for (const g of complejos) {
     out.push({
       id: g.id,
       nombre: g.nombre,
       dueno: g.dueno,
       activa: g.activa,
-      locales: await Local.count({ where: { galeriaId: g.id } }),
+      unidades: await Unidad.count({ where: { complejoId: g.id } }),
       admins: g.Administradors.map((a) => a.nombre),
     });
   }
@@ -785,13 +785,13 @@ router.post('/administradores', wrap(async (req, res) => {
   const email = String(req.body.email || '').trim();
   if (!nombre || !email) return error(res, 'Completá el nombre y el email del administrador.');
 
-  const galeria = await Galeria.findOne({ where: { nombre: req.body.galeria } });
-  if (!galeria) return error(res, 'Elegí una galería existente.');
+  const complejo = await Complejo.findOne({ where: { nombre: req.body.complejo } });
+  if (!complejo) return error(res, 'Elegí una galería existente.');
 
-  const usuario = await crearUsuarioSiNoExiste({ email, nombre, rol: 'admin', galeriaId: galeria.id });
+  const usuario = await crearUsuarioSiNoExiste({ email, nombre, rol: 'admin', complejoId: complejo.id });
   if (!usuario) return error(res, 'Ya existe un usuario con ese email.');
-  await Administrador.create({ nombre, email, galeriaId: galeria.id });
-  res.json({ ok: true, msg: await darAcceso(req, usuario, galeria) });
+  await Administrador.create({ nombre, email, complejoId: complejo.id });
+  res.json({ ok: true, msg: await darAcceso(req, usuario, complejo) });
 }));
 
 /* ---------------- Rendición al dueño ---------------- */
@@ -799,9 +799,9 @@ router.post('/administradores', wrap(async (req, res) => {
 /** Función liq -> total con el ajuste de su mes, con los ajustes traídos de una vez. */
 async function totalesConAjuste(liqs) {
   const ajustes = liqs.length
-    ? await AjusteExpensa.findAll({ where: { localId: [...new Set(liqs.map((l) => l.localId))] } })
+    ? await AjusteExpensa.findAll({ where: { unidadId: [...new Set(liqs.map((l) => l.unidadId))] } })
     : [];
-  return (liq) => totalConAjusteCents(liq, ajustes.find((a) => a.localId === liq.localId && a.periodo === liq.periodo));
+  return (liq) => totalConAjusteCents(liq, ajustes.find((a) => a.unidadId === liq.unidadId && a.periodo === liq.periodo));
 }
 
 /* ---------------- ABM de locales ---------------- */
@@ -816,33 +816,33 @@ function parseM2(raw) {
   return { m2: n };
 }
 
-router.post('/locales', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return error(res, 'No hay una galería seleccionada.');
+router.post('/unidades', wrap(async (req, res) => {
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return error(res, 'No hay una galería seleccionada.');
 
   const numero = String(req.body.numero || '').trim();
   if (!numero) return error(res, 'Ingresá el número del local.');
   if (numero.length > 10) return error(res, 'El número del local es demasiado largo.');
 
-  const repetido = await Local.count({ where: { galeriaId: galeria.id, numero } });
+  const repetido = await Unidad.count({ where: { complejoId: complejo.id, numero } });
   if (repetido) return error(res, `Ya existe el Local ${numero} en esta galería.`);
 
   const { m2, msg } = parseM2(req.body.m2);
   if (msg) return error(res, msg);
 
-  const local = await Local.create({ galeriaId: galeria.id, numero, superficieM2: m2 });
-  res.json({ ok: true, localId: local.id });
+  const unidad = await Unidad.create({ complejoId: complejo.id, numero, superficieM2: m2 });
+  res.json({ ok: true, unidadId: unidad.id });
 }));
 
-router.put('/locales/:numero', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local) return error(res, 'No se encontró el local.', 404);
+router.put('/unidades/:numero', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad) return error(res, 'No se encontró el local.', 404);
 
   const { m2, msg } = parseM2(req.body.m2);
   if (msg) return error(res, msg);
 
-  local.superficieM2 = m2;
-  await local.save();
+  unidad.superficieM2 = m2;
+  await unidad.save();
   res.json({ ok: true });
 }));
 
@@ -851,25 +851,25 @@ router.put('/locales/:numero', wrap(async (req, res) => {
  * contratos anteriores, se borra su historial junto con él (los cierres ya
  * guardan su propia foto de cada mes, así que no se tocan).
  */
-router.delete('/locales/:numero', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local) return error(res, 'No se encontró el local.', 404);
+router.delete('/unidades/:numero', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad) return error(res, 'No se encontró el local.', 404);
 
-  if (await tieneContratoVigente(local.id)) {
-    return error(res, `El Local ${local.numero} está ocupado. Dale de baja el contrato antes de borrarlo.`);
+  if (await tieneContratoVigente(unidad.id)) {
+    return error(res, `El Local ${unidad.numero} está ocupado. Dale de baja el contrato antes de borrarlo.`);
   }
 
   await sequelize.transaction(async (t) => {
-    const liqs = await Liquidacion.findAll({ where: { localId: local.id }, transaction: t });
+    const liqs = await Liquidacion.findAll({ where: { unidadId: unidad.id }, transaction: t });
     if (liqs.length) {
       await Comprobante.destroy({ where: { liquidacionId: liqs.map((l) => l.id) }, transaction: t });
-      await Liquidacion.destroy({ where: { localId: local.id }, transaction: t });
+      await Liquidacion.destroy({ where: { unidadId: unidad.id }, transaction: t });
     }
-    await AjusteExpensa.destroy({ where: { localId: local.id }, transaction: t });
-    await Contrato.destroy({ where: { localId: local.id }, transaction: t });
+    await AjusteExpensa.destroy({ where: { unidadId: unidad.id }, transaction: t });
+    await Contrato.destroy({ where: { unidadId: unidad.id }, transaction: t });
     // Los usuarios de inquilinos anteriores dejan de apuntar a un local que ya no existe.
-    await Usuario.update({ localId: null }, { where: { localId: local.id }, transaction: t });
-    await local.destroy({ transaction: t });
+    await Usuario.update({ unidadId: null }, { where: { unidadId: unidad.id }, transaction: t });
+    await unidad.destroy({ transaction: t });
   });
 
   res.json({ ok: true });
@@ -892,23 +892,23 @@ function datosDeDueno(body) {
 }
 
 /** Dueño de la galería en la que se está trabajando (null si es de otra). */
-async function duenoDeLaGaleria(req, id) {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return null;
-  return Dueno.findOne({ where: { id, galeriaId: galeria.id } });
+async function duenoDelComplejo(req, id) {
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return null;
+  return Dueno.findOne({ where: { id, complejoId: complejo.id } });
 }
 
 router.get('/duenos', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return res.json({ duenos: [], sinDueno: [] });
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return res.json({ duenos: [], sinDueno: [] });
 
   const duenos = await Dueno.findAll({
-    where: { galeriaId: galeria.id },
-    include: [{ model: Local, required: false }],
+    where: { complejoId: complejo.id },
+    include: [{ model: Unidad, required: false }],
     order: [['nombre', 'ASC']],
   });
-  const locales = await Local.findAll({
-    where: { galeriaId: galeria.id },
+  const unidades = await Unidad.findAll({
+    where: { complejoId: complejo.id },
     order: [['numero', 'ASC']],
   });
 
@@ -920,57 +920,57 @@ router.get('/duenos', wrap(async (req, res) => {
       email: d.email,
       telefono: d.telefono,
       contacto: d.contacto,
-      locales: (d.Locals || [])
+      unidades: (d.Unidades || [])
         .map(comoOpcion)
         .sort((a, b) => a.numero.localeCompare(b.numero)),
     })),
-    locales: locales.map(comoOpcion),
-    sinDueno: locales.filter((l) => !l.duenoId).map(comoOpcion),
+    unidades: unidades.map(comoOpcion),
+    sinDueno: unidades.filter((l) => !l.duenoId).map(comoOpcion),
   });
 }));
 
 router.post('/duenos', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return error(res, 'No hay una galería seleccionada.');
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return error(res, 'No hay una galería seleccionada.');
 
   const { datos, msg } = datosDeDueno(req.body);
   if (msg) return error(res, msg);
 
   // Se valida antes de crear: si los locales no sirven, no queda un dueño suelto.
-  const malos = await localesDeOtroDueno(galeria.id, null, req.body.locales);
+  const malos = await unidadesDeOtroDueno(complejo.id, null, req.body.unidades);
   if (malos) return error(res, malos);
 
-  const dueno = await Dueno.create({ ...datos, galeriaId: galeria.id });
-  await asignarLocales(galeria.id, dueno.id, req.body.locales);
+  const dueno = await Dueno.create({ ...datos, complejoId: complejo.id });
+  await asignarUnidades(complejo.id, dueno.id, req.body.unidades);
   res.json({ ok: true, duenoId: dueno.id });
 }));
 
 router.put('/duenos/:id', wrap(async (req, res) => {
-  const dueno = await duenoDeLaGaleria(req, req.params.id);
+  const dueno = await duenoDelComplejo(req, req.params.id);
   if (!dueno) return error(res, 'No se encontró el dueño.', 404);
 
   const { datos, msg } = datosDeDueno(req.body);
   if (msg) return error(res, msg);
 
-  const malos = await localesDeOtroDueno(dueno.galeriaId, dueno.id, req.body.locales);
+  const malos = await unidadesDeOtroDueno(dueno.complejoId, dueno.id, req.body.unidades);
   if (malos) return error(res, malos);
 
   await dueno.update(datos);
-  await asignarLocales(dueno.galeriaId, dueno.id, req.body.locales);
+  await asignarUnidades(dueno.complejoId, dueno.id, req.body.unidades);
   res.json({ ok: true });
 }));
 
 router.delete('/duenos/:id', wrap(async (req, res) => {
-  const dueno = await duenoDeLaGaleria(req, req.params.id);
+  const dueno = await duenoDelComplejo(req, req.params.id);
   if (!dueno) return error(res, 'No se encontró el dueño.', 404);
   // Los locales no se borran: quedan sin dueño asignado.
-  await Local.update({ duenoId: null }, { where: { duenoId: dueno.id } });
+  await Unidad.update({ duenoId: null }, { where: { duenoId: dueno.id } });
   await dueno.destroy();
   res.json({ ok: true });
 }));
 
 /** Normaliza el campo `locales` del cuerpo a una lista de ids. */
-function idsDeLocales(ids) {
+function idsDeUnidades(ids) {
   return (Array.isArray(ids) ? ids : [ids]).map(Number).filter((n) => !Number.isNaN(n));
 }
 
@@ -982,15 +982,15 @@ function idsDeLocales(ids) {
  * `duenoId` es el dueño que se está editando (sus propios locales son válidos);
  * en un alta va null.
  */
-async function localesDeOtroDueno(galeriaId, duenoId, ids) {
+async function unidadesDeOtroDueno(complejoId, duenoId, ids) {
   if (ids === undefined) return null;
-  const pedidos = idsDeLocales(ids);
+  const pedidos = idsDeUnidades(ids);
   if (!pedidos.length) return null;
 
-  const locales = await Local.findAll({ where: { galeriaId, id: pedidos } });
-  if (locales.length !== pedidos.length) return 'Alguno de los locales elegidos no es de esta galería.';
+  const unidades = await Unidad.findAll({ where: { complejoId, id: pedidos } });
+  if (unidades.length !== pedidos.length) return 'Alguno de los locales elegidos no es de esta galería.';
 
-  const ocupados = locales.filter((l) => l.duenoId && l.duenoId !== duenoId);
+  const ocupados = unidades.filter((l) => l.duenoId && l.duenoId !== duenoId);
   if (!ocupados.length) return null;
 
   const duenos = await Dueno.findAll({ where: { id: [...new Set(ocupados.map((l) => l.duenoId))] } });
@@ -1011,13 +1011,13 @@ async function localesDeOtroDueno(galeriaId, duenoId, ids) {
  * están quedan sin dueño. Se asume que `localesDeOtroDueno` ya validó que
  * ninguno pertenece a otro.
  */
-async function asignarLocales(galeriaId, duenoId, ids) {
+async function asignarUnidades(complejoId, duenoId, ids) {
   if (ids === undefined) return; // no vino el campo: no se toca la asignación
-  const pedidos = idsDeLocales(ids);
+  const pedidos = idsDeUnidades(ids);
 
-  await Local.update({ duenoId: null }, { where: { duenoId } });
+  await Unidad.update({ duenoId: null }, { where: { duenoId } });
   if (!pedidos.length) return;
-  await Local.update({ duenoId }, { where: { galeriaId, id: pedidos } });
+  await Unidad.update({ duenoId }, { where: { complejoId, id: pedidos } });
 }
 
 /*
@@ -1033,20 +1033,20 @@ async function asignarLocales(galeriaId, duenoId, ids) {
  * Devuelve { msg } si el dueño pedido no existe.
  */
 async function calcularRendicion(req, duenoIdRaw) {
-  const galeria = await galeriaActual(req.galeriaId);
-  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const complejo = await complejoActual(req.complejoId);
+  const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });
   const comisionPct = config ? Number(config.comisionAdmin) : 0;
-  const periodo = await periodoAbierto(galeria.id);
+  const periodo = await periodoAbierto(complejo.id);
 
   const duenoId = duenoIdRaw ? Number(duenoIdRaw) : null;
-  const dueno = duenoId ? await duenoDeLaGaleria(req, duenoId) : null;
+  const dueno = duenoId ? await duenoDelComplejo(req, duenoId) : null;
   if (duenoId && !dueno) return { msg: 'No se encontró el dueño.' };
 
-  const todos = await Local.findAll({ where: { galeriaId: galeria.id } });
-  const locales = dueno ? todos.filter((l) => l.duenoId === dueno.id) : todos;
+  const todos = await Unidad.findAll({ where: { complejoId: complejo.id } });
+  const unidades = dueno ? todos.filter((l) => l.duenoId === dueno.id) : todos;
 
-  const liqs = locales.length
-    ? await Liquidacion.findAll({ where: { localId: locales.map((l) => l.id), periodo } })
+  const liqs = unidades.length
+    ? await Liquidacion.findAll({ where: { unidadId: unidades.map((l) => l.id), periodo } })
     : [];
   const totalDe = await totalesConAjuste(liqs);
 
@@ -1068,25 +1068,25 @@ async function calcularRendicion(req, duenoIdRaw) {
     }
   }
 
-  const gastos = await Gasto.findAll({ where: { galeriaId: galeria.id, periodo } });
-  const gastosGaleria = gastos.reduce((acc, g) => acc + g.montoCents, 0);
+  const gastos = await Gasto.findAll({ where: { complejoId: complejo.id, periodo } });
+  const gastosComplejo = gastos.reduce((acc, g) => acc + g.montoCents, 0);
 
   // Al dueño le toca la porción de gastos que se le cobró a sus locales.
-  const pctDelDueno = locales.reduce((acc, l) => acc + Math.round(Number(l.expensasPct || 0) * 100), 0);
+  const pctDelDueno = unidades.reduce((acc, l) => acc + Math.round(Number(l.expensasPct || 0) * 100), 0);
   const gastosPagados = dueno
-    ? Math.round(gastosGaleria * pctDelDueno / 10000)
-    : gastosGaleria;
+    ? Math.round(gastosComplejo * pctDelDueno / 10000)
+    : gastosComplejo;
 
   const comision = Math.round(cobradoTotal * comisionPct / 100);
   const neto = alquileresCobrados + expensasCobradas - gastosPagados - comision;
 
   return {
-    galeria,
+    complejo,
     duenoRow: dueno,
     rendicion: {
       periodo,
       dueno: dueno ? { id: dueno.id, nombre: dueno.nombre, email: dueno.email } : null,
-      locales: locales.length,
+      unidades: unidades.length,
       pctGastos: dueno ? pctDelDueno / 100 : 100,
       alquileresCobrados,
       expensasCobradas,
@@ -1097,7 +1097,7 @@ async function calcularRendicion(req, duenoIdRaw) {
       facturado,
       cobrado: cobradoTotal,
       mora,
-      localesCobrados: liqs.filter((l) => l.cobradoCents >= totalDe(l) && totalDe(l) > 0).length,
+      unidadesCobradas: liqs.filter((l) => l.cobradoCents >= totalDe(l) && totalDe(l) > 0).length,
     },
   };
 }
@@ -1115,7 +1115,7 @@ router.get('/rendicion/pdf', wrap(async (req, res) => {
 
   const quien = r.rendicion.dueno ? r.rendicion.dueno.nombre : 'galeria';
   cabecerasPdf(res, `rendicion-${quien}-${r.rendicion.periodo}.pdf`);
-  pdfRendicion(r.rendicion, r.galeria).pipe(res);
+  pdfRendicion(r.rendicion, r.complejo).pipe(res);
 }));
 
 /** Manda la rendición al dueño por mail, con el PDF adjunto. */
@@ -1132,15 +1132,15 @@ router.post('/rendicion/enviar', wrap(async (req, res) => {
   }
 
   const mes = periodoLabel(r.rendicion.periodo);
-  const pdf = await pdfABuffer(pdfRendicion(r.rendicion, r.galeria));
+  const pdf = await pdfABuffer(pdfRendicion(r.rendicion, r.complejo));
 
   const envio = await enviarMail({
     para: r.rendicion.dueno.email,
-    asunto: `Rendición de cuentas ${mes} · ${r.galeria.nombre}`,
+    asunto: `Rendición de cuentas ${mes} · ${r.complejo.nombre}`,
     texto: [
       `Hola ${r.rendicion.dueno.nombre},`,
       '',
-      `Te adjuntamos la rendición de cuentas de ${mes} por tus locales en ${r.galeria.nombre}.`,
+      `Te adjuntamos la rendición de cuentas de ${mes} por tus locales en ${r.complejo.nombre}.`,
       `Neto a transferir: ${centsToMoney(r.rendicion.neto)}.`,
       '',
       'Saludos,',
@@ -1160,12 +1160,12 @@ router.post('/rendicion/enviar', wrap(async (req, res) => {
 /* ---------------- Historial de cierres ---------------- */
 
 router.get('/historial', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  const periodoActual = await periodoAbierto(galeria.id);
-  const locales = await Local.findAll({ where: { galeriaId: galeria.id } });
-  const liqs = await Liquidacion.findAll({ where: { localId: locales.map((l) => l.id) } });
+  const complejo = await complejoActual(req.complejoId);
+  const periodoActual = await periodoAbierto(complejo.id);
+  const unidades = await Unidad.findAll({ where: { complejoId: complejo.id } });
+  const liqs = await Liquidacion.findAll({ where: { unidadId: unidades.map((l) => l.id) } });
   const totalDe = await totalesConAjuste(liqs);
-  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
+  const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });
   const comisionPct = config ? Number(config.comisionAdmin) : 0;
 
   const porPeriodo = {};
@@ -1196,55 +1196,55 @@ router.get('/historial', wrap(async (req, res) => {
 /* ---------------- Estado de cuenta y cierre del mes ---------------- */
 
 router.get('/cuenta', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  if (!galeria) return error(res, 'No hay galería elegida.', 404);
-  res.json({ ok: true, ...(await cierre.resumenPeriodo(galeria.id)) });
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return error(res, 'No hay galería elegida.', 404);
+  res.json({ ok: true, ...(await cierre.resumenPeriodo(complejo.id)) });
 }));
 
 router.put('/cuenta/saldo-inicial', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
+  const complejo = await complejoActual(req.complejoId);
   const cents = parseMoneyCents(req.body.saldo);
   if (Number.isNaN(cents)) return error(res, 'Ingresá un saldo inicial válido.');
-  const r = await cierre.fijarSaldoInicial(galeria.id, cents);
+  const r = await cierre.fijarSaldoInicial(complejo.id, cents);
   if (!r.ok) return error(res, r.msg);
   res.json({ ok: true });
 }));
 
 /** Lo que se emitiría si se confirma ahora. No guarda nada. */
 router.post('/cierres/preview', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  const p = await cierre.previewCierre(galeria.id, req.body.aumentos);
+  const complejo = await complejoActual(req.complejoId);
+  const p = await cierre.previewCierre(complejo.id, req.body.aumentos);
   if (!p.ok) return error(res, p.msg);
   res.json(cierre.previewPublica(p));
 }));
 
 router.post('/cierres', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
-  const r = await cierre.cerrarMes(galeria.id, req.body.aumentos, req.body.periodo);
+  const complejo = await complejoActual(req.complejoId);
+  const r = await cierre.cerrarMes(complejo.id, req.body.aumentos, req.body.periodo);
   if (!r.ok) return error(res, r.msg);
   res.json(r);
 }));
 
 router.get('/cierres/:id/pdf', wrap(async (req, res) => {
-  const galeria = await galeriaActual(req.galeriaId);
+  const complejo = await complejoActual(req.complejoId);
   const c = /^\d+$/.test(req.params.id)
-    ? await CierreMes.findOne({ where: { id: req.params.id, galeriaId: galeria.id } })
+    ? await CierreMes.findOne({ where: { id: req.params.id, complejoId: complejo.id } })
     : null;
   if (!c) return error(res, 'No se encontró el cierre.', 404);
   cabecerasPdf(res, `liquidacion-expensas-${c.periodo}.pdf`);
-  pdfCierre(c, galeria).pipe(res);
+  pdfCierre(c, complejo).pipe(res);
 }));
 
 /** Cuenta corriente del contrato vigente del local. */
-router.get('/locales/:numero/cuenta-corriente', wrap(async (req, res) => {
-  const local = await localPorNumero(req, req.params.numero);
-  if (!local) return error(res, 'No se encontró el local.', 404);
-  const contrato = await Contrato.findOne({ where: { localId: local.id, estado: 'vigente' } });
+router.get('/unidades/:numero/cuenta-corriente', wrap(async (req, res) => {
+  const unidad = await unidadPorNumero(req, req.params.numero);
+  if (!unidad) return error(res, 'No se encontró el local.', 404);
+  const contrato = await Contrato.findOne({ where: { unidadId: unidad.id, estado: 'vigente' } });
   if (!contrato) return res.json({ ok: true, filas: [] });
 
   // Con los renovados hay que sumar los contratos anteriores de la cadena.
-  const delLocal = await Contrato.findAll({ where: { localId: local.id } });
-  const porId = new Map(delLocal.map((c) => [c.id, c]));
+  const deLaUnidad = await Contrato.findAll({ where: { unidadId: unidad.id } });
+  const porId = new Map(deLaUnidad.map((c) => [c.id, c]));
   const ids = [];
   let actual = contrato;
   while (actual && !ids.includes(actual.id)) {
@@ -1252,7 +1252,7 @@ router.get('/locales/:numero/cuenta-corriente', wrap(async (req, res) => {
     actual = actual.contratoAnteriorId ? porId.get(actual.contratoAnteriorId) : null;
   }
 
-  const filas = await cuentaCorriente({ contratoId: ids }, await periodoAbierto(local.galeriaId));
+  const filas = await cuentaCorriente({ contratoId: ids }, await periodoAbierto(unidad.complejoId));
   res.json({ ok: true, filas });
 }));
 
@@ -1265,25 +1265,25 @@ router.get('/liquidaciones/:id/pdf', wrap(async (req, res) => {
   if (!/^\d+$/.test(req.params.id)) return noEncontrada();
 
   const liq = await Liquidacion.findByPk(req.params.id, {
-    include: [{ model: Contrato, include: [Locatario] }, Local],
+    include: [{ model: Contrato, include: [Locatario] }, Unidad],
   });
-  if (!liq || !liq.Local) return noEncontrada();
+  if (!liq || !liq.Unidad) return noEncontrada();
 
   const u = req.usuario;
   if (u.rol === 'locatario') {
     const propio = await locatarioDelUsuario(u);
     if (!propio || !liq.Contrato || liq.Contrato.locatarioId !== propio.locatario.id) return noEncontrada();
   } else if (u.rol === 'admin') {
-    if (liq.Local.galeriaId !== req.galeriaId) return noEncontrada();
+    if (liq.Unidad.complejoId !== req.complejoId) return noEncontrada();
   }
 
-  const galeria = await Galeria.findByPk(liq.Local.galeriaId);
-  const config = await Configuracion.findOne({ where: { galeriaId: galeria.id } });
-  const ajuste = await AjusteExpensa.findOne({ where: { localId: liq.localId, periodo: liq.periodo } });
-  cabecerasPdf(res, `liquidacion-local-${liq.Local.numero}-${liq.periodo}.pdf`);
+  const complejo = await Complejo.findByPk(liq.Unidad.complejoId);
+  const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });
+  const ajuste = await AjusteExpensa.findOne({ where: { unidadId: liq.unidadId, periodo: liq.periodo } });
+  cabecerasPdf(res, `liquidacion-local-${liq.Unidad.numero}-${liq.periodo}.pdf`);
   pdfLiquidacion({
-    liq, ajuste, local: liq.Local, locatario: liq.Contrato && liq.Contrato.Locatario,
-    contrato: liq.Contrato, galeria, config,
+    liq, ajuste, unidad: liq.Unidad, locatario: liq.Contrato && liq.Contrato.Locatario,
+    contrato: liq.Contrato, complejo, config,
   }).pipe(res);
 }));
 

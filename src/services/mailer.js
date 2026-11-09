@@ -191,13 +191,13 @@ function enviarEnSegundoPlano(datos) {
  * Mail de bienvenida: le avisa al usuario que tiene acceso y le pasa el link
  * donde define su contraseña la primera vez.
  */
-async function enviarAcceso({ usuario, galeria, link }) {
-  const nombreGaleria = galeria ? galeria.nombre : 'la galería';
+async function enviarAcceso({ usuario, complejo, link }) {
+  const nombreComplejo = complejo ? complejo.nombre : 'la galería';
   const esLocatario = usuario.rol === 'locatario';
 
   const presentacion = esLocatario
-    ? `El administrador de ${nombreGaleria} te da acceso para que puedas ver la información de tu local.`
-    : `Te dieron acceso para administrar ${nombreGaleria} en Galex.`;
+    ? `El administrador de ${nombreComplejo} te da acceso para que puedas ver la información de tu local.`
+    : `Te dieron acceso para administrar ${nombreComplejo} en Galex.`;
 
   const texto = [
     `Hola${usuario.nombre ? ' ' + usuario.nombre : ''},`,
@@ -219,7 +219,7 @@ async function enviarAcceso({ usuario, galeria, link }) {
 
   return enviarMail({
     para: usuario.email,
-    asunto: `Tu acceso a Galex · ${nombreGaleria}`,
+    asunto: `Tu acceso a Galex · ${nombreComplejo}`,
     texto,
     html,
   });

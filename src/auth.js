@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Usuario, Galeria } = require('./models');
+const { Usuario, Complejo } = require('./models');
 
 const PASSWORD_INICIAL = '1234';
 const MIN_PASSWORD = 6;
@@ -81,13 +81,13 @@ function requiereLogin(req, res, next) {
 
 /**
  * Galería sobre la que trabaja el usuario:
- *  - superadmin: la del selector (cookie galeriaId), puede cambiarla.
+ *  - superadmin: la del selector (cookie complejoId), puede cambiarla.
  *  - admin y locatario: la suya, siempre.
  */
-function galeriaDelUsuario(req) {
+function complejoDelUsuario(req) {
   if (!req.usuario) return null;
-  if (req.usuario.rol === 'superadmin') return req.galeriaCookie;
-  return req.usuario.galeriaId;
+  if (req.usuario.rol === 'superadmin') return req.complejoCookie;
+  return req.usuario.complejoId;
 }
 
 /* ---------------- Rutas: /login y /logout ---------------- */
@@ -132,10 +132,10 @@ router.post('/logout', (req, res) => {
 router.get('/acceso/:token', async (req, res, next) => {
   try {
     const usuario = await usuarioPorToken(req.params.token);
-    if (!usuario) return res.status(404).render('acceso', { usuario: null, galeria: null, token: null, error: null });
+    if (!usuario) return res.status(404).render('acceso', { usuario: null, complejo: null, token: null, error: null });
 
-    const galeria = usuario.galeriaId ? await Galeria.findByPk(usuario.galeriaId) : null;
-    res.render('acceso', { usuario, galeria, token: req.params.token, error: null });
+    const complejo = usuario.complejoId ? await Complejo.findByPk(usuario.complejoId) : null;
+    res.render('acceso', { usuario, complejo, token: req.params.token, error: null });
   } catch (e) {
     next(e);
   }
@@ -144,10 +144,10 @@ router.get('/acceso/:token', async (req, res, next) => {
 router.post('/acceso/:token', async (req, res, next) => {
   try {
     const usuario = await usuarioPorToken(req.params.token);
-    if (!usuario) return res.status(404).render('acceso', { usuario: null, galeria: null, token: null, error: null });
+    if (!usuario) return res.status(404).render('acceso', { usuario: null, complejo: null, token: null, error: null });
 
-    const galeria = usuario.galeriaId ? await Galeria.findByPk(usuario.galeriaId) : null;
-    const fallar = (error) => res.status(400).render('acceso', { usuario, galeria, token: req.params.token, error });
+    const complejo = usuario.complejoId ? await Complejo.findByPk(usuario.complejoId) : null;
+    const fallar = (error) => res.status(400).render('acceso', { usuario, complejo, token: req.params.token, error });
 
     const password = String(req.body.password || '');
     if (password.length < MIN_PASSWORD) {
@@ -171,7 +171,7 @@ router.post('/acceso/:token', async (req, res, next) => {
 });
 
 module.exports = {
-  sesion, cargarUsuario, requiereLogin, galeriaDelUsuario,
+  sesion, cargarUsuario, requiereLogin, complejoDelUsuario,
   router, hashear, PASSWORD_INICIAL,
   generarLinkDeAcceso, baseUrl, MIN_PASSWORD,
 };

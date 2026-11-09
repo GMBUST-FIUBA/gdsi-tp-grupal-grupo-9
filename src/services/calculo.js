@@ -165,8 +165,8 @@ function calcularLiquidacion({
 
   // Expensas: la parte del local en los gastos del mes que se cierra.
   const tienePct = expensasPct !== null && expensasPct !== undefined;
-  const gastosDelLocal = gastosQueLeTocan(gastos, esDueno);
-  const reparto = repartirGastos(gastosDelLocal, tienePct ? expensasPct : 0);
+  const gastosDeLaUnidad = gastosQueLeTocan(gastos, esDueno);
+  const reparto = repartirGastos(gastosDeLaUnidad, tienePct ? expensasPct : 0);
 
   // Deuda de meses anteriores, mes por mes, con su punitorio.
   const deudas = calcularDeudas(anterior, periodoNuevo, tasaPunitorioPct);
@@ -193,7 +193,7 @@ function calcularLiquidacion({
         pct: tienePct ? Number(expensasPct) : null,
         // Solo extraordinarios cuando el locatario es el dueño.
         soloExtraordinarios: esDueno,
-        gastosTotalCents: gastosDelLocal.reduce((acc, g) => acc + g.montoCents, 0),
+        gastosTotalCents: gastosDeLaUnidad.reduce((acc, g) => acc + g.montoCents, 0),
         totalCents: reparto.totalCents,
         gastos: reparto.items,
       },

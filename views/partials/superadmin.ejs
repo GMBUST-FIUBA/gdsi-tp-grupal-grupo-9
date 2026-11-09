@@ -17,7 +17,7 @@
           <div class="field"><label for="sg-dueno">Dueño</label><input id="sg-dueno" placeholder="Nombre del propietario"></div>
         </div>
         <div class="note late" id="sg-err" hidden></div>
-        <div class="form-actions"><button class="btn btn-primary" onclick="crearGaleria()">Crear galería con sus locales</button></div>
+        <div class="form-actions"><button class="btn btn-primary" onclick="crearComplejo()">Crear galería con sus locales</button></div>
       </div>
     </section>
 
@@ -29,7 +29,7 @@
           <div class="field full"><label for="sa-mail">Email de acceso</label><input id="sa-mail" type="email" placeholder="admin@correo.com"></div>
           <div class="field full"><label for="sa-gal">Galería asignada</label>
             <select id="sa-gal">
-              <% galerias.forEach(function (g) { %>
+              <% complejos.forEach(function (g) { %>
                 <option><%= g.nombre %></option>
               <% }); %>
             </select></div>
@@ -40,14 +40,14 @@
     </section>
   </div>
 
-  <div class="section-title"><h2>Galerías en el sistema</h2><span class="st-sub"><%= galerias.filter(function (g) { return g.activa; }).length %> activas</span></div>
+  <div class="section-title"><h2>Galerías en el sistema</h2><span class="st-sub"><%= complejos.filter(function (g) { return g.activa; }).length %> activas</span></div>
   <section class="panel"><div class="panel-body"><div class="sa-list" id="sa-list">
-    <% galerias.forEach(function (g) { %>
+    <% complejos.forEach(function (g) { %>
       <div class="sa-item">
         <div class="si">🏬</div>
         <div>
           <div class="sname"><%= g.nombre %></div>
-          <div class="ssub"><%= g.locales %> locales · Admin: <%= g.admins.length ? g.admins.join(', ') : 'sin asignar' %> · Dueño: <%= g.dueno || '—' %></div>
+          <div class="ssub"><%= g.unidades %> locales · Admin: <%= g.admins.length ? g.admins.join(', ') : 'sin asignar' %> · Dueño: <%= g.dueno || '—' %></div>
         </div>
         <span class="st-tag cerrado"><%= g.activa ? 'Activa' : 'Inactiva' %></span>
       </div>

@@ -23,14 +23,14 @@
       <div class="plaque">GX</div>
       <div>
         <div class="brand-name">Galex</div>
-        <% if (usuario.rol === 'superadmin' && galerias.length) { %>
-          <select class="brand-select" id="galeria-sel" aria-label="Galería que se administra" onchange="cambiarGaleria(this.value)">
-            <% galerias.forEach(function (g) { %>
-              <option value="<%= g.id %>"<%= estado.galeria && estado.galeria.id === g.id ? ' selected' : '' %>><%= g.nombre %></option>
+        <% if (usuario.rol === 'superadmin' && complejos.length) { %>
+          <select class="brand-select" id="galeria-sel" aria-label="Galería que se administra" onchange="cambiarComplejo(this.value)">
+            <% complejos.forEach(function (g) { %>
+              <option value="<%= g.id %>"<%= estado.complejo && estado.complejo.id === g.id ? ' selected' : '' %>><%= g.nombre %></option>
             <% }); %>
           </select>
-        <% } else if (estado.galeria) { %>
-          <div class="brand-sub"><%= estado.galeria.nombre %></div>
+        <% } else if (estado.complejo) { %>
+          <div class="brand-sub"><%= estado.complejo.nombre %></div>
         <% } else { %>
           <div class="brand-sub">Sin galerías cargadas</div>
         <% } %>
@@ -45,8 +45,9 @@
       </div>
     <% } %>
 
-    <% if (usuario.rol !== 'locatario') { %>
-      <div class="bell-wrap" id="bell-wrap"<%= usuario.rol === 'superadmin' ? ' style="display:none"' : '' %>>
+    <%# El superadmin no tiene bandeja propia: entra a administrar un complejo. %>
+    <% if (usuario.rol !== 'superadmin') { %>
+      <div class="bell-wrap" id="bell-wrap">
         <button class="bell" id="bell" aria-label="Notificaciones" aria-haspopup="true" onclick="toggleNotif()">
           🔔<span class="badge" id="bell-badge">0</span>
         </button>
@@ -95,6 +96,7 @@
 <script src="/js/ui/modal.js"></script>
 <script src="/js/ui/toast.js"></script>
 <script src="/js/ui/nav.js"></script>
+<script src="/js/ui/notificaciones.js"></script>
 <script src="/js/data/api.js"></script>
 <script src="/js/data/estado.js"></script>
 <script src="/js/chat/chat.js"></script>
@@ -113,7 +115,7 @@
 <script src="/js/admin/duenos.js"></script>
 <script src="/js/admin/rendicion.js"></script>
 <script src="/js/admin/cuenta.js"></script>
-<script src="/js/admin/notifications.js"></script>
+
 <script src="/js/admin/mensajes.js"></script>
 <script src="/js/superadmin/superadmin.js"></script>
 <script src="/js/tenant/tenant.js"></script>

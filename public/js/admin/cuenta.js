@@ -99,7 +99,7 @@ async function renderCuenta() {
   // Desglose de ingresos
   document.getElementById('cta-ing-body').innerHTML = r.ingresos.items.length
     ? `<table class="data"><tbody>${r.ingresos.items.map((i) => `
-        <tr><td>Local ${escaparHTML(i.localNumero)}</td><td>${escaparHTML(i.locatario)}</td><td class="r mono">${centsToMoney(i.montoCents)}</td></tr>`).join('')}
+        <tr><td>Unidad ${escaparHTML(i.unidadNumero)}</td><td>${escaparHTML(i.locatario)}</td><td class="r mono">${centsToMoney(i.montoCents)}</td></tr>`).join('')}
        </tbody></table>
        <div class="rend" style="margin-top:10px"><div class="line net"><div class="lbl">Total de ingresos</div><div class="val">${centsToMoney(r.ingresos.totalCents)}</div></div></div>`
     : '<div class="empty">Todavía no se aceptó ningún pago este mes.</div>';
@@ -244,7 +244,7 @@ function renderAumentosPedidos(r) {
   const box = document.getElementById('liq-aumentos');
   if (!r.aumentos.length) { box.innerHTML = ''; return; }
   // No se pisa el campo que se está editando: solo se dibuja la primera vez o si cambian los índices.
-  const clave = r.aumentos.map((a) => a.indice + ':' + a.locales.join(',')).join('|');
+  const clave = r.aumentos.map((a) => a.indice + ':' + a.unidades.join(',')).join('|');
   if (box.dataset.clave === clave) return;
   box.dataset.clave = clave;
   box.innerHTML = `
@@ -254,7 +254,7 @@ function renderAumentosPedidos(r) {
       <div class="field"><label for="liq-aum-${i}">Variación ${escaparHTML(a.indice)}</label>
         <div class="suffix-wrap"><input id="liq-aum-${i}" inputmode="decimal" placeholder="0,00" value="${escaparHTML(liqAumentos[a.indice] || '')}"
           data-indice="${escaparHTML(a.indice)}" oninput="cambiarAumento(this.dataset.indice, this.value)"><span class="sfx">%</span></div>
-        <span class="hint">Locales ${a.locales.join(', ')}</span></div>`).join('')}
+        <span class="hint">Unidades ${a.unidades.join(', ')}</span></div>`).join('')}
     </div>`;
 }
 
@@ -307,7 +307,7 @@ function estadoCuentaTag(f) {
 
 async function verCuentaCorriente(i) {
   const u = units[i];
-  const r = await apiLeer(`/api/locales/${u.n}/cuenta-corriente`);
+  const r = await apiLeer(`/api/unidades/${u.n}/cuenta-corriente`);
   if (!r || r.ok === false) return toast('No se pudo leer la cuenta corriente');
   openModal(`Cuenta corriente — Local ${u.n} · ${u.loc}`, tablaCuentaCorriente(r.filas),
     [{ label: 'Cerrar', cls: 'btn-ghost', fn: closeModal }], { ancho: true });

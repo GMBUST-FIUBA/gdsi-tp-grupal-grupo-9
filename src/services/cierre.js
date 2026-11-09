@@ -7,7 +7,7 @@
  * Las cuentas están en ./calculo.js; acá solo se leen y se guardan los datos.
  */
 const {
-  sequelize, Local, Contrato, Locatario, Liquidacion, AjusteExpensa,
+  sequelize, Unidad, Contrato, Locatario, Liquidacion, AjusteExpensa,
   Configuracion, Gasto, Proveedor, CierreMes,
 } = require('../models');
 const {
@@ -16,7 +16,7 @@ const {
 const {
   resumenCuenta, calcularLiquidacion, seActualiza, montoDelMesCents, totalConAjusteCents,
 } = require('./calculo');
-const { contratoVigente } = require('./galeria');
+const { contratoVigente } = require('./complejo');
 
 function fmtPct(n) {
   return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
@@ -35,27 +35,27 @@ function fotoGasto(g) {
 }
 
 /** El saldo con el que arrancó el mes abierto: el final del último cierre o el inicial. */
-async function saldoAnteriorDe(galeriaId, config) {
-  const ultimo = await CierreMes.findOne({ where: { galeriaId }, order: [['periodo', 'DESC']] });
+async function saldoAnteriorDe(complejoId, config) {
+  const ultimo = await CierreMes.findOne({ where: { complejoId }, order: [['periodo', 'DESC']] });
   if (ultimo) return ultimo.saldoFinalCents;
   return config ? config.saldoInicialCents : 0;
 }
 
 /** Gastos, ingresos y saldo anterior del mes abierto. */
-async function datosDelPeriodo(galeriaId) {
-  const config = await Configuracion.findOne({ where: { galeriaId } });
+async function datosDelPeriodo(complejoId) {
+  const config = await Configuracion.findOne({ where: { complejoId } });
   const periodo = (config && config.periodoActual) || PERIODO_INICIAL;
 
   const gastos = await Gasto.findAll({
-    where: { galeriaId, periodo },
+    where: { complejoId, periodo },
     include: [Proveedor],
     order: [['id', 'ASC']],
   });
 
   // Ingresos: lo cobrado de las liquidaciones del mes (pagos aceptados).
-  const locales = await Local.findAll({ where: { galeriaId }, attributes: ['id', 'numero'] });
+  const unidades = await Unidad.findAll({ where: { complejoId }, attributes: ['id', 'numero'] });
   const liqs = await Liquidacion.findAll({
-    where: { periodo, localId: locales.map((l) => l.id) },
+    where: { periodo, unidadId: unidades.map((l) => l.id) },
     include: [{ model: Contrato, include: [Locatario] }],
     order: [['id', 'ASC']],
   });
@@ -63,11 +63,11 @@ async function datosDelPeriodo(galeriaId) {
     .filter((l) => l.cobradoCents > 0)
     .map((l) => ({
       liquidacionId: l.id,
-      localNumero: (locales.find((x) => x.id === l.localId) || {}).numero,
+      unidadNumero: (unidades.find((x) => x.id === l.unidadId) || {}).numero,
       locatario: l.Contrato && l.Contrato.Locatario ? l.Contrato.Locatario.nombre : '—',
       montoCents: l.cobradoCents,
     }))
-    .sort((a, b) => String(a.localNumero).localeCompare(String(b.localNumero)));
+    .sort((a, b) => String(a.unidadNumero).localeCompare(String(b.unidadNumero)));
 
   return {
     config,
@@ -75,15 +75,15 @@ async function datosDelPeriodo(galeriaId) {
     gastos: gastos.map(fotoGasto),
     ingresos,
     liqs,
-    saldoAnteriorCents: await saldoAnteriorDe(galeriaId, config),
+    saldoAnteriorCents: await saldoAnteriorDe(complejoId, config),
   };
 }
 
 /** Lo que muestra la pestaña Estado de cuenta. */
-async function resumenPeriodo(galeriaId) {
-  const d = await datosDelPeriodo(galeriaId);
+async function resumenPeriodo(complejoId) {
+  const d = await datosDelPeriodo(complejoId);
   const cierres = await CierreMes.findAll({
-    where: { galeriaId },
+    where: { complejoId },
     attributes: ['id', 'periodo', 'saldoAnteriorCents', 'gastosOrdinariosCents', 'gastosExtraordinariosCents', 'ingresosCents', 'saldoFinalCents', 'fechaCierre'],
     order: [['periodo', 'DESC']],
   });
@@ -122,8 +122,8 @@ function normalizarAumentos(raw) {
  * Ids del contrato y de los que lo precedieron por renovación, siguiendo
  * `contratoAnteriorId` hacia atrás.
  */
-function idsDeLaCadena(local, contrato) {
-  const porId = new Map((local.Contratos || []).map((c) => [c.id, c]));
+function idsDeLaCadena(unidad, contrato) {
+  const porId = new Map((unidad.Contratos || []).map((c) => [c.id, c]));
   const ids = new Set();
   let actual = contrato;
   while (actual && !ids.has(actual.id)) {
@@ -133,16 +133,16 @@ function idsDeLaCadena(local, contrato) {
   return ids;
 }
 
-async function previewCierre(galeriaId, aumentosRaw) {
+async function previewCierre(complejoId, aumentosRaw) {
   const { aumentos, error } = normalizarAumentos(aumentosRaw);
   if (error) return { ok: false, msg: error };
 
-  const d = await datosDelPeriodo(galeriaId);
+  const d = await datosDelPeriodo(complejoId);
   const periodoNuevo = sumarMeses(d.periodo, 1);
   const resumen = resumenCuenta(d);
 
-  const locales = await Local.findAll({
-    where: { galeriaId },
+  const unidades = await Unidad.findAll({
+    where: { complejoId },
     order: [['numero', 'ASC']],
     include: [
       { model: Contrato, required: false, include: [{ model: Locatario, required: false }] },
@@ -152,8 +152,8 @@ async function previewCierre(galeriaId, aumentosRaw) {
 
   const filas = [];
   const porIndice = {}; // { 'ICL (BCRA)': ['02', '04'] }
-  for (const local of locales) {
-    const contrato = contratoVigente(local);
+  for (const unidad of unidades) {
+    const contrato = contratoVigente(unidad);
     if (!contrato) continue;
 
     /*
@@ -162,9 +162,9 @@ async function previewCierre(galeriaId, aumentosRaw) {
      * pierda la deuda; comparar contra todos los contratos del local no sirve,
      * porque la deuda del inquilino anterior no es del nuevo.
      */
-    const cadena = idsDeLaCadena(local, contrato);
-    const liq = d.liqs.find((l) => l.localId === local.id && cadena.has(l.contratoId)) || null;
-    const ajuste = (local.AjusteExpensas || [])[0] || null;
+    const cadena = idsDeLaCadena(unidad, contrato);
+    const liq = d.liqs.find((l) => l.unidadId === unidad.id && cadena.has(l.contratoId)) || null;
+    const ajuste = (unidad.AjusteExpensas || [])[0] || null;
     const anterior = liq && {
       periodo: liq.periodo,
       montoDelMesCents: montoDelMesCents(liq, ajuste),
@@ -173,14 +173,14 @@ async function previewCierre(galeriaId, aumentosRaw) {
     };
 
     if (seActualiza(contrato, periodoNuevo)) {
-      (porIndice[contrato.indice] = porIndice[contrato.indice] || []).push(local.numero);
+      (porIndice[contrato.indice] = porIndice[contrato.indice] || []).push(unidad.numero);
     }
 
     const calc = calcularLiquidacion({
       contrato,
       anterior,
       gastos: d.gastos,
-      expensasPct: local.expensasPct === null || local.expensasPct === undefined ? null : Number(local.expensasPct),
+      expensasPct: unidad.expensasPct === null || unidad.expensasPct === undefined ? null : Number(unidad.expensasPct),
       tasaPunitorioPct: d.config ? Number(d.config.interesMoraDiario) : 0,
       aumentosPorIndice: aumentos,
       frecuencia: d.config ? d.config.frecuencia : 'Trimestral',
@@ -190,8 +190,8 @@ async function previewCierre(galeriaId, aumentosRaw) {
     calc.detalle.periodoGastos = d.periodo;
 
     filas.push({
-      localId: local.id,
-      numero: local.numero,
+      unidadId: unidad.id,
+      numero: unidad.numero,
       locatario: contrato.Locatario ? contrato.Locatario.nombre : '—',
       contratoId: contrato.id,
       ...calc,
@@ -200,7 +200,7 @@ async function previewCierre(galeriaId, aumentosRaw) {
 
   const aumentosPedidos = Object.keys(porIndice).sort().map((indice) => ({
     indice,
-    locales: porIndice[indice],
+    unidades: porIndice[indice],
     pct: aumentos[indice] === undefined ? null : aumentos[indice],
   }));
 
@@ -221,7 +221,7 @@ async function previewCierre(galeriaId, aumentosRaw) {
 
   const sinPct = filas.filter((f) => f.detalle.expensas.pct === null).map((f) => f.numero);
   if (sinPct.length && resumen.gastos.totalCents > 0) {
-    avisos.push(`${sinPct.length === 1 ? 'El local' : 'Los locales'} ${sinPct.join(', ')} no ${sinPct.length === 1 ? 'tiene' : 'tienen'} % de expensas asignado: no ${sinPct.length === 1 ? 'paga' : 'pagan'} expensas este mes.`);
+    avisos.push(`${sinPct.length === 1 ? 'El unidad' : 'Los unidades'} ${sinPct.join(', ')} no ${sinPct.length === 1 ? 'tiene' : 'tienen'} % de expensas asignado: no ${sinPct.length === 1 ? 'paga' : 'pagan'} expensas este mes.`);
   }
   const sumaPct = filas.reduce((acc, f) => acc + Math.round((f.detalle.expensas.pct || 0) * 100), 0) / 100;
   const repartido = filas.reduce((acc, f) => acc + f.expensasCents, 0);
@@ -259,8 +259,8 @@ function previewPublica(p) {
  * `periodoEsperado` es el mes que el admin vio en la vista previa: si ya no es
  * el abierto (otro pedido lo cerró), no se cierra el siguiente por accidente.
  */
-async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
-  const p = await previewCierre(galeriaId, aumentosRaw);
+async function cerrarMes(complejoId, aumentosRaw, periodoEsperado) {
+  const p = await previewCierre(complejoId, aumentosRaw);
   if (!p.ok) return p;
   if (periodoEsperado !== p.periodo) {
     return { ok: false, msg: `${periodoLabel(periodoEsperado || p.periodo)} ya está liquidado. Recargá la página.` };
@@ -271,7 +271,7 @@ async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
   try {
     const cierre = await sequelize.transaction(async (transaction) => {
       // Si mientras tanto alguien cerró el mes, no se cierra dos veces.
-      const config = await Configuracion.findOne({ where: { galeriaId }, transaction });
+      const config = await Configuracion.findOne({ where: { complejoId }, transaction });
       if (config && config.periodoActual !== p.periodo) {
         throw new ErrorCierre('Este mes ya se liquidó. Recargá la página.');
       }
@@ -286,7 +286,7 @@ async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
       }));
 
       const creado = await CierreMes.create({
-        galeriaId,
+        complejoId,
         periodo: p.periodo,
         saldoAnteriorCents: p.resumen.saldoAnteriorCents,
         gastosOrdinariosCents: p.resumen.gastos.ordinarios.totalCents,
@@ -320,7 +320,7 @@ async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
         }
         const mesesAdeudados = f.detalle.deudas.length;
         await Liquidacion.create({
-          localId: f.localId,
+          unidadId: f.unidadId,
           contratoId: f.contratoId,
           periodo: p.periodoNuevo,
           alquilerFijoCents: f.alquilerFijoCents,
@@ -339,7 +339,7 @@ async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
 
       await Configuracion.update(
         { periodoActual: p.periodoNuevo },
-        { where: { galeriaId }, transaction },
+        { where: { complejoId }, transaction },
       );
       return creado;
     });
@@ -356,16 +356,16 @@ async function cerrarMes(galeriaId, aumentosRaw, periodoEsperado) {
 class ErrorCierre extends Error {}
 
 /** ¿El período de esta liquidación/gasto sigue abierto? */
-async function esPeriodoAbierto(galeriaId, periodo) {
-  const config = await Configuracion.findOne({ where: { galeriaId } });
+async function esPeriodoAbierto(complejoId, periodo) {
+  const config = await Configuracion.findOne({ where: { complejoId } });
   return ((config && config.periodoActual) || PERIODO_INICIAL) === periodo;
 }
 
 /** El saldo inicial de la cuenta solo se puede cambiar antes del primer cierre. */
-async function fijarSaldoInicial(galeriaId, cents) {
-  const hayCierres = await CierreMes.count({ where: { galeriaId } });
+async function fijarSaldoInicial(complejoId, cents) {
+  const hayCierres = await CierreMes.count({ where: { complejoId } });
   if (hayCierres) return { ok: false, msg: 'El saldo inicial solo se puede cambiar antes del primer cierre.' };
-  await Configuracion.update({ saldoInicialCents: cents }, { where: { galeriaId } });
+  await Configuracion.update({ saldoInicialCents: cents }, { where: { complejoId } });
   return { ok: true };
 }
 

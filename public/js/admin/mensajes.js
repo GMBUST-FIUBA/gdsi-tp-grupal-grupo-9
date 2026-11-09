@@ -32,7 +32,7 @@ function renderListaChats() {
     return `
       <button class="chat-item${activo ? ' activo' : ''}${c.noLeidos ? ' no-leido' : ''}" onclick="abrirChat(${c.id})">
         <div class="ci-top"><span class="ci-nombre">${escaparHTML(c.locatario)}</span><span class="ci-fecha">${fechaMensaje(c.fecha)}</span></div>
-        <div class="ci-local">${c.local ? 'Local ' + escaparHTML(c.local) : 'Sin contrato vigente'}</div>
+        <div class="ci-local">${c.unidad ? 'Unidad ' + escaparHTML(c.unidad) : 'Sin contrato vigente'}</div>
         <div class="ci-bottom"><span class="ci-ultimo">${ultimo}</span>${badge}</div>
       </button>`;
   }).join('');
@@ -44,7 +44,7 @@ async function abrirChat(id) {
 
   const c = chatsAdmin.find((x) => x.id === id);
   document.getElementById('chat-titulo').textContent = c ? c.locatario : 'Conversación';
-  document.getElementById('chat-sub').textContent = c && c.local ? 'Local ' + c.local : '';
+  document.getElementById('chat-sub').textContent = c && c.unidad ? 'Local ' + c.unidad : '';
   abrirHilo(id, 'admin', r.mensajes, r.leidoHasta);
   mostrarError('chat-err', null);
   document.getElementById('chat-form').hidden = false;
@@ -60,7 +60,7 @@ function nuevoChat() {
   openModal('Nuevo chat',
     `<div class="field"><label for="nc-loc">Locatario</label>
        <select id="nc-loc">${conContrato.map((u) =>
-         `<option value="${u.locatarioId}">Local ${escaparHTML(u.n)} · ${escaparHTML(u.loc)}</option>`).join('')}
+         `<option value="${u.locatarioId}">Unidad ${escaparHTML(u.n)} · ${escaparHTML(u.loc)}</option>`).join('')}
        </select>
        <span class="hint">Si ya tenés un chat con ese locatario, se abre el mismo.</span></div>
      <div class="note late" id="nc-err" hidden></div>`,

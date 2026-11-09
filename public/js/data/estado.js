@@ -10,8 +10,8 @@ let gastos = [];
 let proveedores = [];
 let ajustesExpensas = {};   // { '04': {tipo, montoCents, motivo} }
 let expensasPct = {};       // { '04': 12.5 }
-let configGaleria = null;
-let galeriaActual = null;
+let configComplejo = null;
+let complejoActual = null;
 let periodoActual = window.__PERIODO__ || null;
 
 let selectedIdx = null;
@@ -27,8 +27,8 @@ function aplicarEstado(e) {
   proveedores = e.proveedores || [];
   ajustesExpensas = e.ajustes || {};
   expensasPct = e.porcentajes || {};
-  configGaleria = e.config || null;
-  galeriaActual = e.galeria || null;
+  configComplejo = e.config || null;
+  complejoActual = e.complejo || null;
   if (e.periodo) periodoActual = e.periodo;
 }
 
@@ -55,12 +55,12 @@ function renderTodo() {
     refreshNotif();
     fillProveedorSelect();
     renderGastos();
-    renderLocales();
+    renderUnidades();
     fillConfigUnidades();
     renderConfig();
     fillAjusteUnidades();
     renderAjustes();
-    fillLocalesLibres();
+    fillUnidadesLibres();
     renderContratos();
     cargarDuenos();
     renderHistorial();

@@ -56,7 +56,7 @@ async function setAjusteExpensas() {
   const v = validarAjusteExpensas(n, tipo, monto);
   if (!v.ok) return mostrarError('aj-err', v.msg);
 
-  const r = await apiEnviar('POST', `/api/locales/${n}/ajuste`, {
+  const r = await apiEnviar('POST', `/api/unidades/${n}/ajuste`, {
     tipo,
     monto,
     motivo: document.getElementById('aj-motivo').value.trim(),
@@ -94,7 +94,7 @@ function confirmQuitarAjuste(n) {
 }
 
 async function quitarAjuste(n) {
-  const r = await apiEnviar('DELETE', `/api/locales/${n}/ajuste`);
+  const r = await apiEnviar('DELETE', `/api/unidades/${n}/ajuste`);
   closeModal();
   if (!r.ok) return toast(r.msg);
   await recargarEstado();

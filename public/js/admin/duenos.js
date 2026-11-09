@@ -6,7 +6,7 @@
  */
 
 let duenos = [];
-let localesDeGaleria = [];   // { id, numero, duenoId } de todos los locales
+let unidadesDelComplejo = [];   // { id, numero, duenoId } de todos los locales
 let duenoElegido = '';       // id del dueño del selector, '' = toda la galería
 let editandoDueno = false;   // ¿el panel de datos está en modo edición?
 
@@ -15,7 +15,7 @@ async function cargarDuenos() {
   const r = await apiLeer('/api/duenos');
   if (!r || !Array.isArray(r.duenos)) return;
   duenos = r.duenos;
-  localesDeGaleria = r.locales || [];
+  unidadesDelComplejo = r.unidades || [];
 
   // Si al dueño elegido lo borraron, volvemos a la galería completa.
   if (duenoElegido && !duenoActual()) duenoElegido = '';
@@ -25,7 +25,7 @@ async function cargarDuenos() {
   renderDatosDueno();
   renderRendicion();
   // La lista de locales muestra el nombre del dueño: se redibuja cuando llegan.
-  renderLocales();
+  renderUnidades();
 }
 
 function duenoActual() {
@@ -44,7 +44,7 @@ function fillSelectorDuenos() {
   if (!sel) return;
   sel.innerHTML = '<option value="">Toda la galería</option>'
     + duenos.map((d) => {
-      const cuantos = d.locales.length;
+      const cuantos = d.unidades.length;
       return `<option value="${d.id}">${escaparHTML(d.nombre)} · ${cuantos} local${cuantos === 1 ? '' : 'es'}</option>`;
     }).join('');
   sel.value = duenoElegido;
@@ -61,10 +61,10 @@ function seleccionarDueno(id) {
 function renderSinDueno() {
   const box = document.getElementById('du-sin-dueno');
   if (!box) return;
-  const sueltos = localesDeGaleria.filter((l) => !l.duenoId);
+  const sueltos = unidadesDelComplejo.filter((l) => !l.duenoId);
   box.hidden = !sueltos.length;
   if (sueltos.length) {
-    box.textContent = `Sin dueño asignado: ${sueltos.map((l) => 'Local ' + l.numero).join(', ')}.`;
+    box.textContent = `Sin dueño asignado: ${sueltos.map((l) => 'Unidad ' + l.numero).join(', ')}.`;
   }
 }
 
@@ -82,8 +82,8 @@ function renderDatosDueno() {
   if (!d) return;
 
   document.getElementById('du-datos-nombre').textContent = d.nombre;
-  document.getElementById('du-datos-sub').textContent = d.locales.length
-    ? `${d.locales.length} local${d.locales.length === 1 ? '' : 'es'}`
+  document.getElementById('du-datos-sub').textContent = d.unidades.length
+    ? `${d.unidades.length} local${d.unidades.length === 1 ? '' : 'es'}`
     : 'Sin locales asignados';
 
   const fila = (rotulo, valor) => `<dt>${rotulo}</dt><dd>${valor ? escaparHTML(valor) : '—'}</dd>`;
@@ -92,7 +92,7 @@ function renderDatosDueno() {
     + fila('Email', d.email)
     + fila('Teléfono', d.telefono)
     + fila('Contacto', d.contacto)
-    + fila('Locales', d.locales.map((l) => 'Local ' + l.numero).join(', '));
+    + fila('Unidades', d.unidades.map((l) => 'Local ' + l.numero).join(', '));
 }
 
 function habilitarEdicionDueno() {
@@ -103,7 +103,7 @@ function habilitarEdicionDueno() {
   document.getElementById('du-email').value = d.email || '';
   document.getElementById('du-tel').value = d.telefono || '';
   document.getElementById('du-contacto').value = d.contacto || '';
-  renderCheckLocales('du-locales', d.id);
+  renderCheckUnidades('du-locales', d.id);
   mostrarError('du-err', null);
   document.getElementById('du-ver').hidden = true;
   document.getElementById('du-editar').hidden = false;
@@ -134,7 +134,7 @@ async function guardarDueno() {
     email: document.getElementById('du-email').value,
     telefono: document.getElementById('du-tel').value,
     contacto: document.getElementById('du-contacto').value,
-    locales: localesMarcados('du-locales'),
+    unidades: unidadesMarcadas('du-locales'),
   });
   if (!r.ok) return mostrarError('du-err', r.msg);
 
@@ -147,8 +147,8 @@ async function guardarDueno() {
 function confirmBorrarDueno() {
   const d = duenoActual();
   if (!d) return;
-  const aviso = d.locales.length
-    ? ` Sus ${d.locales.length} local(es) quedan sin dueño asignado.`
+  const aviso = d.unidades.length
+    ? ` Sus ${d.unidades.length} local(es) quedan sin dueño asignado.`
     : '';
   openModal('Borrar dueño',
     `<p style="margin:0">Vas a borrar a <strong>${escaparHTML(d.nombre)}</strong>.${aviso} Esta acción no se puede deshacer.</p>`,
@@ -173,7 +173,7 @@ function abrirAltaDueno() {
   ['na-nombre', 'na-email', 'na-tel', 'na-contacto'].forEach((id) => {
     document.getElementById(id).value = '';
   });
-  renderCheckLocales('na-locales', null);
+  renderCheckUnidades('na-locales', null);
   mostrarError('na-err', null);
   document.getElementById('du-alta').hidden = false;
   document.getElementById('du-nuevo-btn').hidden = true;
@@ -195,7 +195,7 @@ async function crearDueno() {
     email: document.getElementById('na-email').value,
     telefono: document.getElementById('na-tel').value,
     contacto: document.getElementById('na-contacto').value,
-    locales: localesMarcados('na-locales'),
+    unidades: unidadesMarcadas('na-locales'),
   });
   if (!r.ok) return mostrarError('na-err', r.msg);
 
@@ -214,15 +214,15 @@ async function crearDueno() {
  * libres (y los que ya son de este dueño): los de otro aparecen deshabilitados
  * con el nombre de su dueño, y para pasarlos hay que liberarlos desde su ficha.
  */
-function renderCheckLocales(boxId, duenoId) {
+function renderCheckUnidades(boxId, duenoId) {
   const box = document.getElementById(boxId);
   if (!box) return;
-  if (!localesDeGaleria.length) {
+  if (!unidadesDelComplejo.length) {
     box.innerHTML = '<div class="empty">La galería todavía no tiene locales.</div>';
     return;
   }
 
-  const html = localesDeGaleria.map((l) => {
+  const html = unidadesDelComplejo.map((l) => {
     const propio = duenoId !== null && l.duenoId === duenoId;
     const otro = l.duenoId && !propio ? nombreDeDueno(l.duenoId) : null;
     return `
@@ -232,14 +232,14 @@ function renderCheckLocales(boxId, duenoId) {
       </label>`;
   }).join('');
 
-  const libres = localesDeGaleria.filter((l) => !l.duenoId).length;
+  const libres = unidadesDelComplejo.filter((l) => !l.duenoId).length;
   const aviso = libres
     ? ''
     : '<div class="empty">Todos los locales ya tienen dueño.</div>';
   box.innerHTML = html + aviso;
 }
 
-function localesMarcados(boxId) {
+function unidadesMarcadas(boxId) {
   return [...document.querySelectorAll(`#${boxId} input[type=checkbox]:checked`)]
     .map((c) => Number(c.value));
 }

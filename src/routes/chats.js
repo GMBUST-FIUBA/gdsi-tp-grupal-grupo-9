@@ -3,9 +3,9 @@ const express = require('express');
 const { Op } = require('sequelize');
 
 const {
-  Galeria, Local, Locatario, Contrato, Usuario, Chat, Mensaje,
+  Complejo, Unidad, Locatario, Contrato, Usuario, Chat, Mensaje,
 } = require('../models');
-const { galeriaActual, locatarioDelUsuario } = require('../services/galeria');
+const { complejoActual, locatarioDelUsuario } = require('../services/complejo');
 
 /*
  * Chat entre la administración de la galería y cada locatario. Va en un router
@@ -77,10 +77,10 @@ async function marcarLeido(chat, lado, hastaId) {
  * tiene, no ve nada (galeriaActual() caería en la primera de la base). El
  * superadmin usa la del selector, como en el resto de la app.
  */
-async function galeriaDeLaAdministracion(req) {
-  if (req.usuario.rol === 'superadmin') return galeriaActual(req.galeriaId);
-  if (!req.galeriaId) return null;
-  return Galeria.findByPk(req.galeriaId);
+async function complejoDeLaAdministracion(req) {
+  if (req.usuario.rol === 'superadmin') return complejoActual(req.complejoId);
+  if (!req.complejoId) return null;
+  return Complejo.findByPk(req.complejoId);
 }
 
 /** Chat del pedido (:id) si el usuario tiene acceso; si no, responde el error y devuelve null. */
@@ -94,13 +94,13 @@ async function chatAccesible(req, res) {
 
   let permitido = false;
   if (chat && esAdministracion(req.usuario)) {
-    const galeria = await galeriaDeLaAdministracion(req);
-    permitido = !!galeria && chat.galeriaId === galeria.id;
+    const complejo = await complejoDeLaAdministracion(req);
+    permitido = !!complejo && chat.complejoId === complejo.id;
   } else if (chat) {
     const propio = await locatarioDelUsuario(req.usuario);
     permitido = !!propio
       && chat.locatarioId === propio.locatario.id
-      && chat.galeriaId === propio.contrato.Local.galeriaId;
+      && chat.complejoId === propio.contrato.Unidad.complejoId;
   }
 
   // Mismo error si no existe o es ajeno, para no revelar qué ids existen.
@@ -178,15 +178,82 @@ function soloLocatario(req, res, next) {
 /* ---------------- Administración ---------------- */
 
 /** Chats de la galería, con el último mensaje; los más recientes primero. */
+/*
+ * Cuántos mensajes sin leer tiene el usuario. Lo consulta la campanita cada
+ * tanto desde cualquier sección, así que devuelve lo mínimo: un total y, para
+ * la administración, el desglose por chat para armar la lista del desplegable.
+ */
+router.get('/no-leidos', wrap(async (req, res) => {
+  if (esAdministracion(req.usuario)) {
+    const complejo = await complejoDeLaAdministracion(req);
+    if (!complejo) return res.json({ ok: true, total: 0, chats: [] });
+
+    const chats = await Chat.findAll({
+      where: { complejoId: complejo.id },
+      include: [{ model: Locatario, attributes: ['id', 'nombre'] }],
+    });
+
+    const conPendientes = [];
+    let total = 0;
+    for (const chat of chats) {
+      const noLeidos = await Mensaje.count({
+        where: { chatId: chat.id, autorRol: 'locatario', id: { [Op.gt]: chat.leidoAdminHasta } },
+      });
+      if (!noLeidos) continue;
+      total += noLeidos;
+      const ultimo = await Mensaje.findOne({
+        where: { chatId: chat.id, autorRol: 'locatario' },
+        order: [['id', 'DESC']],
+      });
+      conPendientes.push({
+        chatId: chat.id,
+        locatario: chat.Locatario ? chat.Locatario.nombre : 'Locatario',
+        noLeidos,
+        ultimo: ultimo ? ultimo.texto.slice(0, 80) : '',
+        fecha: ultimo ? ultimo.createdAt : chat.updatedAt,
+      });
+    }
+    conPendientes.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    return res.json({ ok: true, total, chats: conPendientes });
+  }
+
+  // Locatario: solo su propio chat.
+  const propio = await locatarioDelUsuario(req.usuario);
+  if (!propio) return res.json({ ok: true, total: 0, chats: [] });
+
+  const chat = await Chat.findOne({
+    where: { complejoId: propio.contrato.Unidad.complejoId, locatarioId: propio.locatario.id },
+  });
+  if (!chat) return res.json({ ok: true, total: 0, chats: [] });
+
+  const total = await Mensaje.count({
+    where: { chatId: chat.id, autorRol: 'admin', id: { [Op.gt]: chat.leidoLocatarioHasta } },
+  });
+  const ultimo = total
+    ? await Mensaje.findOne({ where: { chatId: chat.id, autorRol: 'admin' }, order: [['id', 'DESC']] })
+    : null;
+  res.json({
+    ok: true,
+    total,
+    chats: total ? [{
+      chatId: chat.id,
+      locatario: 'La administración',
+      noLeidos: total,
+      ultimo: ultimo ? ultimo.texto.slice(0, 80) : '',
+      fecha: ultimo ? ultimo.createdAt : chat.updatedAt,
+    }] : [],
+  });
+}));
+
 router.get('/', soloAdministracion, wrap(async (req, res) => {
-  const galeria = await galeriaDeLaAdministracion(req);
-  if (!galeria) return error(res, 'No tenés una galería asignada.', 403);
+  const complejo = await complejoDeLaAdministracion(req);
+  if (!complejo) return error(res, 'No tenés una galería asignada.', 403);
 
   const chats = await Chat.findAll({
-    where: { galeriaId: galeria.id },
+    where: { complejoId: complejo.id },
     include: [{
       model: Locatario,
-      include: [{ model: Contrato, required: false, where: { estado: 'vigente' }, include: [Local] }],
+      include: [{ model: Contrato, required: false, where: { estado: 'vigente' }, include: [Unidad] }],
     }],
   });
 
@@ -201,7 +268,7 @@ router.get('/', soloAdministracion, wrap(async (req, res) => {
       id: chat.id,
       locatarioId: chat.locatarioId,
       locatario: chat.Locatario ? chat.Locatario.nombre : 'Locatario',
-      local: contrato && contrato.Local ? contrato.Local.numero : null,
+      unidad: contrato && contrato.Unidad ? contrato.Unidad.numero : null,
       noLeidos,
       ultimo: ultimo && {
         id: ultimo.id,
@@ -219,19 +286,19 @@ router.get('/', soloAdministracion, wrap(async (req, res) => {
 
 /** Abre el chat con un locatario de la galería. Si ya existía, devuelve el mismo. */
 router.post('/', soloAdministracion, wrap(async (req, res) => {
-  const galeria = await galeriaDeLaAdministracion(req);
-  if (!galeria) return error(res, 'No tenés una galería asignada.', 403);
+  const complejo = await complejoDeLaAdministracion(req);
+  if (!complejo) return error(res, 'No tenés una galería asignada.', 403);
 
   const locatarioId = entero(req.body.locatarioId);
   if (!locatarioId) return error(res, 'Elegí el locatario con el que querés hablar.');
 
   const contrato = await Contrato.findOne({
     where: { locatarioId, estado: 'vigente' },
-    include: [{ model: Local, where: { galeriaId: galeria.id } }],
+    include: [{ model: Unidad, where: { complejoId: complejo.id } }],
   });
   if (!contrato) return error(res, 'Elegí un locatario con contrato vigente en esta galería.');
 
-  const [chat] = await Chat.findOrCreate({ where: { galeriaId: galeria.id, locatarioId } });
+  const [chat] = await Chat.findOrCreate({ where: { complejoId: complejo.id, locatarioId } });
   res.json({ ok: true, chat: { id: chat.id } });
 }));
 
@@ -243,7 +310,7 @@ router.get('/mio', soloLocatario, wrap(async (req, res) => {
   if (!propio) return error(res, 'No tenés un contrato vigente.', 403);
 
   const chat = await Chat.findOne({
-    where: { galeriaId: propio.contrato.Local.galeriaId, locatarioId: propio.locatario.id },
+    where: { complejoId: propio.contrato.Unidad.complejoId, locatarioId: propio.locatario.id },
   });
   if (!chat) return res.json({ ok: true, chat: null, mensajes: [], leidoHasta: 0 });
 
@@ -261,7 +328,7 @@ router.post('/mio', soloLocatario, wrap(async (req, res) => {
   if (!propio) return error(res, 'No tenés un contrato vigente.', 403);
 
   const [chat] = await Chat.findOrCreate({
-    where: { galeriaId: propio.contrato.Local.galeriaId, locatarioId: propio.locatario.id },
+    where: { complejoId: propio.contrato.Unidad.complejoId, locatarioId: propio.locatario.id },
   });
   res.json({
     ok: true,

@@ -4,13 +4,14 @@
  * Se ejecuta solo si la base está vacía (o con `npm run seed -- --force`).
  */
 const {
-  sequelize, Galeria, Administrador, Usuario, Dueno, Local, Locatario, Contrato,
+  sequelize, Complejo, Administrador, Usuario, Dueno, Unidad, Locatario, Contrato,
   Liquidacion, Comprobante, Proveedor, Gasto, Configuracion, Chat, Mensaje,
 } = require('./models');
 const { PERIODO_INICIAL, periodoDeTexto } = require('./services/formato');
 
 const PERIODO_ACTUAL = PERIODO_INICIAL;
 const { hashear, PASSWORD_INICIAL } = require('./auth');
+const { seedRubros } = require('./seed-rubros');
 
 // Locales cuyos locatarios tienen usuario de acceso (mail del locatario, clave 1234).
 const LOCALES_CON_ACCESO = ['04', '10', '11'];
@@ -62,35 +63,37 @@ const GASTOS = [
 const pesos = (n) => Math.round(Number(n) * 100);
 
 async function seed() {
-  const galeria = await Galeria.create({
+  const complejo = await Complejo.create({
     nombre: 'Galería Belgrano',
     direccion: 'Av. Cabildo 2200, CABA',
     dueno: 'J. Belgrano',
   });
 
-  await Configuracion.create({ galeriaId: galeria.id, expensasBaseCents: pesos(EXPENSAS_BASE) });
+  await Configuracion.create({ complejoId: complejo.id, expensasBaseCents: pesos(EXPENSAS_BASE) });
 
   await Administrador.create({
     nombre: 'Estudio Ríos',
     email: 'admin@galex.com',
-    galeriaId: galeria.id,
+    complejoId: complejo.id,
   });
 
   // Usuarios de acceso. Todos arrancan con la misma contraseña inicial.
   const clave = hashear(PASSWORD_INICIAL);
   await Usuario.create({ email: 'super@galex.com', nombre: 'Superadmin', rol: 'superadmin', passwordHash: clave });
-  const admin = await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
+  const admin = await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', complejoId: complejo.id, passwordHash: clave });
 
   // Las otras galerías que listaba el panel de superadmin (todavía sin locales).
   // Cada una necesita su configuración: el selector del panel permite entrar a
   // administrarlas y sin config se rompen la rendición y los parámetros.
   for (const otra of [
-    { nombre: 'Galería Centro', direccion: 'Rivadavia 4500, CABA', dueno: 'Centro SA' },
-    { nombre: 'Complejo Norte (oficinas)', direccion: 'Panamericana km 30', dueno: 'NorteInmuebles' },
+    { nombre: 'Galería Centro', direccion: 'Rivadavia 4500, CABA', dueno: 'Centro SA', tipo: 'galeria' },
   ]) {
-    const g = await Galeria.create(otra);
-    await Configuracion.create({ galeriaId: g.id, expensasBaseCents: pesos(EXPENSAS_BASE) });
+    const g = await Complejo.create(otra);
+    await Configuracion.create({ complejoId: g.id, expensasBaseCents: pesos(EXPENSAS_BASE) });
   }
+
+  // Los otros dos rubros, con datos completos para poder probarlos.
+  await seedRubros(clave);
 
   const proveedores = {};
   for (const nombre of PROVEEDORES) {
@@ -99,7 +102,7 @@ async function seed() {
 
   for (const g of GASTOS) {
     await Gasto.create({
-      galeriaId: galeria.id,
+      complejoId: complejo.id,
       tipo: g.tipo,
       proveedorId: proveedores[g.proveedor].id,
       facturaTipo: g.facturaTipo,
@@ -118,21 +121,21 @@ async function seed() {
   const DUENOS = [
     { nombre: 'Jorge Belgrano', email: 'jorge.belgrano@correo.com', telefono: '+54 11 4777-1000',
       contacto: 'Av. Cabildo 2200, CABA',
-      locales: ['01', '02', '03', '04', '05', '06', '07', '08'] },
+      unidades: ['01', '02', '03', '04', '05', '06', '07', '08'] },
     { nombre: 'Marta Duarte', email: 'marta.duarte@correo.com', telefono: '+54 11 4777-2000',
       contacto: 'Mendoza 1540, CABA',
-      locales: ['09', '10', '11', '12', '13', '14', '15'] },
+      unidades: ['09', '10', '11', '12', '13', '14', '15'] },
     { nombre: 'Ricardo Sosa', email: 'empanadas@correo.com', telefono: '+54 11 4001-0016',
       contacto: 'Ocupa su propio local (16)',
-      locales: ['16', '17', '18', '19', '20', '21', '22'] },
+      unidades: ['16', '17', '18', '19', '20', '21', '22'] },
   ];
-  const duenoPorLocal = {};   // '04' -> instancia de Dueno
+  const duenoPorUnidad = {};   // '04' -> instancia de Dueno
   for (const d of DUENOS) {
     const dueno = await Dueno.create({
-      galeriaId: galeria.id, nombre: d.nombre, email: d.email,
+      complejoId: complejo.id, nombre: d.nombre, email: d.email,
       telefono: d.telefono, contacto: d.contacto,
     });
-    d.locales.forEach((n) => { duenoPorLocal[n] = dueno; });
+    d.unidades.forEach((n) => { duenoPorUnidad[n] = dueno; });
   }
 
   // El locatario del 16 es el dueño del local: solo paga expensas.
@@ -141,19 +144,19 @@ async function seed() {
   let chatDeEjemplo = null; // { locatario, usuario } del LOCAL_CON_CHAT
 
   for (const d of LOCALES) {
-    const local = await Local.create({
-      galeriaId: galeria.id,
+    const unidad = await Unidad.create({
+      complejoId: complejo.id,
       numero: d.n,
       superficieM2: 38,
       expensasPct: pctExpensas(d),
-      duenoId: duenoPorLocal[d.n] ? duenoPorLocal[d.n].id : null,
+      duenoId: duenoPorUnidad[d.n] ? duenoPorUnidad[d.n].id : null,
     });
 
     if (d.libre) {
       // Los locales que quedaron libres por una baja conservan el contrato anterior.
       if (d.bajaEl) {
         await Contrato.create({
-          localId: local.id,
+          unidadId: unidad.id,
           rubro: '—',
           alquilerFijoCents: 0,
           estado: 'baja',
@@ -169,7 +172,7 @@ async function seed() {
     if (LOCALES_CON_ACCESO.includes(d.n)) {
       const usuario = await Usuario.create({
         email: d.mail, nombre: d.loc, rol: 'locatario',
-        galeriaId: galeria.id, localId: local.id, passwordHash: clave,
+        complejoId: complejo.id, unidadId: unidad.id, passwordHash: clave,
       });
       if (d.n === LOCAL_CON_CHAT) chatDeEjemplo = { locatario, usuario };
     }
@@ -182,7 +185,7 @@ async function seed() {
     const variable = esDueno ? 0 : pesos(d.tot) - fijo - exp - mora;
 
     const contrato = await Contrato.create({
-      localId: local.id,
+      unidadId: unidad.id,
       locatarioId: locatario.id,
       rubro: d.rubro,
       modalidad: !esDueno && d.pct > 0 ? 'fijo_pct' : 'fijo',
@@ -199,7 +202,7 @@ async function seed() {
     });
 
     const liq = await Liquidacion.create({
-      localId: local.id,
+      unidadId: unidad.id,
       contratoId: contrato.id,
       periodo: PERIODO_ACTUAL,
       alquilerFijoCents: fijo,
@@ -224,7 +227,7 @@ async function seed() {
   }
 
   if (chatDeEjemplo) {
-    const chat = await Chat.create({ galeriaId: galeria.id, locatarioId: chatDeEjemplo.locatario.id });
+    const chat = await Chat.create({ complejoId: complejo.id, locatarioId: chatDeEjemplo.locatario.id });
     const consulta = await Mensaje.create({
       chatId: chat.id, autorId: chatDeEjemplo.usuario.id, autorRol: 'locatario',
       texto: 'Hola, ya subí el comprobante de agosto. ¿Me confirman cuando lo revisen?',
@@ -252,23 +255,23 @@ async function seed() {
 async function seedUsuariosSiFaltan() {
   if ((await Usuario.count()) > 0) return false;
 
-  const galeria = await Galeria.findOne({ order: [['id', 'ASC']] });
-  if (!galeria) return false;
+  const complejo = await Complejo.findOne({ order: [['id', 'ASC']] });
+  if (!complejo) return false;
 
   const clave = hashear(PASSWORD_INICIAL);
   await Usuario.create({ email: 'super@galex.com', nombre: 'Superadmin', rol: 'superadmin', passwordHash: clave });
-  await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', galeriaId: galeria.id, passwordHash: clave });
+  await Usuario.create({ email: 'admin@galex.com', nombre: 'Estudio Ríos', rol: 'admin', complejoId: complejo.id, passwordHash: clave });
 
-  const locales = await Local.findAll({
-    where: { galeriaId: galeria.id, numero: LOCALES_CON_ACCESO },
+  const unidades = await Unidad.findAll({
+    where: { complejoId: complejo.id, numero: LOCALES_CON_ACCESO },
     include: [{ model: Contrato, where: { estado: 'vigente' }, include: [Locatario] }],
   });
-  for (const local of locales) {
-    const locatario = local.Contratos[0] && local.Contratos[0].Locatario;
+  for (const unidad of unidades) {
+    const locatario = unidad.Contratos[0] && unidad.Contratos[0].Locatario;
     if (!locatario || !locatario.email) continue;
     await Usuario.create({
       email: locatario.email, nombre: locatario.nombre, rol: 'locatario',
-      galeriaId: galeria.id, localId: local.id, passwordHash: clave,
+      complejoId: complejo.id, unidadId: unidad.id, passwordHash: clave,
     });
   }
   console.log('Usuarios de acceso creados sobre la base existente.');
@@ -283,7 +286,7 @@ async function seedUsuariosSiFaltan() {
 async function completarCierreSiFalta() {
   const gastos = await Gasto.findAll({ where: { periodo: null } });
   for (const g of gastos) {
-    const config = await Configuracion.findOne({ where: { galeriaId: g.galeriaId } });
+    const config = await Configuracion.findOne({ where: { complejoId: g.complejoId } });
     g.periodo = (config && config.periodoActual) || PERIODO_INICIAL;
     await g.save();
   }
@@ -301,7 +304,7 @@ async function completarCierreSiFalta() {
 
 /** Corre el seed solo si no hay galerías cargadas; si hay, completa lo que falte. */
 async function seedSiHaceFalta() {
-  const n = await Galeria.count();
+  const n = await Complejo.count();
   if (n === 0) {
     await seed();
     return true;

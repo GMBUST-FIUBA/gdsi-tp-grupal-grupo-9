@@ -56,7 +56,7 @@ async function setPorcentajeExpensa() {
   const v = validarPorcentajeExpensa(n, pct);
   if (!v.ok) return mostrarError('cf-err', v.msg);
 
-  const r = await apiEnviar('POST', `/api/locales/${n}/porcentaje`, { pct });
+  const r = await apiEnviar('POST', `/api/unidades/${n}/porcentaje`, { pct });
   if (!r.ok) return mostrarError('cf-err', r.msg);
 
   mostrarError('cf-err', null);

@@ -2,7 +2,7 @@
 function renderCobranzas(){
   const box = document.getElementById('cobr-rows');
   const pend = units.filter(u=>u.st==='late'||u.st==='warn');
-  const dia = String((configGaleria && configGaleria.diaVencimiento) || 10).padStart(2,'0');
+  const dia = String((configComplejo && configComplejo.diaVencimiento) || 10).padStart(2,'0');
   const mes = String(periodoActual || '').split('-')[1] || '';
   if(!pend.length){ box.innerHTML = '<div class="empty">Sin cobranzas pendientes este mes.</div>'; return; }
   box.innerHTML = pend.map(u=>{

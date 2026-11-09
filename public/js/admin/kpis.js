@@ -7,7 +7,7 @@ function renderKpis() {
   let facturado = 0;
   let cobrado = 0;
   let mora = 0;
-  let localesEnMora = 0;
+  let unidadesEnMora = 0;
 
   ocupados.forEach((u) => {
     const total = totalEfectivoCents(u);
@@ -15,7 +15,7 @@ function renderKpis() {
     cobrado += u.cobCents;
     if (u.cobCents < total) {
       mora += total - u.cobCents;
-      if (u.st === 'late') localesEnMora++;
+      if (u.st === 'late') unidadesEnMora++;
     }
   });
 
@@ -30,5 +30,5 @@ function renderKpis() {
   document.getElementById('kpi-cob-foot').textContent = `${pctCobrado}% del total`;
   document.getElementById('kpi-mora').textContent = centsToMoney(mora);
   document.getElementById('kpi-mora-foot').textContent =
-    localesEnMora === 1 ? '1 local con atraso' : `${localesEnMora} locales con atraso`;
+    unidadesEnMora === 1 ? '1 local con atraso' : `${unidadesEnMora} locales con atraso`;
 }

@@ -70,11 +70,11 @@ async function renderRendicion() {
   if (titulo) titulo.textContent = r.dueno ? `Resumen de ${r.dueno.nombre}` : 'Resumen del mes';
   if (sub) {
     sub.textContent = r.dueno
-      ? `${r.locales} local(es) · le corresponde el ${fmtPct(r.pctGastos)} de los gastos`
+      ? `${r.unidades} local(es) · le corresponde el ${fmtPct(r.pctGastos)} de los gastos`
       : 'Todos los locales de la galería';
   }
 
-  if (r.dueno && !r.locales) {
+  if (r.dueno && !r.unidades) {
     box.innerHTML = '<div class="empty">Este dueño todavía no tiene locales asignados.</div>';
     return;
   }
@@ -84,7 +84,7 @@ async function renderRendicion() {
     : 'ordinarios y extraordinarios';
 
   box.innerHTML = `
-    <div class="line"><div class="lbl">Alquileres cobrados <small>${r.localesCobrados} de ${r.locales} locales</small></div><div class="val">${centsToMoney(r.alquileresCobrados)}</div></div>
+    <div class="line"><div class="lbl">Alquileres cobrados <small>${r.unidadesCobradas} de ${r.unidades} locales</small></div><div class="val">${centsToMoney(r.alquileresCobrados)}</div></div>
     <div class="line"><div class="lbl">Gastos comunes cobrados</div><div class="val">${centsToMoney(r.expensasCobradas)}</div></div>
     <div class="line neg"><div class="lbl">Gastos comunes pagados <small>${gastosSub}</small></div><div class="val">− ${centsToMoney(r.gastosPagados)}</div></div>
     <div class="line neg"><div class="lbl">Comisión del administrador <small>${r.comisionPct}% sobre lo cobrado</small></div><div class="val">− ${centsToMoney(r.comision)}</div></div>

@@ -10,8 +10,8 @@ const api = require('./routes/api');
 const chats = require('./routes/chats');
 const auth = require('./auth');
 const {
-  estadoCompleto, galeriaActual, detalleLocatario, locatarioDelUsuario, periodoAbierto,
-} = require('./services/galeria');
+  estadoCompleto, complejoActual, detalleLocatario, locatarioDelUsuario, periodoAbierto,
+} = require('./services/complejo');
 const { PERIODO_INICIAL, periodoLabel, centsToMoney } = require('./services/formato');
 
 const app = express();
@@ -45,9 +45,9 @@ app.use(auth.cargarUsuario);
  * Para admin y locatario la galería es la suya y la cookie se ignora.
  */
 app.use((req, res, next) => {
-  const m = /(?:^|;\s*)galeriaId=(\d+)/.exec(req.headers.cookie || '');
-  req.galeriaCookie = m ? Number(m[1]) : null;
-  req.galeriaId = auth.galeriaDelUsuario(req);
+  const m = /(?:^|;\s*)complejoId=(\d+)/.exec(req.headers.cookie || '');
+  req.complejoCookie = m ? Number(m[1]) : null;
+  req.complejoId = auth.complejoDelUsuario(req);
   next();
 });
 
@@ -59,9 +59,9 @@ app.use('/api', api);
 app.get('/', auth.requiereLogin, async (req, res, next) => {
   try {
     const usuario = req.usuario;
-    const galeria = await galeriaActual(req.galeriaId);
+    const complejo = await complejoActual(req.complejoId);
     // El mes abierto de la galería: avanza con cada cierre.
-    const periodo = galeria ? await periodoAbierto(galeria.id) : PERIODO_INICIAL;
+    const periodo = complejo ? await periodoAbierto(complejo.id) : PERIODO_INICIAL;
     const comunes = {
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
       periodo,
@@ -72,27 +72,27 @@ app.get('/', auth.requiereLogin, async (req, res, next) => {
 
     if (usuario.rol === 'locatario') {
       // El locatario recibe solo lo suyo: nada del resto de los locales.
-      const completo = await estadoCompleto(req.galeriaId);
-      const local = usuario.localId
-        ? completo.units.find((u) => u.id === usuario.localId)
+      const completo = await estadoCompleto(req.complejoId);
+      const unidad = usuario.unidadId
+        ? completo.units.find((u) => u.id === usuario.unidadId)
         : null;
       // Si el contrato vigente del local es de otro (hubo baja y alta), no ve nada.
       const propio = await locatarioDelUsuario(usuario);
-      const tenant = galeria && local && propio ? await detalleLocatario(galeria.id, local.n) : null;
+      const tenant = complejo && unidad && propio ? await detalleLocatario(complejo.id, unidad.n) : null;
       return res.render('index', {
         ...comunes,
-        estado: { galeria: completo.galeria, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },
+        estado: { complejo: completo.complejo, periodo: completo.periodo, gastos: completo.gastos, config: completo.config, units: [], proveedores: [], ajustes: {}, porcentajes: {} },
         tenant,
-        galerias: [],
+        complejos: [],
       });
     }
 
-    const estado = await estadoCompleto(req.galeriaId);
+    const estado = await estadoCompleto(req.complejoId);
     res.render('index', {
       ...comunes,
       estado,
       tenant: null,
-      galerias: usuario.rol === 'superadmin' ? await listadoGalerias() : [],
+      complejos: usuario.rol === 'superadmin' ? await listadoComplejos() : [],
     });
   } catch (e) {
     next(e);
@@ -107,17 +107,17 @@ app.get('/salud', (req, res) => res.json({
 }));
 
 /** Listado para el panel de superadmin. */
-async function listadoGalerias() {
-  const { Galeria, Administrador, Local } = require('./models');
-  const galerias = await Galeria.findAll({ include: [Administrador], order: [['id', 'ASC']] });
+async function listadoComplejos() {
+  const { Complejo, Administrador, Unidad } = require('./models');
+  const complejos = await Complejo.findAll({ include: [Administrador], order: [['id', 'ASC']] });
   const out = [];
-  for (const g of galerias) {
+  for (const g of complejos) {
     out.push({
       id: g.id,
       nombre: g.nombre,
       dueno: g.dueno,
       activa: g.activa,
-      locales: await Local.count({ where: { galeriaId: g.id } }),
+      unidades: await Unidad.count({ where: { complejoId: g.id } }),
       admins: (g.Administradors || []).map((a) => a.nombre),
     });
   }
