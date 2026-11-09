@@ -1,13 +1,50 @@
 /* ---------- Vista del locatario ---------- */
-function renderGastosTenant() {
+let filtroGastosTenant = { periodo: '', tipo: '', pagina: 1 };
+
+function renderGastosTenant() { cargarGastosTenant(); }
+
+function cambiarFiltroGastosTenant() {
+  filtroGastosTenant.periodo = document.getElementById('tg-periodo').value;
+  filtroGastosTenant.tipo = document.getElementById('tg-tipo').value;
+  filtroGastosTenant.pagina = 1;
+  cargarGastosTenant();
+}
+function irAPaginaGastosTenant(pagina) {
+  filtroGastosTenant.pagina = pagina;
+  cargarGastosTenant();
+}
+
+async function cargarGastosTenant() {
   const box = document.getElementById('tenant-gastos-rows');
   if (!box) return; // la galería todavía no tiene contratos
-  if (!gastos.length) {
-    box.innerHTML = '<tr><td class="desc" colspan="6">Sin gastos cargados este mes.</td></tr>';
+  const r = await apiLeer('/api/gastos' + queryString(filtroGastosTenant));
+  if (!r.ok) {
+    box.innerHTML = `<tr><td class="desc" colspan="7">${escaparHTML(r.msg || 'No se pudieron leer los gastos.')}</td></tr>`;
     return;
   }
-  box.innerHTML = gastos.map((g) => `
+  if (!filtroGastosTenant.periodo) filtroGastosTenant.periodo = r.periodoAbierto || '';
+  filtroGastosTenant.pagina = r.pagina;
+  const elegido = filtroGastosTenant.periodo;
+  document.getElementById('tg-periodo').innerHTML = opcionesPeriodo(r.periodos, elegido);
+
+  const esAbierto = elegido === r.periodoAbierto;
+  document.getElementById('tenant-gastos-titulo').textContent =
+    `Gastos comunes · ${elegido === 'todos' ? 'Todos los meses' : periodoLabel(elegido)}`;
+  document.getElementById('tenant-gastos-sub').textContent = esAbierto
+    ? 'Los del mes en curso: se reparten en las expensas del mes que viene'
+    : (elegido === 'todos' ? '' : 'Mes ya liquidado');
+  document.getElementById('tenant-gastos-paginacion').innerHTML = paginacionHTML(r, 'irAPaginaGastosTenant');
+  document.getElementById('tenant-gastos-total').innerHTML = r.total
+    ? `<tr><td class="desc" colspan="5"><strong>Total${r.paginas > 1 ? ` (${r.total} gastos)` : ''}</strong></td><td style="text-align:right"><strong>${centsToMoney(r.totalCents)}</strong></td><td></td></tr>`
+    : '';
+
+  if (!r.gastos.length) {
+    box.innerHTML = `<tr><td class="desc" colspan="7">${esAbierto && !filtroGastosTenant.tipo ? 'Sin gastos cargados este mes.' : 'No hay gastos con esos filtros.'}</td></tr>`;
+    return;
+  }
+  box.innerHTML = r.gastos.map((g) => `
     <tr>
+      <td class="desc">${fechaCorta(g.fecha)}</td>
       <td class="desc">${g.tipo === 'ordinario' ? 'Ordinario' : 'Extraordinario'}</td>
       <td class="desc">${g.proveedorNombre}</td>
       <td class="desc">${g.desc}</td>
