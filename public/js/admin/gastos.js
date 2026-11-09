@@ -10,6 +10,24 @@ function fillProveedorSelect() {
   document.getElementById('g-prov').innerHTML =
     proveedores.map((p) => `<option value="${p.id}">${p.nombre}</option>`).join('');
   document.getElementById('g-facttipo').innerHTML = facturaTipoOptions();
+  document.getElementById('gf-prov').innerHTML = '<option value="">Todos los proveedores</option>' +
+    proveedores.map((p) => `<option value="${p.id}"${String(p.id) === String(filtroGastos.proveedorId) ? ' selected' : ''}>${p.nombre}</option>`).join('');
+  fijarFechaPorDefecto();
+}
+
+/** La fecha del formulario de carga arranca en hoy, o en el 1° del período abierto si hoy no cae en él. */
+function fijarFechaPorDefecto() {
+  const input = document.getElementById('g-fecha');
+  if (!input || !periodoActual) return;
+  input.min = `${periodoActual}-01`;
+  input.max = ultimoDiaDe(periodoActual);
+  if (input.value && input.value.startsWith(periodoActual)) return;
+  const hoy = new Date().toISOString().slice(0, 10);
+  input.value = hoy.startsWith(periodoActual) ? hoy : `${periodoActual}-01`;
+}
+function ultimoDiaDe(periodo) {
+  const [anio, mes] = periodo.split('-').map(Number);
+  return `${periodo}-${String(new Date(anio, mes, 0).getDate()).padStart(2, '0')}`;
 }
 
 /*
@@ -28,23 +46,78 @@ function archivoLinkHTML(g) {
     : '<span class="hint">Sin factura adjunta</span>';
 }
 
-function renderGastos() {
+/*
+ * La lista de "Gastos cargados" no usa el global `gastos` (que es solo el
+ * período abierto): se pide a GET /api/gastos con los filtros elegidos.
+ */
+let filtroGastos = { periodo: '', tipo: '', proveedorId: '', pagina: 1 };
+let gastosFiltrados = [];
+let periodoAbiertoGastos = null;
+
+function renderGastos() { cargarGastosFiltrados(); }
+
+function cambiarFiltroGastos() {
+  filtroGastos.periodo = document.getElementById('gf-periodo').value;
+  filtroGastos.tipo = document.getElementById('gf-tipo').value;
+  filtroGastos.proveedorId = document.getElementById('gf-prov').value;
+  filtroGastos.pagina = 1;
+  cargarGastosFiltrados();
+}
+function irAPaginaGastos(pagina) {
+  filtroGastos.pagina = pagina;
+  cargarGastosFiltrados();
+}
+
+function opcionesPeriodo(periodos, elegido) {
+  return periodos.map((p) => `<option value="${p}"${p === elegido ? ' selected' : ''}>${periodoLabel(p)}</option>`).join('') +
+    `<option value="todos"${elegido === 'todos' ? ' selected' : ''}>Todos los meses</option>`;
+}
+
+function paginacionHTML(r, fn) {
+  if (r.paginas <= 1) return '';
+  return `<button class="btn btn-ghost btn-sm" ${r.pagina <= 1 ? 'disabled' : ''} onclick="${fn}(${r.pagina - 1})">← Anterior</button>
+    <span class="hint">Página ${r.pagina} de ${r.paginas}</span>
+    <button class="btn btn-ghost btn-sm" ${r.pagina >= r.paginas ? 'disabled' : ''} onclick="${fn}(${r.pagina + 1})">Siguiente →</button>`;
+}
+
+async function cargarGastosFiltrados() {
   const box = document.getElementById('gastos-list');
-  document.getElementById('gastos-count').textContent = gastos.length ? `${gastos.length} cargados` : '';
-  if (!gastos.length) { box.innerHTML = '<div class="empty">Todavía no cargaste gastos.</div>'; return; }
-  box.innerHTML = gastos.map((g) => `
+  if (!box) return;
+  const r = await apiLeer('/api/gastos' + queryString(filtroGastos));
+  if (!r.ok) { box.innerHTML = `<div class="empty">${escaparHTML(r.msg || 'No se pudieron leer los gastos.')}</div>`; return; }
+
+  gastosFiltrados = r.gastos;
+  periodoAbiertoGastos = r.periodoAbierto;
+  if (!filtroGastos.periodo) filtroGastos.periodo = r.periodoAbierto || '';
+  filtroGastos.pagina = r.pagina;
+  document.getElementById('gf-periodo').innerHTML = opcionesPeriodo(r.periodos, filtroGastos.periodo);
+
+  document.getElementById('gastos-count').textContent = r.total ? `${r.total} ${r.total === 1 ? 'gasto' : 'gastos'}` : '';
+  document.getElementById('gastos-total').innerHTML = r.total ? `Total: <strong class="mono">${centsToMoney(r.totalCents)}</strong>` : '';
+  document.getElementById('gastos-paginacion').innerHTML = paginacionHTML(r, 'irAPaginaGastos');
+
+  if (!r.gastos.length) {
+    box.innerHTML = `<div class="empty">${r.periodos.length > 1 || filtroGastos.tipo || filtroGastos.proveedorId ? 'No hay gastos con esos filtros.' : 'Todavía no cargaste gastos.'}</div>`;
+    return;
+  }
+  box.innerHTML = r.gastos.map((g) => {
+    const editable = g.periodo === r.periodoAbierto;
+    return `
     <div class="abm-row">
       <div class="an" style="font-size:.68rem">${g.tipo === 'ordinario' ? 'ORD' : 'EXT'}</div>
       <div>
         <div class="aname">${g.proveedorNombre} · ${centsToMoney(g.montoCents)}</div>
-        <div class="acontact">${g.desc} · ${g.facturaTipo} N° ${g.facturaNro}</div>
+        <div class="acontact">${fechaCorta(g.fecha)} · ${g.desc} · ${g.facturaTipo} N° ${g.facturaNro}</div>
       </div>
       <div class="aacts">
         ${archivoLinkHTML(g)}
-        <button class="btn btn-ghost btn-sm" onclick="editGasto(${g.id})">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDeleteGasto(${g.id})">Borrar</button>
+        ${editable
+          ? `<button class="btn btn-ghost btn-sm" onclick="editGasto(${g.id})">Editar</button>
+             <button class="btn btn-danger btn-sm" onclick="confirmDeleteGasto(${g.id})">Borrar</button>`
+          : `<span class="hint">${periodoLabel(g.periodo)} · liquidado</span>`}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function addGasto() {
@@ -61,6 +134,7 @@ async function addGasto() {
   fd.append('facturaNro', document.getElementById('g-factnro').value);
   fd.append('desc', document.getElementById('g-desc').value);
   fd.append('monto', monto);
+  fd.append('fecha', document.getElementById('g-fecha').value);
   if (archivoInput.files.length) fd.append('archivo', archivoInput.files[0]);
 
   const r = await apiEnviar('POST', '/api/gastos', fd);
@@ -80,10 +154,11 @@ async function addGasto() {
 }
 
 function editGasto(id) {
-  const g = gastos.find((x) => x.id === id);
+  const g = gastosFiltrados.find((x) => x.id === id);
   const fileLabel = g.archivoNombre ? `Factura actual · ${g.archivoNombre}` : 'Adjuntar factura';
   openModal(`Editar gasto — ${g.proveedorNombre}`,
-    `<div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><select id="eg-facttipo">${facturaTipoOptions(g.facturaTipo)}</select></div>
+    `<div class="field" style="margin-bottom:12px"><label>Fecha</label><input id="eg-fecha" type="date" value="${g.fecha || ''}" min="${g.periodo}-01" max="${ultimoDiaDe(g.periodo)}"></div>
+     <div class="field" style="margin-bottom:12px"><label>Tipo de factura</label><select id="eg-facttipo">${facturaTipoOptions(g.facturaTipo)}</select></div>
      <div class="field" style="margin-bottom:12px"><label>Número de factura</label><input id="eg-factnro" value="${g.facturaNro}"></div>
      <div class="field" style="margin-bottom:12px"><label>Descripción</label><input id="eg-desc" value="${g.desc}"></div>
      <div class="field" style="margin-bottom:12px"><label>Costo</label><input id="eg-monto" type="number" min="0" step="0.01" value="${g.monto}"><span class="hint">Hasta dos decimales.</span></div>
@@ -111,6 +186,7 @@ async function saveGasto(id) {
   fd.append('facturaNro', document.getElementById('eg-factnro').value);
   fd.append('desc', document.getElementById('eg-desc').value);
   fd.append('monto', monto);
+  fd.append('fecha', document.getElementById('eg-fecha').value);
   if (archivoInput.files.length) fd.append('archivo', archivoInput.files[0]);
 
   const r = await apiEnviar('PUT', `/api/gastos/${id}`, fd);
@@ -122,7 +198,7 @@ async function saveGasto(id) {
 }
 
 function confirmDeleteGasto(id) {
-  const g = gastos.find((x) => x.id === id);
+  const g = gastosFiltrados.find((x) => x.id === id);
   openModal('Borrar gasto',
     `<p style="margin:0">Vas a borrar el gasto de <strong>${g.proveedorNombre}</strong> por <strong>${centsToMoney(g.montoCents)}</strong> (${g.facturaTipo} N° ${g.facturaNro}). Esta acción no se puede deshacer.</p>`,
     [{ label: 'Cancelar', cls: 'btn-ghost', fn: closeModal },
