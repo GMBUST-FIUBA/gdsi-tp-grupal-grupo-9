@@ -14,7 +14,7 @@ const { hashear, PASSWORD_INICIAL } = require('./auth');
 const { seedRubros } = require('./seed-rubros');
 
 // Locales cuyos locatarios tienen usuario de acceso (mail del locatario, clave 1234).
-const LOCALES_CON_ACCESO = ['04', '10', '11'];
+const LOCALES_CON_ACCESO = ['04', '10', '11', '17'];
 
 const EXPENSAS_BASE = 160000; // pesos, por local
 

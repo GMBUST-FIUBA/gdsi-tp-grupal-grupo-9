@@ -53,6 +53,7 @@ ejemplo (todos con contraseña `1234`):
 | `cafe@correo.com` | Locatario | Local 04 · Café del Pasaje |
 | `farma@correo.com` | Locatario | Local 10 · Farma Centro |
 | `kiozone@correo.com` | Locatario | Local 11 · KioZone |
+| `opticabelgrano@correo.com` | Locatario | Local 17 · Óptica Belgrano (en mora) |
 | `friosur@correo.com` | Locatario | Depósito N-03 · Frío Sur SA |
 | `mendez@correo.com` | Inquilino | Propiedad P-03 · Familia Méndez |
 
