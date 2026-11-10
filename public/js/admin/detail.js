@@ -70,24 +70,53 @@ function verContrato(i) {
 /* La baja de contrato vive en la sección Contratos (admin/contratos.js). */
 
 /* ---------- Comprobante: ver, aceptar o rechazar ---------- */
+/*
+ * Modal para revisar un comprobante. Muestra el archivo que subió el locatario
+ * —la imagen o el PDF— al lado de lo que tiene que pagar, para poder comparar
+ * los montos sin salir de la pantalla.
+ */
 function viewReceipt(i) {
   const u = units[i];
-  openModal(`Comprobante — ${voc.unidad} ${u.n}`,
-    `<div class="receipt">
-       <div class="r-bank">Transferencia recibida</div>
-       <div class="r-line"><span>Origen</span><span>${u.loc}</span></div>
-       <div class="r-line"><span>Fecha</span><span>${u.compFecha}</span></div>
-       <div class="r-line"><span>Liquidación</span><span>#${u.liquidacionId}</span></div>
-       <div class="r-amt">${centsToMoney(totalEfectivoCents(u))}</div>
-       <div class="r-stamp">COMPROBANTE</div>
-     </div>
-     ${u.compTieneArchivo
-    ? `<div class="form-actions" style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="/api/comprobantes/${u.compId}/archivo">Descargar comprobante</a></div>`
+  const url = `/api/comprobantes/${u.compId}/archivo`;
+
+  openModal(`Comprobante — ${voc.unidad} ${u.n} · ${escaparHTML(u.loc)}`,
+    `<div class="comp-revision">
+       <div class="comp-archivo">${archivoComprobanteHTML(u, url)}</div>
+       <div class="comp-datos">
+         <dl class="dl">
+           <dt>${escaparHTML(voc.ocupante)}</dt><dd>${escaparHTML(u.loc)}</dd>
+           <dt>Subido el</dt><dd>${escaparHTML(u.compFecha || '—')}</dd>
+           <dt>Liquidación</dt><dd class="mono">#${u.liquidacionId}</dd>
+         </dl>
+         <table class="liq" style="margin-top:14px">
+           <tr class="total"><td>Tiene que pagar</td><td>${centsToMoney(totalEfectivoCents(u))}</td></tr>
+         </table>
+         ${u.compTieneArchivo
+    ? `<div class="form-actions" style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="${url}" download>Descargar</a></div>`
     : ''}
-     <p style="font-size:.82rem;color:var(--muted);margin:12px 0 0">Verificá que el monto coincida con la liquidación del mes antes de aceptar.</p>`,
+         <p class="hint" style="margin-top:12px">Verificá que el monto del comprobante coincida antes de aceptar.</p>
+       </div>
+     </div>`,
     [{ label: 'Rechazar', cls: 'btn-ghost', fn: () => pedirMotivoRechazo(i) },
-     { label: 'Aceptar pago', cls: 'btn-primary', fn: () => acceptPay(i) }]);
+     { label: 'Aceptar pago', cls: 'btn-primary', fn: () => acceptPay(i) }],
+    { ancho: true });
 }
+
+/** El archivo tal como lo subieron: imagen a la vista, PDF embebido. */
+function archivoComprobanteHTML(u, url) {
+  if (!u.compTieneArchivo) {
+    return '<div class="comp-sin-archivo">Este comprobante se cargó sin archivo adjunto.</div>';
+  }
+  const inline = `${url}?inline=1`;
+  if ((u.compMime || '').startsWith('image/')) {
+    return `<img src="${inline}" alt="Comprobante de ${escaparHTML(u.loc)}">`;
+  }
+  if (u.compMime === 'application/pdf') {
+    return `<iframe src="${inline}" title="Comprobante de ${escaparHTML(u.loc)}"></iframe>`;
+  }
+  return `<div class="comp-sin-archivo">No se puede previsualizar este tipo de archivo (${escaparHTML(u.compMime || 'desconocido')}). Descargalo para verlo.</div>`;
+}
+
 
 async function acceptPay(i) {
   const u = units[i];

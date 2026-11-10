@@ -286,6 +286,10 @@ revisarlo.
 
 - El archivo (imagen o PDF, hasta 10 MB) se guarda **en la base**, no en
   `uploads/`: así sobrevive a los deploys de Render y no queda público.
+- Al revisarlo, el administrador **ve el archivo dentro del modal** —la imagen a
+  la vista, el PDF embebido— al lado de lo que esa unidad tiene que pagar, para
+  comparar los montos sin salir de la pantalla. El mismo endpoint lo sirve para
+  mostrar (`?inline=1`) o para descargar, con los mismos permisos.
 - Se baja solo por `GET /api/comprobantes/:id/archivo`, que deja pasar al
   locatario que lo subió y a la administración de esa galería. A cualquier otro
   le responde 404.

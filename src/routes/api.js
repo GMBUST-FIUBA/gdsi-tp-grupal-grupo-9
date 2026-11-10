@@ -730,9 +730,14 @@ router.get('/comprobantes/:id/archivo', wrap(async (req, res) => {
   if (!comp.datos) return error(res, 'Este comprobante no tiene archivo.', 404);
 
   const nombre = comp.archivoNombre || `comprobante-${comp.id}`;
+  /*
+   * Con ?inline=1 el navegador lo muestra en vez de bajarlo: lo usa el modal
+   * donde la administración revisa el comprobante antes de aceptarlo.
+   */
+  const disposicion = req.query.inline === '1' ? 'inline' : 'attachment';
   res.set({
     'Content-Type': comp.mimeType || 'application/octet-stream',
-    'Content-Disposition': `attachment; filename="${nombre.replace(/[^\w.-]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+    'Content-Disposition': `${disposicion}; filename="${nombre.replace(/[^\w.-]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
   });

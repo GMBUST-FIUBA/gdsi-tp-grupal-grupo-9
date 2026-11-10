@@ -198,6 +198,8 @@ function serializarUnidad(unidad, voc = vocabulario(unidad.Complejo)) {
     compFecha: comp ? comp.fechaSubida : null,
     compId: comp ? comp.id : null,
     compTieneArchivo: !!(comp && comp.mimeType),
+    // El tipo decide cómo se muestra en el modal: imagen o PDF embebido.
+    compMime: comp ? comp.mimeType : null,
     fact: centsToMoney(totCents),
     cob: centsToMoney(liq ? liq.cobradoCents : 0),
     cobCents: liq ? liq.cobradoCents : 0,
