@@ -171,7 +171,7 @@ async function seed() {
 
     if (LOCALES_CON_ACCESO.includes(d.n)) {
       const usuario = await Usuario.create({
-        email: d.mail, nombre: d.loc, rol: 'locatario',
+        email: d.mail, nombre: d.loc, rol: 'locatario', locatarioId: locatario.id,
         complejoId: complejo.id, unidadId: unidad.id, passwordHash: clave,
       });
       if (d.n === LOCAL_CON_CHAT) chatDeEjemplo = { locatario, usuario };
@@ -270,7 +270,7 @@ async function seedUsuariosSiFaltan() {
     const locatario = unidad.Contratos[0] && unidad.Contratos[0].Locatario;
     if (!locatario || !locatario.email) continue;
     await Usuario.create({
-      email: locatario.email, nombre: locatario.nombre, rol: 'locatario',
+      email: locatario.email, nombre: locatario.nombre, rol: 'locatario', locatarioId: locatario.id,
       complejoId: complejo.id, unidadId: unidad.id, passwordHash: clave,
     });
   }

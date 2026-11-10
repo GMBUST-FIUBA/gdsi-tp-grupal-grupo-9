@@ -168,7 +168,7 @@ async function crearRubro(def, clave) {
     const locatario = await Locatario.create({ nombre: u.loc, email: u.mail, telefono: u.tel });
     if (u.n === def.conAcceso) {
       await Usuario.create({
-        email: u.mail, nombre: u.loc, rol: 'locatario',
+        email: u.mail, nombre: u.loc, rol: 'locatario', locatarioId: locatario.id,
         complejoId: complejo.id, unidadId: unidad.id, passwordHash: clave,
       });
     }

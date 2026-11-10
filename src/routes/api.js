@@ -136,6 +136,39 @@ async function crearUsuarioSiNoExiste(datos) {
 }
 
 /**
+ * El usuario de acceso de un locatario.
+ *
+ * Lo normal es que esté vinculado por `locatarioId`, pero los accesos creados
+ * antes de que existiera esa columna solo se pueden encontrar por el mail o por
+ * el local del contrato. Cuando aparece por una de esas vías se guarda el
+ * vínculo, así la próxima vez sale derecho.
+ */
+async function usuarioDelLocatario(locatario) {
+  const porVinculo = await Usuario.findOne({ where: { locatarioId: locatario.id } });
+  if (porVinculo) return porVinculo;
+
+  const email = String(locatario.email || '').trim().toLowerCase();
+  const porMail = email ? await Usuario.findOne({ where: { email, rol: 'locatario' } }) : null;
+  if (porMail) return porMail.update({ locatarioId: locatario.id });
+
+  /*
+   * Último recurso: el acceso del local que tiene alquilado. Se descartan los
+   * que ya pertenecen a otro locatario, porque un mismo local pasó por varios
+   * (cada alta le creó su usuario) y el de la baja anterior sigue estando.
+   */
+  const contrato = await Contrato.findOne({
+    where: { locatarioId: locatario.id, estado: 'vigente' },
+    order: [['id', 'DESC']],
+  });
+  if (!contrato) return null;
+  const porUnidad = await Usuario.findOne({
+    where: { unidadId: contrato.unidadId, rol: 'locatario', locatarioId: null },
+    order: [['id', 'DESC']],
+  });
+  return porUnidad ? porUnidad.update({ locatarioId: locatario.id }) : null;
+}
+
+/**
  * Le genera el link de acceso y se lo manda por mail. Devuelve el mensaje que
  * se le muestra al administrador: si no hay SMTP (o el envío falla), le pasa el
  * link para que lo haga llegar a mano.
@@ -529,6 +562,7 @@ router.post('/contratos', upload.single('pdf'), wrap(async (req, res) => {
     rol: 'locatario',
     complejoId: unidad.complejoId,
     unidadId: unidad.id,
+    locatarioId: locatario.id,
   });
 
   const esPct = !locatarioEsDueno && req.body.modalidad === 'fijo_pct';
@@ -687,10 +721,28 @@ router.put('/locatarios/:id', wrap(async (req, res) => {
   if (!l) return error(res, 'No se encontró el locatario.', 404);
   const nombre = String(req.body.nombre || '').trim();
   if (!nombre) return error(res, 'El nombre no puede quedar vacío.');
+  const email = String(req.body.email || '').trim();
+  /*
+   * El usuario de acceso se busca después del cambio de mail: si se busca con
+   * el nuevo, ya no coincide con ninguno.
+   */
+  const usuario = await usuarioDelLocatario(l);
+
   l.nombre = nombre;
-  l.email = String(req.body.email || '').trim();
+  l.email = email;
   l.telefono = String(req.body.telefono || '').trim();
   await l.save();
+
+  // Con el mail cambia también el usuario con el que entra, si no está tomado.
+  if (usuario && email && usuario.email !== email.toLowerCase()) {
+    const tomado = await Usuario.findOne({ where: { email: email.toLowerCase() } });
+    if (tomado && tomado.id !== usuario.id) {
+      return res.json({ ok: true, msg: `Guardamos los datos, pero el acceso sigue siendo ${usuario.email}: ya hay otro usuario con el mail ${email}.` });
+    }
+    await usuario.update({ email: email.toLowerCase(), nombre });
+  } else if (usuario) {
+    await usuario.update({ nombre });
+  }
   res.json({ ok: true });
 }));
 
@@ -699,9 +751,31 @@ router.post('/locatarios/:id/blanquear-clave', wrap(async (req, res) => {
   if (!l) return error(res, 'No se encontró el locatario.', 404);
 
   const email = String(l.email || '').trim().toLowerCase();
-  const usuario = email ? await Usuario.findOne({ where: { email } }) : null;
+  if (!email) return error(res, 'Cargale un email al locatario antes de mandarle el acceso.');
+
+  let usuario = await usuarioDelLocatario(l);
   if (!usuario) {
-    return error(res, 'El locatario no tiene usuario de acceso (necesita un email).');
+    // No tenía acceso todavía (o nunca se le creó): se le crea ahora.
+    const contrato = await Contrato.findOne({
+      where: { locatarioId: l.id, estado: 'vigente' },
+      include: [Unidad],
+      order: [['id', 'DESC']],
+    });
+    if (!contrato) return error(res, 'El locatario no tiene un contrato vigente.');
+    if (await Usuario.findOne({ where: { email } })) {
+      return error(res, `Ya hay otro usuario con el mail ${email}.`);
+    }
+    usuario = Usuario.build({
+      email, nombre: l.nombre, rol: 'locatario', locatarioId: l.id,
+      complejoId: contrato.Unidad.complejoId, unidadId: contrato.unidadId,
+    });
+  }
+
+  // Por si le cambiaron el mail después de haberle creado el acceso.
+  if (usuario.email !== email) {
+    const tomado = await Usuario.findOne({ where: { email } });
+    if (tomado && tomado.id !== usuario.id) return error(res, `Ya hay otro usuario con el mail ${email}.`);
+    usuario.email = email;
   }
 
   // La contraseña vieja deja de servir: define una nueva con el link.

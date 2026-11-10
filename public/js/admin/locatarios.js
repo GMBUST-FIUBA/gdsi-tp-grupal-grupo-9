@@ -38,7 +38,8 @@ async function saveTenant(locatarioId) {
   if (!r.ok) return mostrarError('et-err', r.msg);
   closeModal();
   await recargarEstado();
-  toast(`Datos del ${voc.ocupanteMin} actualizados`);
+  // El servidor avisa si el mail nuevo no se pudo usar como usuario de acceso.
+  toast(r.msg || `Datos del ${voc.ocupanteMin} actualizados`);
 }
 
 function resetPass(n) {

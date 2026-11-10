@@ -60,6 +60,12 @@ const Usuario = sequelize.define('Usuario', {
   tokenAcceso: { type: DataTypes.STRING, allowNull: true, unique: true },
   tokenExpira: { type: DataTypes.DATE, allowNull: true },
   rol: { type: DataTypes.ENUM('superadmin', 'admin', 'locatario'), allowNull: false },
+  /*
+   * Solo los locatarios: a qué locatario pertenece este acceso. El mail no
+   * alcanza como vínculo, porque la administración se lo puede cambiar después
+   * de haberle creado el usuario.
+   */
+  locatarioId: { type: DataTypes.INTEGER, allowNull: true },
 });
 
 /* ---------------- Dueños, locales, locatarios y contratos ---------------- */
@@ -289,6 +295,7 @@ Administrador.belongsTo(Complejo, { foreignKey: 'complejoId' });
 // complejoId: el que administra (admin) o al que pertenece su unidad (locatario).
 Usuario.belongsTo(Complejo, { foreignKey: 'complejoId' });
 Usuario.belongsTo(Unidad, { foreignKey: 'unidadId' });
+Usuario.belongsTo(Locatario, { foreignKey: 'locatarioId' });
 
 Complejo.hasOne(Configuracion, { foreignKey: 'complejoId' });
 Configuracion.belongsTo(Complejo, { foreignKey: 'complejoId' });
