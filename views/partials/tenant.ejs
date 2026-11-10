@@ -207,12 +207,19 @@
   </section>
 
   <section class="panel" style="margin-top:20px">
-    <div class="panel-head"><h3>Gastos comunes · <%= periodoLabel %></h3><span class="sub">Los del mes en curso: se reparten en las expensas del mes que viene</span></div>
+    <div class="panel-head"><h3 id="tenant-gastos-titulo">Gastos comunes · <%= periodoLabel %></h3><span class="sub" id="tenant-gastos-sub">Los del mes en curso: se reparten en las expensas del mes que viene</span></div>
     <div class="panel-body" style="overflow-x:auto">
+      <div class="form-grid" style="margin-bottom:14px">
+        <div class="field"><label for="tg-periodo">Mes</label><select id="tg-periodo" onchange="cambiarFiltroGastosTenant()"></select></div>
+        <div class="field"><label for="tg-tipo">Tipo</label>
+          <select id="tg-tipo" onchange="cambiarFiltroGastosTenant()"><option value="">Todos</option><option value="ordinario">Ordinarios</option><option value="extraordinario">Extraordinarios</option></select></div>
+      </div>
       <table class="hist" id="tenant-gastos-table">
-        <thead><tr><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th style="text-align:right">Monto</th><th>Adjunto</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>Descripción</th><th>Factura</th><th style="text-align:right">Monto</th><th>Adjunto</th></tr></thead>
         <tbody id="tenant-gastos-rows"></tbody>
+        <tfoot id="tenant-gastos-total"></tfoot>
       </table>
+      <div id="tenant-gastos-paginacion" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px"></div>
     </div>
   </section>
 <% } %>

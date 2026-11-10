@@ -271,7 +271,7 @@ async function estadoCompleto(complejoId) {
   const gastos = await Gasto.findAll({
     where: { complejoId: complejo.id, periodo },
     include: [Proveedor],
-    order: [['id', 'ASC']],
+    order: [['fecha', 'DESC'], ['id', 'DESC']],
   });
   const proveedores = await Proveedor.findAll({ order: [['nombre', 'ASC']] });
   const config = await Configuracion.findOne({ where: { complejoId: complejo.id } });

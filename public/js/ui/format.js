@@ -18,6 +18,20 @@ function periodoLabel(periodo) {
   return `${MESES[Number(mes) - 1]} ${anio}`;
 }
 
+/** '2026-08-05' -> '05/08/2026' */
+function fechaCorta(fecha) {
+  if (!fecha) return '—';
+  const [anio, mes, dia] = String(fecha).slice(0, 10).split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+/** Arma el query string de un objeto, salteando los valores vacíos. */
+function queryString(params) {
+  const q = Object.entries(params).filter(([, v]) => v !== '' && v != null)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  return q ? `?${q}` : '';
+}
+
 /**
  * Escapa un texto para meterlo en innerHTML. Obligatorio para todo lo que
  * escribe otro usuario (los mensajes del chat): si no, un `<img onerror=...>`

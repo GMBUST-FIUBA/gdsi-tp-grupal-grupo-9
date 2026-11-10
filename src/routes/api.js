@@ -108,6 +108,8 @@ router.use((req, res, next) => {
 
   const rutaLocatario =
     (req.method === 'GET' && req.path === '/estado') ||
+    // Los gastos son comunes a la galería: el endpoint filtra por req.complejoId.
+    (req.method === 'GET' && req.path === '/gastos') ||
     (req.method === 'POST' && req.path === '/tenant/comprobante') ||
     // Las rutas de descarga chequean además que el comprobante o la liquidación sean suyos.
     (req.method === 'GET' && /^\/comprobantes\/\d+\/archivo$/.test(req.path)) ||
@@ -178,6 +180,65 @@ async function validarGasto({ proveedorId, facturaTipo, facturaNro, descripcion,
   return null;
 }
 
+/**
+ * Valida la fecha de un gasto ('AAAA-MM-DD'): tiene que existir y caer dentro
+ * del período en el que se reparte. Devuelve el mensaje de error o null.
+ */
+function validarFechaGasto(fecha, periodo) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || ''))) return 'Ingresá una fecha válida para el gasto.';
+  const d = new Date(fecha + 'T00:00:00Z');
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== fecha) return 'Ingresá una fecha válida para el gasto.';
+  if (fecha.slice(0, 7) !== periodo) return `La fecha del gasto tiene que ser de ${periodoLabel(periodo)}.`;
+  return null;
+}
+
+const GASTOS_POR_PAGINA = 20;
+
+/**
+ * Consulta de gastos con filtros: periodo ('AAAA-MM' o 'todos'; por defecto
+ * el abierto), tipo ('ordinario', 'extraordinario' o 'todos'), proveedorId y
+ * pagina (desde 1). El total es el de todos los filtrados, no solo la página.
+ */
+router.get('/gastos', wrap(async (req, res) => {
+  const complejo = await complejoActual(req.complejoId);
+  if (!complejo) return res.json({ ok: true, gastos: [], total: 0, pagina: 1, paginas: 1, totalCents: 0, periodos: [], periodoAbierto: null });
+  const abierto = await periodoAbierto(complejo.id);
+
+  const where = { complejoId: complejo.id };
+  const periodo = req.query.periodo || abierto;
+  if (periodo !== 'todos') {
+    if (!/^\d{4}-\d{2}$/.test(periodo)) return error(res, 'El período no es válido.');
+    where.periodo = periodo;
+  }
+  if (req.query.tipo === 'ordinario' || req.query.tipo === 'extraordinario') where.tipo = req.query.tipo;
+  if (req.query.proveedorId) {
+    const proveedorId = Number(req.query.proveedorId);
+    if (!Number.isInteger(proveedorId)) return error(res, 'El proveedor no es válido.');
+    where.proveedorId = proveedorId;
+  }
+
+  const total = await Gasto.count({ where });
+  const paginas = Math.max(1, Math.ceil(total / GASTOS_POR_PAGINA));
+  const pagina = Math.min(Math.max(1, Number(req.query.pagina) || 1), paginas);
+  const filas = await Gasto.findAll({
+    where,
+    include: [Proveedor],
+    order: [['fecha', 'DESC'], ['id', 'DESC']],
+    limit: GASTOS_POR_PAGINA,
+    offset: (pagina - 1) * GASTOS_POR_PAGINA,
+  });
+  const totalCents = (await Gasto.sum('montoCents', { where })) || 0;
+
+  const conGastos = await Gasto.findAll({
+    where: { complejoId: complejo.id },
+    attributes: [[sequelize.fn('DISTINCT', sequelize.col('periodo')), 'periodo']],
+    raw: true,
+  });
+  const periodos = [...new Set([abierto, ...conGastos.map((g) => g.periodo).filter(Boolean)])].sort().reverse();
+
+  res.json({ ok: true, gastos: filas.map(serializarGasto), total, pagina, paginas, totalCents, periodos, periodoAbierto: abierto });
+}));
+
 router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
   const complejo = await complejoActual(req.complejoId);
   const datos = {
@@ -190,6 +251,12 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
   };
   const msg = await validarGasto(datos, null);
   if (msg) return error(res, msg);
+  const periodo = await periodoAbierto(complejo.id);
+  // Sin fecha, la del día (si cae en el período abierto) o el primero del período.
+  const hoy = new Date().toISOString().slice(0, 10);
+  const fecha = req.body.fecha || (hoy.slice(0, 7) === periodo ? hoy : `${periodo}-01`);
+  const msgFecha = validarFechaGasto(fecha, periodo);
+  if (msgFecha) return error(res, msgFecha);
 
   const gasto = await Gasto.create({
     complejoId: complejo.id,
@@ -201,8 +268,8 @@ router.post('/gastos', upload.single('archivo'), wrap(async (req, res) => {
     montoCents: Math.round(datos.monto * 100),
     archivoNombre: req.file ? req.file.originalname : null,
     archivoPath: req.file ? req.file.filename : null,
-    fecha: new Date().toISOString().slice(0, 10),
-    periodo: await periodoAbierto(complejo.id),
+    fecha,
+    periodo,
   });
   const conProveedor = await Gasto.findByPk(gasto.id, { include: [Proveedor] });
   res.json({ ok: true, gasto: serializarGasto(conProveedor) });
@@ -228,7 +295,11 @@ router.put('/gastos/:id', upload.single('archivo'), wrap(async (req, res) => {
   };
   const msg = await validarGasto(datos, gasto.id);
   if (msg) return error(res, msg);
+  const fecha = req.body.fecha || gasto.fecha;
+  const msgFecha = validarFechaGasto(fecha, gasto.periodo);
+  if (msgFecha) return error(res, msgFecha);
 
+  gasto.fecha = fecha;
   gasto.facturaTipo = datos.facturaTipo;
   gasto.facturaNro = String(datos.facturaNro).trim();
   gasto.descripcion = String(datos.descripcion).trim();
